@@ -1,9 +1,10 @@
 from rest_framework import viewsets, status
+from django.db import IntegrityError
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from .models import Ticket, TicketTask, Template
 from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer
@@ -19,18 +20,59 @@ class RegisterViewSet(viewsets.GenericViewSet):
     def register(self, request):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key, 'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
+        try:
+            user = serializer.save()
+        except IntegrityError as e:
+            return Response({'detail': 'Unable to create account: {}'.format(str(e))}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': 'Unable to create account: {}'.format(str(e))}, status=status.HTTP_400_BAD_REQUEST)
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request):
+        return Response(UserSerializer(request.user).data)
 
 
-class CustomObtainAuthToken(ObtainAuthToken):
+class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
+        # First, try the normal username-based token obtain
         resp = super().post(request, *args, **kwargs)
-        token_key = resp.data.get('token')
-        token = Token.objects.get(key=token_key)
-        user = token.user
-        return Response({'token': token.key, 'user': UserSerializer(user).data})
+        # If auth succeeded, attach the user data as before
+        if getattr(resp, 'status_code', None) == 200 and isinstance(resp.data, dict):
+            username = request.data.get('username') or request.data.get('email')
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                user = None
+            data = {**resp.data}
+            if user:
+                data['user'] = UserSerializer(user).data
+            return Response(data)
+
+        # If auth failed, allow login by email: check whether the provided "username" looks like an email
+        provided = request.data.get('username') or request.data.get('email')
+        password = request.data.get('password')
+        if provided and '@' in str(provided) and password:
+            try:
+                user = User.objects.get(email=provided)
+                if user.check_password(password):
+                    refresh = RefreshToken.for_user(user)
+                    data = {
+                        'access': str(refresh.access_token),
+                        'refresh': str(refresh),
+                        'user': UserSerializer(user).data,
+                    }
+                    return Response(data)
+            except User.DoesNotExist:
+                pass
+
+        # otherwise return the original response (likely 401)
+        return resp
 
 
 class TicketViewSet(viewsets.ModelViewSet):

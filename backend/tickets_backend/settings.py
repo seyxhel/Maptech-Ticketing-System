@@ -77,11 +77,20 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # CORS for frontend development
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Prefer Argon2 for password hashing (stronger than PBKDF2), keep fallbacks for existing hashes
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+]
+
 # Use custom user model
 AUTH_USER_MODEL = 'tickets.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }

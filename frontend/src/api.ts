@@ -1,8 +1,13 @@
 const API_BASE = '/api'
 
+function getCookie(name: string) {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  return match ? decodeURIComponent(match[2]) : null
+}
+
 function authHeaders() {
-  const token = localStorage.getItem('token')
-  return token ? { Authorization: `Token ${token}` } : {}
+  const token = getCookie('access')
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 export async function fetchTickets() {
@@ -42,6 +47,20 @@ export async function login(payload: { username: string; password: string }) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  })
+  return res.json()
+}
+
+export async function getCurrentUser() {
+  const res = await fetch(`${API_BASE}/auth/me/`, { headers: authHeaders() })
+  return res.json()
+}
+
+export async function sendPasswordReset(email: string) {
+  const res = await fetch(`${API_BASE}/auth/password-reset/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
   })
   return res.json()
 }

@@ -7,8 +7,8 @@ User = get_user_model()
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('username', 'email', 'role', 'is_staff')
-    search_fields = ('username', 'email')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'phone', 'is_agree_conditions', 'role', 'is_staff')
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'phone')
 
 
 @admin.register(Ticket)

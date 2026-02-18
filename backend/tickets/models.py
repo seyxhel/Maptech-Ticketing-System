@@ -15,6 +15,10 @@ class User(AbstractUser):
 
     email = models.EmailField(unique=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=ROLE_CLIENT)
+    middle_name = models.CharField(max_length=150, blank=True)
+    suffix = models.CharField(max_length=3, blank=True)
+    phone = models.CharField(max_length=13, blank=True)
+    is_agree_conditions = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
