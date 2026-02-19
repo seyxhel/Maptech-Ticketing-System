@@ -9,23 +9,19 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'is_agree_conditions']
+        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login']
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    # accept_terms comes from the frontend; we'll store it on `is_agree_conditions` on the model.
     accept_terms = serializers.BooleanField(write_only=True, required=True)
-    # also accept the alternate name if sent
-    is_agree_conditions = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'accept_terms', 'is_agree_conditions']
+        fields = ['username', 'email', 'password', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'accept_terms']
         extra_kwargs = {'password': {'write_only': True}}
 
     def validate(self, attrs):
-        # require agreement
-        if not (attrs.get('accept_terms') or attrs.get('is_agree_conditions')):
+        if not attrs.get('accept_terms'):
             raise serializers.ValidationError({'accept_terms': 'You must accept the terms.'})
 
         # required fields enforced server-side
@@ -51,8 +47,6 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # preference: prefer explicit `is_agree_conditions` if provided
-        accepted = validated_data.pop('is_agree_conditions', validated_data.pop('accept_terms', False))
         validated_data.pop('accept_terms', None)
         password = validated_data.pop('password')
         user = User.objects.create_user(
@@ -60,8 +54,6 @@ class RegisterSerializer(serializers.ModelSerializer):
             role=User.ROLE_CLIENT,
             **{k: v for k, v in validated_data.items() if v is not None}
         )
-        user.is_agree_conditions = bool(accepted)
-        user.save()
         return user
 
 
@@ -114,12 +106,26 @@ class AdminUserCreateSerializer(serializers.Serializer):
             counter += 1
         return username
 
+    @staticmethod
+    def _format_phone(raw):
+        """Convert 09XXXXXXXXX or 9XXXXXXXXX to +63XXXXXXXXXX."""
+        import re
+        digits = re.sub(r'\D', '', raw or '')
+        if re.match(r'^0\d{10}$', digits):
+            return '+63' + digits[1:]
+        if re.match(r'^9\d{9}$', digits):
+            return '+63' + digits
+        if re.match(r'^63\d{10}$', digits):
+            return '+' + digits
+        return digits  # return as-is if pattern doesn't match
+
     def create(self, validated_data):
         username = self._generate_username(
             validated_data['first_name'],
             validated_data.get('middle_name', ''),
             validated_data['last_name'],
         )
+        phone = self._format_phone(validated_data.get('phone', ''))
         user = User.objects.create_user(
             username=username,
             password='password123',
@@ -129,7 +135,7 @@ class AdminUserCreateSerializer(serializers.Serializer):
             role=validated_data['role'],
             middle_name=validated_data.get('middle_name', ''),
             suffix=validated_data.get('suffix', ''),
-            phone=validated_data.get('phone', ''),
+            phone=phone,
         )
         return user
 

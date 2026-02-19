@@ -3,3 +3,6 @@ djangorestframework
 django-cors-headers
 djangorestframework-simplejwt
 argon2-cffi
+google-auth
+google-auth-httplib2
+requests

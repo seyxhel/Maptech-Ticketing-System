@@ -102,3 +102,9 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': False,
 }
+
+# Google OAuth2
+GOOGLE_CLIENT_ID = os.environ.get(
+    'GOOGLE_CLIENT_ID',
+    '276365794260-8i0l9j64lj0os7t1h5ofa0iglk97jt9e.apps.googleusercontent.com',
+)

@@ -12,6 +12,10 @@ export default function Header() {
           location.pathname !== '/homepage' &&
           location.pathname !== '/register' &&
           location.pathname !== '/forgot-password' &&
+          location.pathname !== '/register/complete-profile' &&
+          !location.pathname.startsWith('/register/complete-profile') &&
+          location.pathname !== '/employee/dashboard' &&
+          !location.pathname.startsWith('/employee/dashboard') &&
           !location.pathname.startsWith('/admin') && (
             <>
               <Link to="/">Home</Link>

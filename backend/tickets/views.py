@@ -6,6 +6,10 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
+from django.conf import settings as django_settings
+from django.utils import timezone
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
 from .models import Ticket, TicketTask, Template
 from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer
 
@@ -38,6 +42,101 @@ class RegisterViewSet(viewsets.GenericViewSet):
         return Response(UserSerializer(request.user).data)
 
 
+@api_view(['POST'])
+@permission_classes([])
+def google_auth_view(request):
+    """Verify Google ID token and return profile info or login an existing user."""
+    token = request.data.get('token')
+    if not token:
+        return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            django_settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = idinfo.get('email', '')
+    first_name = idinfo.get('given_name', '')
+    last_name = idinfo.get('family_name', '')
+
+    # If a user with this email already exists, log them in
+    try:
+        user = User.objects.get(email=email)
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'exists': True,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data,
+        })
+    except User.DoesNotExist:
+        pass
+
+    # User does not exist — return profile for the complete-profile page
+    return Response({
+        'exists': False,
+        'email': email,
+        'first_name': first_name,
+        'last_name': last_name,
+        'google_token': token,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([])
+def google_register_view(request):
+    """Create a new user from Google OAuth + completed profile fields."""
+    google_token = request.data.get('google_token')
+    if not google_token:
+        return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Re-verify the Google token to ensure authenticity
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            google_token,
+            google_requests.Request(),
+            django_settings.GOOGLE_CLIENT_ID,
+        )
+    except ValueError:
+        return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    email_from_google = idinfo.get('email', '')
+
+    # Build the registration payload
+    data = {
+        'username': request.data.get('username', ''),
+        'email': email_from_google,
+        'password': request.data.get('password', ''),
+        'first_name': request.data.get('first_name', ''),
+        'middle_name': request.data.get('middle_name', ''),
+        'last_name': request.data.get('last_name', ''),
+        'suffix': request.data.get('suffix', ''),
+        'phone': request.data.get('phone', ''),
+        'accept_terms': request.data.get('accept_terms', False),
+    }
+
+    serializer = RegisterSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        user = serializer.save()
+    except IntegrityError as e:
+        return Response({'detail': f'Unable to create account: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'detail': f'Unable to create account: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': UserSerializer(user).data,
+    }, status=status.HTTP_201_CREATED)
+
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         # First, try the normal username-based token obtain
@@ -49,6 +148,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 user = User.objects.get(username=username)
             except User.DoesNotExist:
                 user = None
+            if user:
+                user.last_login = timezone.now()
+                user.save(update_fields=['last_login'])
             data = {**resp.data}
             if user:
                 data['user'] = UserSerializer(user).data
@@ -61,6 +163,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             try:
                 user = User.objects.get(email=provided)
                 if user.check_password(password):
+                    user.last_login = timezone.now()
+                    user.save(update_fields=['last_login'])
                     refresh = RefreshToken.for_user(user)
                     data = {
                         'access': str(refresh.access_token),

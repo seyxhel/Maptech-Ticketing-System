@@ -1,27 +1,27 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { register, googleAuth } from '../../services/authService'
-import { useAuth } from '../../context/AuthContext'
-import { setCookie } from '../../utils/auth'
-import { GoogleLogin } from '@react-oauth/google'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { googleRegister } from '../../services/authService'
 import PrivacyTermsModal from '../components/PrivacyPolicy'
 
-export default function ClientRegister() {
+export default function CompleteGoogleProfile() {
   const navigate = useNavigate()
-  const { setUser } = useAuth()
+  const location = useLocation()
+
+  // Pre-filled from Google OAuth (passed via location.state)
+  const googleData = (location.state as any) || {}
+
   const [form, setForm] = useState({
     username: '',
-    email: '',
-    password: '',
-    first_name: '',
-    last_name: '',
+    first_name: googleData.first_name || '',
+    last_name: googleData.last_name || '',
     middle_name: '',
     suffix: '',
     phone: '',
+    password: '',
     password_confirm: '',
     accept_terms: false,
   })
-  const [registerErrors, setRegisterErrors] = useState<{ [k: string]: string }>()
+  const [errors, setErrors] = useState<{ [k: string]: string }>()
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [policyStep, setPolicyStep] = useState<'privacy' | 'terms'>('privacy')
 
@@ -35,44 +35,41 @@ export default function ClientRegister() {
     setShowPolicyModal(false)
   }
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setRegisterErrors(undefined)
+    setErrors(undefined)
+
     const first = (form.first_name || '').trim()
     const last = (form.last_name || '').trim()
     const username = (form.username || '').trim()
-    const email = (form.email || '').trim()
     const rawPhone = (form.phone || '').toString().replace(/\D/g, '')
     const phone = rawPhone.trim()
     const password = form.password || ''
     const confirm = form.password_confirm || ''
     const accept = !!form.accept_terms
-    const errors: any = {}
+    const errs: any = {}
 
-    if (!first) errors.first_name = 'First name is required.'
-    if (!last) errors.last_name = 'Last name is required.'
-    if (!username) errors.username = 'Username is required.'
-    if (!email) errors.email = 'Email is required.'
-    const gmailRe = /^[a-z0-9._%+-]+@gmail\.com$/i
-    if (email && !gmailRe.test(email)) errors.email = 'Email must be a valid Gmail address.'
-    if (!phone) errors.phone = 'Phone number is required.'
-    if (phone && !/^[0-9]{11}$/.test(phone)) errors.phone = 'Please enter a valid 11-digit phone number.'
+    if (!first) errs.first_name = 'First name is required.'
+    if (!last) errs.last_name = 'Last name is required.'
+    if (!username) errs.username = 'Username is required.'
+    if (!phone) errs.phone = 'Phone number is required.'
+    if (phone && !/^[0-9]{11}$/.test(phone)) errs.phone = 'Please enter a valid 11-digit phone number.'
 
     if (!password) {
-      errors.password = 'Password is required.'
+      errs.password = 'Password is required.'
     } else {
-      if (password.length < 8) errors.password = 'At least 8 characters.'
-      else if (!/[A-Z]/.test(password)) errors.password = 'Must include uppercase.'
-      else if (!/[a-z]/.test(password)) errors.password = 'Must include lowercase.'
-      else if (!/\d/.test(password)) errors.password = 'Must include number.'
-      else if (!/[!@#$%^&*]/.test(password)) errors.password = 'Must include special character.'
+      if (password.length < 8) errs.password = 'At least 8 characters.'
+      else if (!/[A-Z]/.test(password)) errs.password = 'Must include uppercase.'
+      else if (!/[a-z]/.test(password)) errs.password = 'Must include lowercase.'
+      else if (!/\d/.test(password)) errs.password = 'Must include number.'
+      else if (!/[!@#$%^&*]/.test(password)) errs.password = 'Must include special character.'
     }
 
-    if (password && password !== confirm) errors.password_confirm = 'Password did not match.'
-    if (!accept) errors.accept_terms = 'You must accept the terms.'
+    if (password && password !== confirm) errs.password_confirm = 'Password did not match.'
+    if (!accept) errs.accept_terms = 'You must accept the terms.'
 
-    if (Object.keys(errors).length) {
-      setRegisterErrors(errors)
+    if (Object.keys(errs).length) {
+      setErrors(errs)
       return
     }
 
@@ -83,9 +80,20 @@ export default function ClientRegister() {
       formattedPhone = '+63' + phone
     }
 
-    const payload = { ...form, phone: formattedPhone }
-    const res = await register(payload)
-    if (res && (res.id || res.user || res.token)) {
+    const payload = {
+      google_token: googleData.google_token,
+      username,
+      first_name: first,
+      middle_name: (form.middle_name || '').trim(),
+      last_name: last,
+      suffix: form.suffix || '',
+      phone: formattedPhone,
+      password,
+      accept_terms: accept,
+    }
+
+    const res = await googleRegister(payload)
+    if (res && (res.access || res.user || res.token)) {
       alert('Account successfully created')
       navigate('/login')
     } else {
@@ -93,28 +101,42 @@ export default function ClientRegister() {
     }
   }
 
+  // If no google data, redirect back to register
+  if (!googleData.google_token) {
+    return (
+      <div style={{ padding: 20 }}>
+        <h2>Complete Your Profile</h2>
+        <p>No Google sign-in data found. Please start from the <Link to="/register">registration page</Link>.</p>
+      </div>
+    )
+  }
+
   return (
     <div style={{ padding: 20 }}>
-      <h2>Register (Client)</h2>
-      <form onSubmit={handleRegister} noValidate>
+      <h2>Complete Your Profile</h2>
+      <p style={{ marginBottom: 12, color: '#555' }}>
+        Signed in with Google as <strong>{googleData.email}</strong>. Please fill in the remaining fields to finish registration.
+      </p>
+      <form onSubmit={handleSubmit} noValidate>
+        {/* Name row */}
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1 }}>
             <input
               name="first_name"
               placeholder="First name"
-              value={form.first_name || ''}
+              value={form.first_name}
               onChange={(e) => {
                 const v = e.target.value.replace(/\b\w/g, (ch: string) => ch.toUpperCase())
                 setForm((prev) => ({ ...prev, first_name: v }))
               }}
             />
-            {registerErrors?.first_name && <div style={{ color: 'red' }}>{registerErrors.first_name}</div>}
+            {errors?.first_name && <div style={{ color: 'red' }}>{errors.first_name}</div>}
           </div>
           <div style={{ flex: 1 }}>
             <input
               name="middle_name"
               placeholder="Middle name"
-              value={form.middle_name || ''}
+              value={form.middle_name}
               onChange={(e) => {
                 const v = e.target.value.replace(/\b\w/g, (ch: string) => ch.toUpperCase())
                 setForm((prev) => ({ ...prev, middle_name: v }))
@@ -125,18 +147,18 @@ export default function ClientRegister() {
             <input
               name="last_name"
               placeholder="Last name"
-              value={form.last_name || ''}
+              value={form.last_name}
               onChange={(e) => {
                 const v = e.target.value.replace(/\b\w/g, (ch: string) => ch.toUpperCase())
                 setForm((prev) => ({ ...prev, last_name: v }))
               }}
             />
-            {registerErrors?.last_name && <div style={{ color: 'red' }}>{registerErrors.last_name}</div>}
+            {errors?.last_name && <div style={{ color: 'red' }}>{errors.last_name}</div>}
           </div>
           <div style={{ flex: 1 }}>
             <select
               name="suffix"
-              value={form.suffix || ''}
+              value={form.suffix}
               onChange={(e) => setForm((prev) => ({ ...prev, suffix: e.target.value }))}
             >
               <option value="">Suffix</option>
@@ -154,16 +176,17 @@ export default function ClientRegister() {
           </div>
         </div>
 
+        {/* Username + suggestions */}
         <div style={{ marginTop: 8 }}>
           <input
             name="username"
             type="text"
-            placeholder="username"
+            placeholder="Username"
             autoComplete="username"
             value={form.username}
             onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))}
           />
-          {registerErrors?.username && <div style={{ color: 'red' }}>{registerErrors.username}</div>}
+          {errors?.username && <div style={{ color: 'red' }}>{errors.username}</div>}
 
           {(() => {
             const sanitize = (s: any) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -208,57 +231,63 @@ export default function ClientRegister() {
           })()}
         </div>
 
+        {/* Email (read-only, from Google) */}
         <div style={{ marginTop: 8 }}>
           <input
             name="email"
             type="email"
-            placeholder="email"
-            autoComplete="email"
-            value={form.email}
-            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+            placeholder="Email"
+            value={googleData.email || ''}
+            disabled
+            style={{ background: '#f0f0f0', color: '#666' }}
           />
-          {registerErrors?.email && <div style={{ color: 'red' }}>{registerErrors.email}</div>}
         </div>
 
+        {/* Phone */}
         <div style={{ marginTop: 8 }}>
-          <input
-            name="phone"
-            type="tel"
-            placeholder="Phone number"
-            value={form.phone || ''}
-            maxLength={11}
-            onChange={(e) => {
-              const digits = (e.target.value || '').toString().replace(/\D/g, '').slice(0, 11)
-              setForm((prev) => ({ ...prev, phone: digits }))
-            }}
-          />
-          {registerErrors?.phone && <div style={{ color: 'red' }}>{registerErrors.phone}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontWeight: 500 }}>+63</span>
+            <input
+              name="phone"
+              type="tel"
+              placeholder="Phone number"
+              value={form.phone}
+              maxLength={11}
+              onChange={(e) => {
+                const digits = (e.target.value || '').toString().replace(/\D/g, '').slice(0, 11)
+                setForm((prev) => ({ ...prev, phone: digits }))
+              }}
+            />
+          </div>
+          {errors?.phone && <div style={{ color: 'red' }}>{errors.phone}</div>}
         </div>
 
+        {/* Password */}
         <div style={{ marginTop: 8 }}>
           <input
             name="password"
-            placeholder="password"
+            placeholder="Password"
             type="password"
             autoComplete="new-password"
             value={form.password}
             onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
           />
-          {registerErrors?.password && <div style={{ color: 'red' }}>{registerErrors.password}</div>}
+          {errors?.password && <div style={{ color: 'red' }}>{errors.password}</div>}
         </div>
 
         <div style={{ marginTop: 8 }}>
           <input
             name="password_confirm"
-            placeholder="confirm password"
+            placeholder="Confirm password"
             type="password"
             autoComplete="new-password"
-            value={form.password_confirm || ''}
+            value={form.password_confirm}
             onChange={(e) => setForm((prev) => ({ ...prev, password_confirm: e.target.value }))}
           />
-          {registerErrors?.password_confirm && <div style={{ color: 'red' }}>{registerErrors.password_confirm}</div>}
+          {errors?.password_confirm && <div style={{ color: 'red' }}>{errors.password_confirm}</div>}
         </div>
 
+        {/* Terms */}
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
           <input
             name="accept_terms"
@@ -286,45 +315,16 @@ export default function ClientRegister() {
               Terms and Conditions
             </span>
           </div>
-          {registerErrors?.accept_terms && <div style={{ color: 'red' }}>{registerErrors.accept_terms}</div>}
+          {errors?.accept_terms && <div style={{ color: 'red' }}>{errors.accept_terms}</div>}
         </div>
 
         <div style={{ marginTop: 8 }}>
-          <button>Register</button>
+          <button>Complete Registration</button>
         </div>
       </form>
 
-      {/* Divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #ccc' }} />
-        <span style={{ color: '#888', fontSize: 13 }}>or</span>
-        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #ccc' }} />
-      </div>
-
-      {/* Google Sign-Up */}
-      <GoogleLogin
-        onSuccess={async (credentialResponse) => {
-          const token = credentialResponse.credential
-          if (!token) return
-          const res = await googleAuth(token)
-          if (res.exists) {
-            // User already has an account — log them in
-            if (res.access) setCookie('access', res.access)
-            if (res.refresh) setCookie('refresh', res.refresh)
-            if (res.user) setUser(res.user)
-            navigate('/homepage')
-          } else {
-            // New user — send them to complete profile
-            navigate('/register/complete-profile', { state: res })
-          }
-        }}
-        onError={() => alert('Google sign-in failed. Please try again.')}
-        text="signup_with"
-        width="300"
-      />
-
       <div style={{ marginTop: 8 }}>
-        Already have an account? <Link to="/login">Log In</Link>
+        <Link to="/register">&larr; Back to Register</Link>
       </div>
 
       {showPolicyModal && (

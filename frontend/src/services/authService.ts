@@ -31,3 +31,33 @@ export async function sendPasswordReset(email: string) {
   })
   return res.json()
 }
+
+/** Send Google ID token to backend; returns existing user tokens or profile data for registration */
+export async function googleAuth(token: string) {
+  const res = await fetch(`${API_BASE}/auth/google/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  return res.json()
+}
+
+/** Complete registration for a Google OAuth user with missing profile fields */
+export async function googleRegister(payload: {
+  google_token: string
+  username: string
+  first_name: string
+  middle_name: string
+  last_name: string
+  suffix: string
+  phone: string
+  password: string
+  accept_terms: boolean
+}) {
+  const res = await fetch(`${API_BASE}/auth/google/register/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return res.json()
+}
