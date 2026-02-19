@@ -7,9 +7,14 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    has_usable_password = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login']
+        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login', 'is_agreed_privacy_policy', 'has_usable_password']
+
+    def get_has_usable_password(self, obj):
+        return obj.has_usable_password()
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -52,6 +57,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(
             password=password,
             role=User.ROLE_CLIENT,
+            is_agreed_privacy_policy=True,
             **{k: v for k, v in validated_data.items() if v is not None}
         )
         return user

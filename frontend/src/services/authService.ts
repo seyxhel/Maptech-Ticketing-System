@@ -23,6 +23,24 @@ export async function getCurrentUser() {
   return res.json()
 }
 
+export async function updateProfile(payload: Record<string, any>) {
+  const res = await fetch(`${API_BASE}/auth/update_profile/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  return res.json()
+}
+
+export async function changePassword(payload: { current_password?: string; new_password: string }) {
+  const res = await fetch(`${API_BASE}/auth/change_password/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  return { ok: res.ok, data: await res.json() }
+}
+
 export async function sendPasswordReset(email: string) {
   const res = await fetch(`${API_BASE}/auth/password-reset/`, {
     method: 'POST',
@@ -32,7 +50,7 @@ export async function sendPasswordReset(email: string) {
   return res.json()
 }
 
-/** Send Google ID token to backend; returns existing user tokens or profile data for registration */
+/** Send Google ID token to backend; returns tokens for both new and existing users */
 export async function googleAuth(token: string) {
   const res = await fetch(`${API_BASE}/auth/google/`, {
     method: 'POST',
@@ -42,22 +60,12 @@ export async function googleAuth(token: string) {
   return res.json()
 }
 
-/** Complete registration for a Google OAuth user with missing profile fields */
-export async function googleRegister(payload: {
-  google_token: string
-  username: string
-  first_name: string
-  middle_name: string
-  last_name: string
-  suffix: string
-  phone: string
-  password: string
-  accept_terms: boolean
-}) {
-  const res = await fetch(`${API_BASE}/auth/google/register/`, {
+/** Mark the current user as having accepted the privacy policy */
+export async function acceptPrivacy() {
+  const res = await fetch(`${API_BASE}/auth/accept_privacy/`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
   })
   return res.json()
 }
+

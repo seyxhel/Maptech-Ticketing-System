@@ -18,6 +18,7 @@ class User(AbstractUser):
     middle_name = models.CharField(max_length=150, blank=True)
     suffix = models.CharField(max_length=3, blank=True)
     phone = models.CharField(max_length=13, blank=True)
+    is_agreed_privacy_policy = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.username} ({self.role})"

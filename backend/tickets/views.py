@@ -41,11 +41,66 @@ class RegisterViewSet(viewsets.GenericViewSet):
     def me(self, request):
         return Response(UserSerializer(request.user).data)
 
+    @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
+    def update_profile(self, request):
+        """Let any authenticated user update their own profile fields."""
+        user = request.user
+        allowed = ['first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'username']
+        for field in allowed:
+            if field in request.data:
+                setattr(user, field, request.data[field])
+        # Format phone server-side
+        import re as _re
+        raw_phone = _re.sub(r'\D', '', user.phone or '')
+        if _re.match(r'^0\d{10}$', raw_phone):
+            user.phone = '+63' + raw_phone[1:]
+        elif _re.match(r'^9\d{9}$', raw_phone):
+            user.phone = '+63' + raw_phone
+        elif _re.match(r'^63\d{10}$', raw_phone):
+            user.phone = '+' + raw_phone
+        user.save()
+        return Response(UserSerializer(user).data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def accept_privacy(self, request):
+        """Mark the current user as having accepted the privacy policy (one-time)."""
+        user = request.user
+        user.is_agreed_privacy_policy = True
+        user.save(update_fields=['is_agreed_privacy_policy'])
+        return Response(UserSerializer(user).data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def change_password(self, request):
+        """Let any authenticated user change their password."""
+        user = request.user
+        current = request.data.get('current_password', '')
+        new_pw = request.data.get('new_password', '')
+
+        # Users with unusable password (Google OAuth) can set one without providing current
+        if user.has_usable_password():
+            if not current:
+                return Response({'detail': 'Current password is required.'}, status=status.HTTP_400_BAD_REQUEST)
+            if not user.check_password(current):
+                return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not new_pw or len(new_pw) < 8:
+            return Response({'detail': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_pw)
+        user.save()
+        # Return new tokens since password change invalidates old ones
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'detail': 'Password changed successfully.',
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+        })
+
 
 @api_view(['POST'])
 @permission_classes([])
 def google_auth_view(request):
-    """Verify Google ID token and return profile info or login an existing user."""
+    """Verify Google ID token. If user exists, log them in. If new, auto-create and log in."""
     token = request.data.get('token')
     if not token:
         return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -77,60 +132,34 @@ def google_auth_view(request):
     except User.DoesNotExist:
         pass
 
-    # User does not exist — return profile for the complete-profile page
-    return Response({
-        'exists': False,
-        'email': email,
-        'first_name': first_name,
-        'last_name': last_name,
-        'google_token': token,
-    })
+    # Auto-generate username from first + last name
+    import re
+    sanitize = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
+    f = sanitize(first_name)
+    l = sanitize(last_name)
+    base = f"{f}{l}" if f and l else f or l or 'user'
+    username = base
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base}{counter}"
+        counter += 1
 
-
-@api_view(['POST'])
-@permission_classes([])
-def google_register_view(request):
-    """Create a new user from Google OAuth + completed profile fields."""
-    google_token = request.data.get('google_token')
-    if not google_token:
-        return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Re-verify the Google token to ensure authenticity
-    try:
-        idinfo = google_id_token.verify_oauth2_token(
-            google_token,
-            google_requests.Request(),
-            django_settings.GOOGLE_CLIENT_ID,
-        )
-    except ValueError:
-        return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    email_from_google = idinfo.get('email', '')
-
-    # Build the registration payload
-    data = {
-        'username': request.data.get('username', ''),
-        'email': email_from_google,
-        'password': request.data.get('password', ''),
-        'first_name': request.data.get('first_name', ''),
-        'middle_name': request.data.get('middle_name', ''),
-        'last_name': request.data.get('last_name', ''),
-        'suffix': request.data.get('suffix', ''),
-        'phone': request.data.get('phone', ''),
-        'accept_terms': request.data.get('accept_terms', False),
-    }
-
-    serializer = RegisterSerializer(data=data)
-    serializer.is_valid(raise_exception=True)
-    try:
-        user = serializer.save()
-    except IntegrityError as e:
-        return Response({'detail': f'Unable to create account: {e}'}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        return Response({'detail': f'Unable to create account: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+    # Create user with unusable password (they authenticate via Google)
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        role=User.ROLE_CLIENT,
+    )
+    user.set_unusable_password()
+    user.last_login = timezone.now()
+    user.save()
 
     refresh = RefreshToken.for_user(user)
     return Response({
+        'exists': False,
+        'created': True,
         'access': str(refresh.access_token),
         'refresh': str(refresh),
         'user': UserSerializer(user).data,
@@ -140,9 +169,13 @@ def google_register_view(request):
 class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         # First, try the normal username-based token obtain
-        resp = super().post(request, *args, **kwargs)
-        # If auth succeeded, attach the user data as before
-        if getattr(resp, 'status_code', None) == 200 and isinstance(resp.data, dict):
+        try:
+            resp = super().post(request, *args, **kwargs)
+        except Exception:
+            resp = None
+
+        # If auth succeeded, attach the user data
+        if resp and getattr(resp, 'status_code', None) == 200 and isinstance(resp.data, dict):
             username = request.data.get('username') or request.data.get('email')
             try:
                 user = User.objects.get(username=username)
@@ -175,8 +208,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             except User.DoesNotExist:
                 pass
 
-        # otherwise return the original response (likely 401)
-        return resp
+        # otherwise return 401
+        return Response({'detail': 'No active account found with the given credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class TicketViewSet(viewsets.ModelViewSet):

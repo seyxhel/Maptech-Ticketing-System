@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, googleAuth } from '../../services/authService'
+import { register, googleAuth, acceptPrivacy } from '../../services/authService'
 import { useAuth } from '../../context/AuthContext'
 import { setCookie } from '../../utils/auth'
 import { GoogleLogin } from '@react-oauth/google'
@@ -24,6 +24,7 @@ export default function ClientRegister() {
   const [registerErrors, setRegisterErrors] = useState<{ [k: string]: string }>()
   const [showPolicyModal, setShowPolicyModal] = useState(false)
   const [policyStep, setPolicyStep] = useState<'privacy' | 'terms'>('privacy')
+  const [googlePrivacyPending, setGooglePrivacyPending] = useState(false)
 
   const openPolicy = (step?: string) => {
     setPolicyStep((step as 'privacy' | 'terms') || 'privacy')
@@ -31,6 +32,15 @@ export default function ClientRegister() {
   }
 
   const handleAgreePolicy = () => {
+    if (googlePrivacyPending) {
+      // Google OAuth flow: call backend, then navigate
+      acceptPrivacy().then(() => {
+        setShowPolicyModal(false)
+        setGooglePrivacyPending(false)
+        navigate('/homepage')
+      })
+      return
+    }
     setForm((prev) => ({ ...prev, accept_terms: true }))
     setShowPolicyModal(false)
   }
@@ -307,15 +317,20 @@ export default function ClientRegister() {
           const token = credentialResponse.credential
           if (!token) return
           const res = await googleAuth(token)
-          if (res.exists) {
-            // User already has an account — log them in
-            if (res.access) setCookie('access', res.access)
+          if (res.access) {
+            setCookie('access', res.access)
             if (res.refresh) setCookie('refresh', res.refresh)
             if (res.user) setUser(res.user)
+            // Check if user has already agreed to privacy policy
+            if (res.user && !res.user.is_agreed_privacy_policy) {
+              setGooglePrivacyPending(true)
+              setPolicyStep('privacy')
+              setShowPolicyModal(true)
+              return
+            }
             navigate('/homepage')
           } else {
-            // New user — send them to complete profile
-            navigate('/register/complete-profile', { state: res })
+            alert('Google sign-in failed: ' + JSON.stringify(res))
           }
         }}
         onError={() => alert('Google sign-in failed. Please try again.')}

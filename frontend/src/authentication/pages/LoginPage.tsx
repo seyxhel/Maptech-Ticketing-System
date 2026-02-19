@@ -1,11 +1,18 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { googleAuth, acceptPrivacy } from '../../services/authService'
+import { setCookie } from '../../utils/auth'
+import { GoogleLogin } from '@react-oauth/google'
+import PrivacyTermsModal from '../components/PrivacyPolicy'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, setUser } = useAuth()
+  const navigate = useNavigate()
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
   const [loginErrors, setLoginErrors] = useState<{ username?: string; password?: string; general?: string }>({})
+  const [showPolicyModal, setShowPolicyModal] = useState(false)
+  const [policyStep, setPolicyStep] = useState<'privacy' | 'terms'>('privacy')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,6 +84,52 @@ export default function LoginPage() {
       <div style={{ marginTop: 8, marginBottom: 8 }}>
         <Link to="/forgot-password">Forgot Password?</Link>
       </div>
+
+      {/* Divider */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #ccc' }} />
+        <span style={{ color: '#888', fontSize: 13 }}>or</span>
+        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid #ccc' }} />
+      </div>
+
+      {/* Google Continue */}
+      <GoogleLogin
+        onSuccess={async (credentialResponse) => {
+          const token = credentialResponse.credential
+          if (!token) return
+          const res = await googleAuth(token)
+          if (res.access) {
+            setCookie('access', res.access)
+            if (res.refresh) setCookie('refresh', res.refresh)
+            if (res.user) setUser(res.user)
+            // Check if user has already agreed to privacy policy
+            if (res.user && !res.user.is_agreed_privacy_policy) {
+              setPolicyStep('privacy')
+              setShowPolicyModal(true)
+              return
+            }
+            navigate('/homepage')
+          } else {
+            alert('Google sign-in failed: ' + JSON.stringify(res))
+          }
+        }}
+        onError={() => alert('Google sign-in failed. Please try again.')}
+        text="continue_with"
+        width="300"
+      />
+
+      {showPolicyModal && (
+        <PrivacyTermsModal
+          initialStep={policyStep}
+          onAgree={() => {
+            acceptPrivacy().then(() => {
+              setShowPolicyModal(false)
+              navigate('/homepage')
+            })
+          }}
+          onClose={() => setShowPolicyModal(false)}
+        />
+      )}
     </div>
   )
 }

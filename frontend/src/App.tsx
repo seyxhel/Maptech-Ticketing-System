@@ -6,12 +6,12 @@ import Header from './shared/components/Header'
 import NotFoundPage from './shared/not-found-page/NotFoundPage'
 import LoginPage from './authentication/pages/LoginPage'
 import ClientRegister from './authentication/pages/ClientRegister'
-import CompleteGoogleProfile from './authentication/pages/CompleteGoogleProfile'
 import ForgotPassword from './authentication/pages/ForgotPassword'
 import ClientHomepage from './client/pages/homepage/ClientHomepage'
 import EmployeeDashboard from './employee/pages/EmployeeDashboard'
 import AdminDashboard from './admin/pages/dashboard/AdminDashboard'
 import UserManagement from './admin/pages/user-management/UserManagement.tsx/UserManagement'
+import SettingsPage from './shared/pages/SettingsPage'
 import ProtectedRoute from './shared/components/ProtectedRoute'
 
 function AppRoutes() {
@@ -25,7 +25,6 @@ function AppRoutes() {
       />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<ClientRegister />} />
-      <Route path="/register/complete-profile" element={<CompleteGoogleProfile />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route
         path="/homepage"
@@ -59,6 +58,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route path="/settings" element={user ? <SettingsPage /> : <Navigate to="/login" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )

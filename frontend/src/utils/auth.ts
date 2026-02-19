@@ -28,6 +28,11 @@ export type User = {
   username: string
   email: string
   role: string
+  phone?: string
+  first_name?: string
+  middle_name?: string
+  last_name?: string
+  suffix?: string
 }
 
 export function parseUserFromJWT(token: string): User | null {
