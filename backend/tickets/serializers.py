@@ -83,6 +83,57 @@ class TicketSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'status', 'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at']
 
 
+class AdminUserCreateSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=150)
+    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=150)
+    suffix = serializers.CharField(max_length=3, required=False, allow_blank=True)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=13, required=False, allow_blank=True)
+    role = serializers.ChoiceField(choices=[('employee', 'Employee'), ('admin', 'Admin')])
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError('A user with that email already exists.')
+        return value
+
+    def _generate_username(self, first_name, middle_name, last_name):
+        import re
+        sanitize = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
+        f = sanitize(first_name)
+        m = sanitize(middle_name)
+        l = sanitize(last_name)
+        mid_initial = m[0] if m else ''
+        base = f"{f}{mid_initial}{l}" if mid_initial else f"{f}{l}"
+        if not base:
+            base = 'user'
+        username = base
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base}{counter}"
+            counter += 1
+        return username
+
+    def create(self, validated_data):
+        username = self._generate_username(
+            validated_data['first_name'],
+            validated_data.get('middle_name', ''),
+            validated_data['last_name'],
+        )
+        user = User.objects.create_user(
+            username=username,
+            password='password123',
+            email=validated_data['email'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            role=validated_data['role'],
+            middle_name=validated_data.get('middle_name', ''),
+            suffix=validated_data.get('suffix', ''),
+            phone=validated_data.get('phone', ''),
+        )
+        return user
+
+
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template

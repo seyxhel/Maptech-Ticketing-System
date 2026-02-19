@@ -150,6 +150,30 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(ticket).data)
 
 
+class UserViewSet(viewsets.GenericViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return User.objects.all().order_by('-date_joined')
+
+    @action(detail=False, methods=['get'])
+    def list_users(self, request):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        users = self.get_queryset()
+        return Response(UserSerializer(users, many=True).data)
+
+    @action(detail=False, methods=['post'])
+    def create_user(self, request):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        from .serializers import AdminUserCreateSerializer
+        serializer = AdminUserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+
 class TemplateViewSet(viewsets.ModelViewSet):
     queryset = Template.objects.all()
     serializer_class = TemplateSerializer
