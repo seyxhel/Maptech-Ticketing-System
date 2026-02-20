@@ -10,8 +10,8 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
-from .models import Ticket, TicketTask, Template
-from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment
+from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer, TypeOfServiceSerializer, TicketAttachmentSerializer
 
 
 User = get_user_model()
@@ -312,6 +312,63 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.save()
         return Response(self.get_serializer(ticket).data)
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def review(self, request, pk=None):
+        """Admin reviews a ticket — populates time_in and optionally sets priority."""
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        ticket = self.get_object()
+        if not ticket.time_in:
+            ticket.time_in = timezone.now()
+        priority = request.data.get('priority')
+        if priority and priority in dict(Ticket.PRIORITY_CHOICES):
+            ticket.priority = priority
+        ticket.save()
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
+    def update_employee_fields(self, request, pk=None):
+        """Employee updates their specific fields on a ticket."""
+        ticket = self.get_object()
+        user = request.user
+        if user.role != User.ROLE_EMPLOYEE or ticket.assigned_to != user:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        allowed = [
+            'preferred_support_type', 'device_equipment', 'version_no',
+            'date_purchased', 'serial_no', 'description_of_problem',
+            'action_taken', 'remarks', 'job_status',
+        ]
+        for field in allowed:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+        ticket.save()
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'], url_path='upload_attachment', permission_classes=[IsAuthenticated])
+    def upload_attachment(self, request, pk=None):
+        """Upload file attachments to a ticket."""
+        ticket = self.get_object()
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response({'detail': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        attachments = []
+        for f in files:
+            att = TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=request.user)
+            attachments.append(att)
+        return Response(TicketAttachmentSerializer(attachments, many=True).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='delete_attachment/(?P<att_id>[0-9]+)', permission_classes=[IsAuthenticated])
+    def delete_attachment(self, request, pk=None, att_id=None):
+        """Delete a file attachment from a ticket."""
+        ticket = self.get_object()
+        try:
+            att = TicketAttachment.objects.get(id=att_id, ticket=ticket)
+        except TicketAttachment.DoesNotExist:
+            return Response({'detail': 'Attachment not found.'}, status=status.HTTP_404_NOT_FOUND)
+        att.file.delete(save=False)
+        att.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class UserViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
@@ -347,4 +404,17 @@ class TemplateViewSet(viewsets.ModelViewSet):
         if self.request.user.role == User.ROLE_ADMIN:
             return Template.objects.all()
         return Template.objects.none()
+
+
+class TypeOfServiceViewSet(viewsets.ModelViewSet):
+    """CRUD for Type of Service (admin manages, all authenticated can list active)."""
+    queryset = TypeOfService.objects.all().order_by('name')
+    serializer_class = TypeOfServiceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role == User.ROLE_ADMIN:
+            return TypeOfService.objects.all().order_by('name')
+        # Non-admins only see active services (for dropdown)
+        return TypeOfService.objects.filter(is_active=True).order_by('name')
 

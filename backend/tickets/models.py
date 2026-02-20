@@ -1,6 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
 class User(AbstractUser):
@@ -24,7 +25,22 @@ class User(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
+class TypeOfService(models.Model):
+    """Admin-managed lookup table for Type of Service dropdown."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Type of Service'
+        verbose_name_plural = 'Types of Service'
+
+    def __str__(self):
+        return self.name
+
+
 class Ticket(models.Model):
+    # --- Status choices ---
     STATUS_OPEN = 'open'
     STATUS_CLOSED = 'closed'
     STATUS_ESCALATED = 'escalated'
@@ -34,6 +50,47 @@ class Ticket(models.Model):
         (STATUS_ESCALATED, 'Escalated'),
     ]
 
+    # --- Priority choices (admin sets) ---
+    PRIORITY_LOW = 'low'
+    PRIORITY_MEDIUM = 'medium'
+    PRIORITY_HIGH = 'high'
+    PRIORITY_CRITICAL = 'critical'
+    PRIORITY_CHOICES = [
+        (PRIORITY_LOW, 'Low'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_HIGH, 'High'),
+        (PRIORITY_CRITICAL, 'Critical'),
+    ]
+
+    # --- Preferred support type (employee sets) ---
+    SUPPORT_REMOTE = 'remote_online'
+    SUPPORT_ONSITE = 'onsite'
+    SUPPORT_CHAT = 'chat'
+    SUPPORT_CALL = 'call'
+    SUPPORT_TYPE_CHOICES = [
+        (SUPPORT_REMOTE, 'Remote/Online'),
+        (SUPPORT_ONSITE, 'Onsite'),
+        (SUPPORT_CHAT, 'Chat'),
+        (SUPPORT_CALL, 'Call'),
+    ]
+
+    # --- Job status choices (employee sets) ---
+    JOB_COMPLETED = 'completed'
+    JOB_PENDING = 'pending'
+    JOB_UNDER_WARRANTY = 'under_warranty'
+    JOB_CHARGEABLE = 'chargeable'
+    JOB_FOR_QUOTATION = 'for_quotation'
+    JOB_UNDER_CONTRACT = 'under_contract'
+    JOB_STATUS_CHOICES = [
+        (JOB_COMPLETED, 'Completed'),
+        (JOB_PENDING, 'Pending'),
+        (JOB_UNDER_WARRANTY, 'Under Warranty'),
+        (JOB_CHARGEABLE, 'Chargeable'),
+        (JOB_FOR_QUOTATION, 'For Quotation'),
+        (JOB_UNDER_CONTRACT, 'Under Contract'),
+    ]
+
+    # ---- Original fields ----
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
@@ -42,8 +99,78 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ---- New client-side fields ----
+    stf_no = models.CharField(max_length=30, unique=True, blank=True)
+    date = models.DateField(default=timezone.now)  # coerced in save()
+    time_in = models.DateTimeField(null=True, blank=True)       # populated when admin reviews
+    time_out = models.DateTimeField(null=True, blank=True)      # placeholder for later dev
+    client = models.CharField(max_length=200, blank=True)
+    contact_person = models.CharField(max_length=200, blank=True)
+    address = models.TextField(blank=True)
+    designation = models.CharField(max_length=200, blank=True)
+    landline = models.CharField(max_length=30, blank=True)
+    department_organization = models.CharField(max_length=200, blank=True)
+    mobile_no = models.CharField(max_length=11, blank=True)
+    email_address = models.EmailField(blank=True)
+    type_of_service = models.ForeignKey(TypeOfService, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets')
+    type_of_service_others = models.CharField(max_length=200, blank=True)
+
+    # ---- Admin-set field ----
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
+
+    # ---- Employee-set fields ----
+    preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
+
+    # Product details
+    device_equipment = models.CharField(max_length=300, blank=True)
+    version_no = models.CharField(max_length=100, blank=True)
+    date_purchased = models.DateField(null=True, blank=True)
+    serial_no = models.CharField(max_length=200, blank=True)
+
+    description_of_problem = models.TextField(blank=True)
+    action_taken = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
+
+    job_status = models.CharField(max_length=20, choices=JOB_STATUS_CHOICES, blank=True, default='')
+
+    def save(self, *args, **kwargs):
+        # Coerce date to a plain date if it's a datetime
+        import datetime as _dt
+        if isinstance(self.date, _dt.datetime):
+            self.date = self.date.date()
+        if not self.stf_no:
+            self.stf_no = self._generate_stf_no()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_stf_no():
+        """Generate STF-MP-YYYYMMDDXXXXXX where XXXXXX is zero-padded sequence."""
+        today = timezone.now()
+        date_str = today.strftime('%Y%m%d')
+        prefix = f'STF-MP-{date_str}'
+        last = Ticket.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
+        if last:
+            try:
+                seq = int(last.stf_no[-6:]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+        return f'{prefix}{seq:06d}'
+
     def __str__(self):
-        return f"{self.title} ({self.status})"
+        return f"{self.stf_no or self.title} ({self.status})"
+
+
+class TicketAttachment(models.Model):
+    """File attachments for tickets (images, videos, documents)."""
+    ticket = models.ForeignKey(Ticket, related_name='attachments', on_delete=models.CASCADE)
+    file = models.FileField(upload_to='ticket_attachments/%Y/%m/%d/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Attachment for {self.ticket.stf_no}: {self.file.name}"
 
 
 class Template(models.Model):
