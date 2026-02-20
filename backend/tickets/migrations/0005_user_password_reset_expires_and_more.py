@@ -10,14 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='user',
-            name='password_reset_expires',
-            field=models.DateTimeField(blank=True, null=True),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='password_reset_token',
-            field=models.CharField(blank=True, max_length=64, null=True),
-        ),
+        # No-op: password reset fields were included in `users` initial migration.
     ]
