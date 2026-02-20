@@ -1,6 +1,6 @@
 from rest_framework import routers
 from django.urls import path, include
-from .views import TicketViewSet, TemplateViewSet
+from .views import TicketViewSet, TemplateViewSet, TypeOfServiceViewSet
 from users.views import RegisterViewSet, CustomTokenObtainPairView, UserViewSet, google_auth_view
 
 router = routers.DefaultRouter()

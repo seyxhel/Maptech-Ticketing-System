@@ -3,6 +3,20 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 
+class TypeOfService(models.Model):
+    """Admin-managed lookup table for Type of Service dropdown."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Type of Service'
+        verbose_name_plural = 'Types of Service'
+
+    def __str__(self):
+        return self.name
+
+
 class Ticket(models.Model):
     # --- Status choices ---
     STATUS_OPEN = 'open'

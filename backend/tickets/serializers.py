@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Ticket, TicketTask, Template
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, Message, MessageReaction, MessageReadReceipt
 from users.serializers import UserSerializer
 
 
@@ -37,7 +37,22 @@ class TicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ['id', 'title', 'description', 'status', 'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at']
+        fields = [
+            'id', 'title', 'description', 'status',
+            'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at',
+            # New fields
+            'stf_no', 'date', 'time_in', 'time_out',
+            'client', 'contact_person', 'address', 'designation',
+            'landline', 'department_organization', 'mobile_no', 'email_address',
+            'type_of_service', 'type_of_service_detail', 'type_of_service_others',
+            'priority',
+            'preferred_support_type',
+            'device_equipment', 'version_no', 'date_purchased', 'serial_no',
+            'description_of_problem', 'action_taken', 'remarks',
+            'job_status',
+            'attachments',
+        ]
+        read_only_fields = ['stf_no', 'date', 'time_in', 'time_out']
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template

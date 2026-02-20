@@ -26,14 +26,6 @@ class Migration(migrations.Migration):
                 'verbose_name_plural': 'Types of Service',
             },
         ),
-        migrations.RemoveField(
-            model_name='user',
-            name='password_reset_expires',
-        ),
-        migrations.RemoveField(
-            model_name='user',
-            name='password_reset_token',
-        ),
         migrations.AddField(
             model_name='ticket',
             name='action_taken',

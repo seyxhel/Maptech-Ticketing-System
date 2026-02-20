@@ -11,8 +11,8 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
-from .models import Ticket, TicketTask, Template
-from .serializers import TicketSerializer, TemplateSerializer
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, AssignmentSession, Message
+from .serializers import TicketSerializer, TemplateSerializer, TypeOfServiceSerializer, TicketAttachmentSerializer
 from users.serializers import RegisterSerializer, UserSerializer
 
 
