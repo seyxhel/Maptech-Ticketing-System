@@ -157,8 +157,20 @@ export default function ClientRegister() {
         return
       }
       const exists = await checkUnique(field, value)
+      if (exists === null) {
+        const msg = 'Unable to verify availability. Please try again.'
+        setUniqueErrors((prev) => ({ ...prev, [field]: msg }))
+        setError(field as any, { type: 'manual', message: msg })
+        return
+      }
       if (exists) {
-        const msg = `This ${displayName} is already taken.`
+        const msg = field === 'phone'
+          ? 'Invalid phone number.'
+          : field === 'username'
+          ? 'Invalid username.'
+          : field === 'email'
+          ? 'Invalid email.'
+          : `This ${displayName} is already taken.`
         setUniqueErrors((prev) => ({ ...prev, [field]: msg }))
         setError(field as any, { type: 'manual', message: msg })
       } else {
@@ -188,10 +200,10 @@ export default function ClientRegister() {
     const isPwned = await checkPwnedPassword(password)
     setCheckingPwned(false)
     if (isPwned) {
-      setPwnedWarning('This password has been found in a data breach. Please choose a different password.')
+      setPwnedWarning('Invalid password.')
       setError('password', {
         type: 'manual',
-        message: 'This password has been found in a data breach. Please choose a different password.',
+        message: 'Invalid password.',
       })
     } else {
       setPwnedWarning('')
@@ -242,7 +254,7 @@ export default function ClientRegister() {
     if (isPwned) {
       setError('password', {
         type: 'manual',
-        message: 'This password has been found in a data breach. Please choose a different password.',
+        message: 'Invalid password.',
       })
       return
     }
@@ -277,13 +289,16 @@ export default function ClientRegister() {
       setTimeout(() => navigate('/login'), 2000)
     } else {
       if (res?.username) {
-        setError('username', { type: 'manual', message: Array.isArray(res.username) ? res.username[0] : res.username })
+        setError('username', { type: 'manual', message: 'Invalid username.' })
       }
       if (res?.email) {
-        setError('email', { type: 'manual', message: Array.isArray(res.email) ? res.email[0] : res.email })
+        setError('email', { type: 'manual', message: 'Invalid email.' })
       }
       if (res?.phone) {
         setError('phone', { type: 'manual', message: Array.isArray(res.phone) ? res.phone[0] : res.phone })
+      }
+      if (res?.password) {
+        setError('password', { type: 'manual', message: 'Invalid password.' })
       }
       if (!res?.username && !res?.email && !res?.phone) {
         toast.error(res?.detail || 'Registration failed. Please check your details.')

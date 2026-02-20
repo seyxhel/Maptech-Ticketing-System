@@ -1,16 +1,18 @@
 import { API_BASE, authHeaders } from './api'
 
-export async function checkUnique(field: 'email' | 'username' | 'phone', value: string): Promise<boolean> {
+export async function checkUnique(field: 'email' | 'username' | 'phone', value: string): Promise<boolean | null> {
   try {
     const res = await fetch(`${API_BASE}/auth/check_unique/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ field, value }),
     })
+    if (!res.ok) return null
     const data = await res.json()
     return data.exists as boolean
-  } catch {
-    return false
+  } catch (err) {
+    console.error('checkUnique error', err)
+    return null
   }
 }
 
