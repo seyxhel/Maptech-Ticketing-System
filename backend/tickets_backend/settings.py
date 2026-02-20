@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'tickets',
+    'users',
 ]
 
 MIDDLEWARE = [
@@ -93,7 +94,7 @@ PASSWORD_HASHERS = [
 ]
 
 # Use custom user model
-AUTH_USER_MODEL = 'tickets.User'
+AUTH_USER_MODEL = 'users.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

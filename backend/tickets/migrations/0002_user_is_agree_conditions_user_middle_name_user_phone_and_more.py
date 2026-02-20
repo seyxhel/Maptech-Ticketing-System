@@ -10,24 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='user',
-            name='is_agree_conditions',
-            field=models.BooleanField(default=False),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='middle_name',
-            field=models.CharField(blank=True, max_length=150),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='phone',
-            field=models.CharField(blank=True, max_length=13),
-        ),
-        migrations.AddField(
-            model_name='user',
-            name='suffix',
-            field=models.CharField(blank=True, max_length=3),
-        ),
+        # User fields were moved into the `users` app initial migration.
+        # This migration is kept as a no-op to preserve historical ordering.
     ]
