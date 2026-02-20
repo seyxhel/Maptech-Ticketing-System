@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
+import type { NavItem } from './Sidebar';
+
 interface LayoutProps {
   children: React.ReactNode;
   role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
@@ -8,6 +10,7 @@ interface LayoutProps {
   onNavigate: (page: string) => void;
   isDark: boolean;
   onToggleDark: () => void;
+  navItems?: NavItem[];
 }
 export function Layout({
   children,
@@ -15,7 +18,8 @@ export function Layout({
   currentPage,
   onNavigate,
   isDark,
-  onToggleDark
+  onToggleDark,
+  navItems,
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   return (
@@ -35,7 +39,9 @@ export function Layout({
         <Sidebar
           role={role}
           onNavigate={onNavigate}
-          currentPage={currentPage} />
+          currentPage={currentPage}
+          navItems={navItems}
+        />
 
       </div>
 

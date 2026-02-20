@@ -1,5 +1,7 @@
-import React from 'react';
-import { Bell, Search, Sun, Moon, Menu, User, ChevronDown } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bell, Search, Sun, Moon, Menu, ChevronDown } from 'lucide-react';
+import { NotificationPanel } from '../NotificationPanel';
+
 interface TopNavProps {
   role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
   isDark: boolean;
@@ -36,7 +38,10 @@ export function TopNav({
   onToggleDark,
   onMenuClick
 }: TopNavProps) {
+  const [notificationOpen, setNotificationOpen] = useState(false);
+
   return (
+    <>
     <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 lg:left-64 z-40 px-6 flex items-center justify-between shadow-sm transition-colors duration-200">
       {/* Left: hamburger + search */}
       <div className="flex items-center gap-4">
@@ -73,10 +78,19 @@ export function TopNav({
         </button>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+        <button
+          onClick={() => setNotificationOpen(true)}
+          className="relative p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          aria-label="Open notifications"
+        >
           <Bell className="w-5 h-5" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900" />
         </button>
+        <NotificationPanel
+          isOpen={notificationOpen}
+          onClose={() => setNotificationOpen(false)}
+          role={role}
+        />
 
         {/* User info */}
         <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700 ml-1">
@@ -96,6 +110,7 @@ export function TopNav({
           </div>
         </div>
       </div>
-    </header>);
-
+    </header>
+    </>
+  );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -7,6 +8,7 @@ import { SLATimer } from '../components/ui/SLATimer';
 import { Ticket, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/ui/StatCard';
 export function ClientDashboard() {
+  const navigate = useNavigate();
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -18,7 +20,7 @@ export function ClientDashboard() {
             Track your support tickets and service history
           </p>
         </div>
-        <GreenButton>+ New Ticket</GreenButton>
+        <GreenButton onClick={() => navigate('/client/create-ticket')}>+ New Ticket</GreenButton>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -43,7 +45,7 @@ export function ClientDashboard() {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             My Tickets
           </h3>
-          <GreenButton variant="ghost" className="text-sm">
+          <GreenButton variant="ghost" className="text-sm" onClick={() => navigate('/client/my-tickets')}>
             View All
           </GreenButton>
         </div>

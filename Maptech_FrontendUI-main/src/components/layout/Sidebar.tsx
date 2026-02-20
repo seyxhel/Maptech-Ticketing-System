@@ -1,108 +1,82 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  Ticket,
   Users,
   BarChart3,
   Settings,
   FileText,
   LogOut,
+  Ticket,
   ShieldAlert,
-  Briefcase } from
-'lucide-react';
+} from 'lucide-react';
+
+export interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  path: string;
+}
+
 interface SidebarProps {
   role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
   onNavigate: (page: string) => void;
   currentPage: string;
+  /** When provided, use these items (path = route path). Otherwise derive from role (legacy). */
+  navItems?: NavItem[];
 }
-export function Sidebar({ role, onNavigate, currentPage }: SidebarProps) {
-  const getNavItems = () => {
-    const common = [
-    {
-      id: 'logout',
-      label: 'Logout',
-      icon: LogOut,
-      path: 'logout'
-    }];
 
+export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp }: SidebarProps) {
+  const getNavItems = (): NavItem[] => {
+    const common: NavItem[] = [
+      { id: 'logout', label: 'Logout', icon: LogOut, path: 'logout' },
+    ];
     switch (role) {
       case 'SuperAdmin':
         return [
-        {
-          id: 'dashboard',
-          label: 'Dashboard',
-          icon: LayoutDashboard,
-          path: 'superadmin-dashboard'
-        },
-        {
-          id: 'user-management',
-          label: 'User Management',
-          icon: Users,
-          path: 'user-management'
-        },
-        {
-          id: 'reports',
-          label: 'Global Reports',
-          icon: BarChart3,
-          path: 'reports'
-        },
-        ...common];
-
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: 'superadmin-dashboard' },
+          { id: 'user-management', label: 'User Management', icon: Users, path: 'user-management' },
+          { id: 'reports', label: 'Global Reports', icon: BarChart3, path: 'reports' },
+          { id: 'settings', label: 'Settings', icon: Settings, path: 'settings' },
+          ...common,
+        ];
       case 'Admin':
         return [
-        {
-          id: 'dashboard',
-          label: 'Dashboard',
-          icon: LayoutDashboard,
-          path: 'admin-dashboard'
-        },
-        {
-          id: 'reports',
-          label: 'Reports',
-          icon: BarChart3,
-          path: 'reports'
-        },
-        ...common];
-
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: 'admin-dashboard' },
+          { id: 'tickets', label: 'Tickets', icon: Ticket, path: 'admin-tickets' },
+          { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: 'escalation' },
+          { id: 'reports', label: 'Reports', icon: BarChart3, path: 'reports' },
+          ...common,
+        ];
       case 'Employee':
         return [
-        {
-          id: 'dashboard',
-          label: 'My Dashboard',
-          icon: LayoutDashboard,
-          path: 'employee-dashboard'
-        },
-        ...common];
-
+          { id: 'dashboard', label: 'My Dashboard', icon: LayoutDashboard, path: 'employee-dashboard' },
+          { id: 'my-tickets', label: 'My Tickets', icon: Ticket, path: 'employee-my-tickets' },
+          ...common,
+        ];
       case 'Client':
         return [
-        {
-          id: 'dashboard',
-          label: 'Dashboard',
-          icon: LayoutDashboard,
-          path: 'client-dashboard'
-        },
-        {
-          id: 'create-ticket',
-          label: 'Create Ticket',
-          icon: FileText,
-          path: 'create-ticket'
-        },
-        ...common];
-
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: 'client-dashboard' },
+          { id: 'create-ticket', label: 'Create Ticket', icon: FileText, path: 'create-ticket' },
+          { id: 'my-tickets', label: 'My Tickets', icon: Ticket, path: 'client-my-tickets' },
+          ...common,
+        ];
       default:
         return common;
     }
   };
-  const navItems = getNavItems();
+
+  const navItems = navItemsProp ?? getNavItems();
+  const isPathMatch = (itemPath: string) =>
+    itemPath === 'logout' ? false : (currentPage === itemPath || currentPage.startsWith(itemPath + '/'));
+
   return (
     <aside className="w-64 bg-[#0a0a0a] text-white flex flex-col h-screen fixed left-0 top-0 z-50 border-r border-gray-800">
       {/* Logo Area */}
       <div className="p-6 border-b border-gray-800 flex flex-col items-center">
         <img
-          src="/428183554_374825961972306_8992615643305284211_n.jpg"
+          src="/Maptech%20Official%20Logo%20version2%20(1).png"
           alt="Maptech Logo"
-          className="h-16 w-16 mb-2 object-cover rounded-lg" />
+          className="h-16 w-auto mb-2 object-contain" />
 
         <span className="text-xs text-gray-400 text-center tracking-wide font-medium leading-tight">
           Maptech Information Solutions Inc.
@@ -112,7 +86,7 @@ export function Sidebar({ role, onNavigate, currentPage }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = currentPage === item.path;
+          const isActive = navItemsProp ? isPathMatch(item.path) : currentPage === item.path;
           const Icon = item.icon;
           if (item.id === 'logout') return null;
           return (
