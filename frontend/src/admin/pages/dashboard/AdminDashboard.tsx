@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { fetchTickets, assignTicket, reviewTicket } from '../../../services/ticketService'
 import { fetchTemplates, createTemplate } from '../../../services/templateService'
 import { fetchTypesOfService, createTypeOfService, updateTypeOfService, deleteTypeOfService, TypeOfService } from '../../../services/typeOfServiceService'
+import { getCurrentUser } from '../../../services/authService'
+import TicketChat from '../../../shared/components/TicketChat'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
 const btnPrimary: React.CSSProperties = { padding: '8px 18px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }
@@ -22,8 +24,14 @@ export default function AdminDashboard() {
   // Ticket detail modal
   const [viewTicket, setViewTicket] = useState<any | null>(null)
   const [priority, setPriority] = useState('')
+  const [currentUserId, setCurrentUserId] = useState<number>(0)
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => {
+    loadAll()
+    ;(async () => {
+      try { const u = await getCurrentUser(); setCurrentUserId(u.id) } catch { /* ignore */ }
+    })()
+  }, [])
 
   const loadAll = async () => {
     setTickets(await fetchTickets())
@@ -259,6 +267,16 @@ export default function AdminDashboard() {
                 {viewTicket.time_in ? 'Update Priority' : 'Review & Start Time In'}
               </button>
             </div>
+
+            {/* ── Admin ↔ Employee Chat ── */}
+            {viewTicket.assigned_to && currentUserId > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <label style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, display: 'block' }}>Admin ↔ Employee Chat</label>
+                <div style={{ height: 320 }}>
+                  <TicketChat ticketId={viewTicket.id} channelType="admin_employee" currentUserId={currentUserId} currentUserRole="admin" />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { fetchTickets, createTicket } from '../../../services/ticketService'
 import { fetchTypesOfService, TypeOfService } from '../../../services/typeOfServiceService'
 import { getCurrentUser } from '../../../services/authService'
+import TicketChat from '../../../shared/components/TicketChat'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
 const labelStyle: React.CSSProperties = { display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#374151' }
@@ -12,6 +13,8 @@ export default function ClientHomepage() {
   const [userPhone, setUserPhone] = useState<string | null>(null)
   const [showPhoneWarning, setShowPhoneWarning] = useState(false)
   const [typesOfService, setTypesOfService] = useState<TypeOfService[]>([])
+  const [viewTicket, setViewTicket] = useState<any | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<number>(0)
   const navigate = useNavigate()
 
   // Form fields
@@ -34,6 +37,7 @@ export default function ClientHomepage() {
       try {
         const u = await getCurrentUser()
         setUserPhone(u.phone || '')
+        setCurrentUserId(u.id)
       } catch { /* ignore */ }
     })()
   }, [])
@@ -203,6 +207,7 @@ export default function ClientHomepage() {
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Title</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Status</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Priority</th>
+                <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}></th>
               </tr>
             </thead>
             <tbody>
@@ -217,12 +222,67 @@ export default function ClientHomepage() {
                     </span>
                   </td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '—'}</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                    <button onClick={() => setViewTicket(t)} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>View</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </section>
+
+      {/* ───── CLIENT TICKET DETAIL MODAL ───── */}
+      {viewTicket && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 800, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 20 }}>Ticket Details — {viewTicket.stf_no}</h2>
+              <button onClick={() => setViewTicket(null)} style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
+
+            {/* Read-only ticket info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 20px', fontSize: 14, marginBottom: 16, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
+              <div><strong>Date:</strong> {viewTicket.date}</div>
+              <div><strong>Status:</strong> {viewTicket.status}</div>
+              <div><strong>Client:</strong> {viewTicket.client || '—'}</div>
+              <div><strong>Contact:</strong> {viewTicket.contact_person || '—'}</div>
+              <div><strong>Priority:</strong> {viewTicket.priority || '—'}</div>
+              <div><strong>Assigned To:</strong> {viewTicket.assigned_to?.username || 'Not yet assigned'}</div>
+              <div><strong>Type of Service:</strong> {viewTicket.type_of_service_detail?.name || viewTicket.type_of_service_others || '—'}</div>
+              <div><strong>Time In:</strong> {viewTicket.time_in ? new Date(viewTicket.time_in).toLocaleString() : '—'}</div>
+              <div style={{ gridColumn: '1 / -1' }}><strong>Address:</strong> {viewTicket.address || '—'}</div>
+              <div><strong>Mobile:</strong> {viewTicket.mobile_no || '—'}</div>
+              <div><strong>Email:</strong> {viewTicket.email_address || '—'}</div>
+              <div><strong>Department/Org:</strong> {viewTicket.department_organization || '—'}</div>
+              <div><strong>Designation:</strong> {viewTicket.designation || '—'}</div>
+            </div>
+
+            {/* Employee fields (read-only for client) */}
+            {(viewTicket.description_of_problem || viewTicket.action_taken || viewTicket.job_status) && (
+              <div style={{ fontSize: 14, marginBottom: 16, padding: 16, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 15 }}>Employee Progress</h4>
+                {viewTicket.preferred_support_type && <div style={{ marginBottom: 4 }}><strong>Support Type:</strong> {viewTicket.preferred_support_type}</div>}
+                {viewTicket.description_of_problem && <div style={{ marginBottom: 4 }}><strong>Problem Description:</strong> {viewTicket.description_of_problem}</div>}
+                {viewTicket.action_taken && <div style={{ marginBottom: 4 }}><strong>Action Taken:</strong> {viewTicket.action_taken}</div>}
+                {viewTicket.remarks && <div style={{ marginBottom: 4 }}><strong>Remarks:</strong> {viewTicket.remarks}</div>}
+                {viewTicket.job_status && <div><strong>Job Status:</strong> {viewTicket.job_status}</div>}
+              </div>
+            )}
+
+            {/* Chat — only visible if ticket is assigned */}
+            {viewTicket.assigned_to && currentUserId > 0 && (
+              <div style={{ height: 350, marginBottom: 16 }}>
+                <TicketChat ticketId={viewTicket.id} channelType="client_employee" currentUserId={currentUserId} currentUserRole="client" />
+              </div>
+            )}
+
+            <div style={{ textAlign: 'right' }}>
+              <button onClick={() => setViewTicket(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

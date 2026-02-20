@@ -7,3 +7,5 @@ google-auth
 google-auth-httplib2
 requests
 python-dotenv
+channels[daphne]
+channels

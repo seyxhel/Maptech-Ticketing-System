@@ -10,7 +10,7 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
-from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, AssignmentSession, Message
 from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer, TypeOfServiceSerializer, TicketAttachmentSerializer
 
 
@@ -269,9 +269,43 @@ class TicketViewSet(viewsets.ModelViewSet):
             emp = User.objects.get(id=employee_id, role=User.ROLE_EMPLOYEE)
         except User.DoesNotExist:
             return Response({'detail': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        old_employee = ticket.assigned_to
+
+        # End previous assignment session
+        if ticket.current_session:
+            prev_session = ticket.current_session
+            prev_session.is_active = False
+            prev_session.ended_at = timezone.now()
+            prev_session.save()
+
+            # Force-disconnect old employee from WebSocket
+            if old_employee and old_employee.id != emp.id:
+                self._send_force_disconnect(ticket.id, old_employee)
+
+        # Create new assignment session
+        new_session = AssignmentSession.objects.create(ticket=ticket, employee=emp)
+
         ticket.assigned_to = emp
+        ticket.current_session = new_session
         ticket.status = Ticket.STATUS_OPEN
         ticket.save()
+
+        # Create system message about reassignment (in both channels)
+        if old_employee and old_employee.id != emp.id:
+            sys_content = f"Employee changed from {old_employee.get_full_name() or old_employee.username} to {emp.get_full_name() or emp.username}"
+            for ch in ['client_employee', 'admin_employee']:
+                Message.objects.create(
+                    ticket=ticket,
+                    assignment_session=new_session,
+                    channel_type=ch,
+                    sender=request.user,
+                    content=sys_content,
+                    is_system_message=True,
+                )
+                # Broadcast system message via channel layer
+                self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
+
         # create tasks from template if provided
         if template_id:
             try:
@@ -282,6 +316,44 @@ class TicketViewSet(viewsets.ModelViewSet):
             except Template.DoesNotExist:
                 pass
         return Response(self.get_serializer(ticket).data)
+
+    @staticmethod
+    def _send_force_disconnect(ticket_id, old_employee):
+        """Send force_disconnect to old employee's WebSocket channels."""
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            for ch in ['client_employee', 'admin_employee']:
+                group = f'chat_{ticket_id}_{ch}'
+                async_to_sync(channel_layer.group_send)(group, {
+                    'type': 'force_disconnect',
+                    'reason': 'You have been unassigned from this ticket.',
+                })
+
+    @staticmethod
+    def _broadcast_system_message(ticket_id, channel_type, content, sender):
+        """Broadcast a system message to the WS group."""
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            group = f'chat_{ticket_id}_{channel_type}'
+            async_to_sync(channel_layer.group_send)(group, {
+                'type': 'system_message',
+                'message': {
+                    'id': None,
+                    'sender_id': sender.id,
+                    'sender_username': sender.username,
+                    'sender_role': sender.role,
+                    'content': content,
+                    'reply_to': None,
+                    'is_system_message': True,
+                    'reactions': {},
+                    'read_by': [],
+                    'created_at': timezone.now().isoformat(),
+                },
+            })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def escalate(self, request, pk=None):

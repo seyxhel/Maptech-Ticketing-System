@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { fetchTickets, updateEmployeeFields, uploadAttachments, deleteAttachment } from '../../services/ticketService'
+import { getCurrentUser } from '../../services/authService'
+import TicketChat from '../../shared/components/TicketChat'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
 const labelStyle: React.CSSProperties = { display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#374151' }
@@ -9,6 +11,8 @@ const btnSecondary: React.CSSProperties = { padding: '8px 18px', borderRadius: 6
 export default function EmployeeDashboard() {
   const [tickets, setTickets] = useState<any[]>([])
   const [viewTicket, setViewTicket] = useState<any | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<number>(0)
+  const [chatTab, setChatTab] = useState<'client' | 'admin'>('client')
 
   // Employee-editable fields
   const [preferredSupport, setPreferredSupport] = useState('')
@@ -26,7 +30,12 @@ export default function EmployeeDashboard() {
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { loadTickets() }, [])
+  useEffect(() => {
+    loadTickets()
+    ;(async () => {
+      try { const u = await getCurrentUser(); setCurrentUserId(u.id) } catch { /* ignore */ }
+    })()
+  }, [])
 
   const loadTickets = async () => { setTickets(await fetchTickets()) }
 
@@ -299,6 +308,40 @@ export default function EmployeeDashboard() {
                 ))}
               </div>
             </div>
+
+            {/* ── Chat Section (two channels) ── */}
+            {currentUserId > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ ...labelStyle, marginBottom: 8 }}>Messages</label>
+                <div style={{ display: 'flex', gap: 0, marginBottom: 8, borderBottom: '1px solid #e5e7eb' }}>
+                  <button
+                    onClick={() => setChatTab('client')}
+                    style={{
+                      padding: '8px 16px', cursor: 'pointer', border: 'none',
+                      borderBottom: chatTab === 'client' ? '3px solid #2563eb' : '3px solid transparent',
+                      background: 'none', fontWeight: chatTab === 'client' ? 700 : 400,
+                      color: chatTab === 'client' ? '#2563eb' : '#6b7280', fontSize: 13,
+                    }}
+                  >Client Chat</button>
+                  <button
+                    onClick={() => setChatTab('admin')}
+                    style={{
+                      padding: '8px 16px', cursor: 'pointer', border: 'none',
+                      borderBottom: chatTab === 'admin' ? '3px solid #2563eb' : '3px solid transparent',
+                      background: 'none', fontWeight: chatTab === 'admin' ? 700 : 400,
+                      color: chatTab === 'admin' ? '#2563eb' : '#6b7280', fontSize: 13,
+                    }}
+                  >Admin Chat</button>
+                </div>
+                <div style={{ height: 320 }}>
+                  {chatTab === 'client' ? (
+                    <TicketChat ticketId={viewTicket.id} channelType="client_employee" currentUserId={currentUserId} currentUserRole="employee" />
+                  ) : (
+                    <TicketChat ticketId={viewTicket.id} channelType="admin_employee" currentUserId={currentUserId} currentUserRole="employee" />
+                  )}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button style={btnSecondary} onClick={closeDetail}>Close</button>
