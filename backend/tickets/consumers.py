@@ -159,20 +159,35 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def _get_messages(self):
         from .models import Ticket, Message
+        from users.models import User
         try:
             ticket = Ticket.objects.select_related('assigned_to').get(id=self.ticket_id)
         except Ticket.DoesNotExist:
             return []
 
-        session = self._ensure_session(ticket)
-        if not session:
-            return []
+        user = self.user
+        is_employee = getattr(user, 'role', None) == User.ROLE_EMPLOYEE
 
-        msgs = Message.objects.filter(
-            ticket=ticket,
-            channel_type=self.channel_type,
-            assignment_session=session,
-        ).select_related('sender', 'reply_to__sender').prefetch_related('reactions__user', 'read_receipts__user')
+        if is_employee:
+            # Employee only sees messages from their current assignment session
+            session = self._ensure_session(ticket)
+            if not session:
+                return []
+            msgs = Message.objects.filter(
+                ticket=ticket,
+                channel_type=self.channel_type,
+                assignment_session=session,
+            )
+        else:
+            # Client and admin see the full history across all sessions
+            msgs = Message.objects.filter(
+                ticket=ticket,
+                channel_type=self.channel_type,
+            )
+
+        msgs = msgs.select_related('sender', 'reply_to__sender').prefetch_related(
+            'reactions__user', 'read_receipts__user'
+        ).order_by('created_at')
 
         return [self._serialize_message(m) for m in msgs]
 
