@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import './styles.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './shared/components/Header'
@@ -75,6 +77,7 @@ function App() {
         <AuthProvider>
           <Header />
           <AppRoutes />
+          <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>

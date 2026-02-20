@@ -20,6 +20,32 @@ User = get_user_model()
 class RegisterViewSet(viewsets.GenericViewSet):
     serializer_class = RegisterSerializer
 
+    @action(detail=False, methods=['post'], permission_classes=[], url_path='check_unique')
+    def check_unique(self, request):
+        field = request.data.get('field')
+        value = request.data.get('value', '').strip()
+        if not field or not value:
+            return Response({'detail': 'field and value required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if field == 'email':
+            exists = User.objects.filter(email__iexact=value).exists()
+        elif field == 'username':
+            exists = User.objects.filter(username__iexact=value).exists()
+        elif field == 'phone':
+            import re as _re
+            digits = _re.sub(r'\D', '', value)
+            if _re.match(r'^0\d{10}$', digits):
+                formatted = '+63' + digits[1:]
+            elif _re.match(r'^9\d{9}$', digits):
+                formatted = '+63' + digits
+            elif _re.match(r'^63\d{10}$', digits):
+                formatted = '+' + digits
+            else:
+                formatted = digits
+            exists = User.objects.filter(phone=formatted).exists()
+        else:
+            return Response({'detail': 'Invalid field.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'exists': exists})
+
     @action(detail=False, methods=['post'], permission_classes=[])
     def register(self, request):
         serializer = self.get_serializer(data=request.data)
