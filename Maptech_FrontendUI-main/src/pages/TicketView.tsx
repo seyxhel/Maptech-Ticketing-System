@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -11,6 +12,7 @@ import {
   Check,
   Camera,
   X,
+  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -28,6 +30,7 @@ const PROOF_CONFIG: { key: ProofType; icon: typeof Camera; label: string }[] = [
 ];
 
 export function TicketView() {
+  const navigate = useNavigate();
   const [proofFiles, setProofFiles] = useState<Record<ProofType, ProofFile | null>>({
     screenshot: null,
     image: null,
@@ -102,7 +105,17 @@ export function TicketView() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-6">
+      <button
+        type="button"
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-[#0E8F79] dark:hover:text-green-400 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Return
+      </button>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 space-y-6">
         <Card accent>
           <div className="flex justify-between items-start mb-4">
@@ -318,6 +331,7 @@ export function TicketView() {
             </button>
           </div>
         </Card>
+      </div>
       </div>
     </div>
   );

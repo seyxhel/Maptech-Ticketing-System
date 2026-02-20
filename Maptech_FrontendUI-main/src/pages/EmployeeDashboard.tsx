@@ -91,8 +91,9 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
           map((ticket) =>
           <Card
             key={ticket.id}
-            className="hover:border-[#3BC25B] dark:hover:border-[#3BC25B] hover:shadow-md transition-all cursor-pointer group"
-            onClick={() => onNavigate && onNavigate('ticket-view')}>
+            className="hover:border-[#3BC25B] dark:hover:border-[#3BC25B] hover:shadow-md transition-all group"
+            onClick={() => onNavigate?.('ticket-view')}
+          >
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1">
