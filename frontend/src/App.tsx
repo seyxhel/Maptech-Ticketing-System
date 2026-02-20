@@ -66,9 +66,7 @@ function AppRoutes() {
   )
 }
 
-const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  '276365794260-8i0l9j64lj0os7t1h5ofa0iglk97jt9e.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 function App() {
   return (

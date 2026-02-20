@@ -1,3 +1,9 @@
 venv/
 node_modules/
 __pycache__/
+
+# Environment variables (contain secrets)
+.env
+.env.local
+.env.*.local
+!.env.example
