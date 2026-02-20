@@ -121,7 +121,8 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
 
     @database_sync_to_async
     def _check_access(self):
-        from .models import Ticket, User
+        from .models import Ticket
+        from users.models import User
         try:
             ticket = Ticket.objects.select_related('created_by', 'assigned_to').get(id=self.ticket_id)
         except Ticket.DoesNotExist:
