@@ -35,10 +35,23 @@ class TicketSerializer(serializers.ModelSerializer):
     attachments = TicketAttachmentSerializer(many=True, read_only=True)
     type_of_service_detail = TypeOfServiceSerializer(source='type_of_service', read_only=True)
 
+    # Role-based writable fields
+    CLIENT_FIELDS = {
+        'client', 'contact_person', 'address', 'designation',
+        'landline', 'department_organization', 'mobile_no', 'email_address',
+        'type_of_service', 'type_of_service_others',
+    }
+    EMPLOYEE_FIELDS = {
+        'preferred_support_type', 'device_equipment', 'version_no',
+        'date_purchased', 'serial_no', 'description_of_problem',
+        'action_taken', 'remarks', 'job_status',
+    }
+    ADMIN_FIELDS = {'priority'}
+
     class Meta:
         model = Ticket
         fields = [
-            'id', 'description', 'status',
+            'id', 'status',
             'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at',
             # New fields
             'stf_no', 'date', 'time_in', 'time_out',
@@ -53,6 +66,33 @@ class TicketSerializer(serializers.ModelSerializer):
             'attachments',
         ]
         read_only_fields = ['stf_no', 'date', 'time_in', 'time_out']
+
+    def _get_allowed_fields(self):
+        """Return the set of writable field names based on the requesting user's role."""
+        request = self.context.get('request')
+        if not request or not request.user or not request.user.is_authenticated:
+            return set()
+        role = request.user.role
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        if role == User.ROLE_ADMIN:
+            return self.ADMIN_FIELDS
+        elif role == User.ROLE_EMPLOYEE:
+            return self.EMPLOYEE_FIELDS
+        elif role == User.ROLE_CLIENT:
+            return self.CLIENT_FIELDS
+        return set()
+
+    def update(self, instance, validated_data):
+        allowed = self._get_allowed_fields()
+        # Strip out any fields the user's role is not allowed to write
+        filtered = {k: v for k, v in validated_data.items() if k in allowed}
+        return super().update(instance, filtered)
+
+    def create(self, validated_data):
+        allowed = self._get_allowed_fields()
+        filtered = {k: v for k, v in validated_data.items() if k in allowed}
+        return super().create(filtered)
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
