@@ -10,12 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='user',
-            name='password_reset_expires',
-        ),
-        migrations.RemoveField(
-            model_name='user',
-            name='password_reset_token',
-        ),
+        # No-op: password reset fields are managed in the `users` app migrations.
     ]
