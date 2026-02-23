@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { toast } from 'sonner';
@@ -9,13 +10,25 @@ import {
   Monitor,
   Wrench,
   Server,
-  Search } from
-'lucide-react';
+  Search,
+  
+} from 'lucide-react';
 export function CreateTicket() {
+  const getStfNo = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const yyyymmdd = `${y}${m}${day}`;
+    const suffix = String(Math.floor(Math.random() * 900000) + 100000); // 6 digits
+    return `STF-MP-${yyyymmdd}${suffix}`;
+  };
+  const stfNo = getStfNo();
+  const navigate = useNavigate();
+
   const [serviceType, setServiceType] = useState('');
   const [supportType, setSupportType] = useState('');
   const [warrantyStatus, setWarrantyStatus] = useState('With Warranty');
-  const [ticketStatus, setTicketStatus] = useState('Open');
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success('Service Ticket Submitted Successfully', {
@@ -30,6 +43,7 @@ export function CreateTicket() {
   'text-sm font-bold text-[#0E8F79] dark:text-green-400 uppercase tracking-wider mb-6 pb-2 border-b border-gray-100 dark:border-gray-700';
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
+      
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
           SERVICE TICKET FORM
@@ -47,7 +61,7 @@ export function CreateTicket() {
           {
             icon: FileText,
             label: 'STF No.',
-            value: 'STF-2024-001'
+            value: stfNo
           },
           {
             icon: Clock,
@@ -80,16 +94,18 @@ export function CreateTicket() {
             'Department / Organization'].
             map((f) =>
             <div key={f}>
-                <label className={labelCls}>{f}</label>
+                <label className={labelCls}>
+                  {f} {f !== 'Landline No.' && <span className="text-red-500 ml-1">*</span>}
+                </label>
                 <input type="text" className={inputCls} />
               </div>
             )}
             <div>
-              <label className={labelCls}>Email Address</label>
+              <label className={labelCls}>Email Address <span className="text-red-500 ml-1">*</span></label>
               <input type="email" className={inputCls} />
             </div>
             <div className="md:col-span-2">
-              <label className={labelCls}>Full Address</label>
+                <label className={labelCls}>Full Address <span className="text-red-500 ml-1">*</span></label>
               <textarea rows={2} className={inputCls + ' resize-none'} />
             </div>
           </div>
@@ -170,7 +186,7 @@ export function CreateTicket() {
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>3. Preferred Type of Support</h3>
           <div className="flex flex-wrap gap-4">
-            {['Remote / Online', 'Onsite', 'Chat'].map((type) =>
+            {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) =>
             <button
               key={type}
               type="button"
@@ -194,16 +210,16 @@ export function CreateTicket() {
             'Sales No.'].
             map((f) =>
             <div key={f}>
-                <label className={labelCls}>{f}</label>
+                <label className={labelCls}>{f} <span className="text-red-500 ml-1">*</span></label>
                 <input type="text" className={inputCls} />
               </div>
             )}
             <div>
-              <label className={labelCls}>Date Purchased</label>
+              <label className={labelCls}>Date Purchased <span className="text-red-500 ml-1">*</span></label>
               <input type="date" className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Warranty Status</label>
+              <label className={labelCls}>Warranty Status <span className="text-red-500 ml-1">*</span></label>
               <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
                 {['With Warranty', 'Without Warranty'].map((s) =>
                 <button
@@ -230,7 +246,7 @@ export function CreateTicket() {
 
         {/* Section 5 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>5. Description of Problem</h3>
+          <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
           <textarea
             rows={8}
             className={inputCls + ' resize-none'}
@@ -238,21 +254,7 @@ export function CreateTicket() {
 
         </Card>
 
-        {/* Section 6 */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>6. Ticket Status</h3>
-          <div className="max-w-xs">
-            <select
-              value={ticketStatus}
-              onChange={(e) => setTicketStatus(e.target.value)}
-              className={`w-full px-4 py-2.5 border rounded-lg font-medium outline-none focus:ring-2 focus:ring-offset-1 bg-white dark:bg-gray-700 ${ticketStatus === 'Open' ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700' : ticketStatus === 'Closed' ? 'text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700'}`}>
-
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-              <option value="Rejected">Rejected</option>
-            </select>
-          </div>
-        </Card>
+        {/* Section 6 (removed) */}
 
         <div className="pt-4">
           <GreenButton
