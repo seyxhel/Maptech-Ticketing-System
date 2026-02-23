@@ -69,7 +69,6 @@ class Ticket(models.Model):
     ]
 
     # ---- Original fields ----
-    title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='created_tickets', on_delete=models.CASCADE)
@@ -140,7 +139,7 @@ class Ticket(models.Model):
         return f'{prefix}{seq:06d}'
 
     def __str__(self):
-        return f"{self.stf_no or self.title} ({self.status})"
+        return f"{self.stf_no} ({self.status})"
 
 
 class TicketAttachment(models.Model):
