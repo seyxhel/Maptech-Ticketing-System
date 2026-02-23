@@ -132,7 +132,7 @@ export default function EmployeeDashboard() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-                {['STF No.', 'Date', 'Title', 'Client', 'Status', 'Priority', 'Job Status', ''].map(h => (
+                {['STF No.', 'Date', 'Client', 'Status', 'Priority', 'Job Status', ''].map(h => (
                   <th key={h} style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>{h}</th>
                 ))}
               </tr>
@@ -142,7 +142,7 @@ export default function EmployeeDashboard() {
                 <tr key={t.id}>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13, fontFamily: 'monospace' }}>{t.stf_no}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.date}</td>
-                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.title}</td>
+
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.client || '—'}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.status}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '—'}</td>

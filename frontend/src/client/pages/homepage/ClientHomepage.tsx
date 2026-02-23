@@ -18,7 +18,6 @@ export default function ClientHomepage() {
   const navigate = useNavigate()
 
   // Form fields
-  const [title, setTitle] = useState('')
   const [client, setClient] = useState('')
   const [contactPerson, setContactPerson] = useState('')
   const [address, setAddress] = useState('')
@@ -46,7 +45,7 @@ export default function ClientHomepage() {
   const loadServices = async () => { setTypesOfService(await fetchTypesOfService()) }
 
   const resetForm = () => {
-    setTitle(''); setClient(''); setContactPerson(''); setAddress('')
+    setClient(''); setContactPerson(''); setAddress('')
     setDesignation(''); setLandline(''); setDeptOrg(''); setMobileNo('')
     setEmailAddress(''); setTypeOfServiceId(''); setTypeOfServiceOthers('')
   }
@@ -55,7 +54,6 @@ export default function ClientHomepage() {
     e.preventDefault()
     if (!userPhone || !userPhone.trim()) { setShowPhoneWarning(true); return }
     const payload: Record<string, any> = {
-      title,
       client,
       contact_person: contactPerson,
       address,
@@ -110,12 +108,6 @@ export default function ClientHomepage() {
         <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: 18 }}>Create Ticket</h3>
         <form onSubmit={handleCreate}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* Title — full width */}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>Title *</label>
-              <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ticket subject" required />
-            </div>
-
             {/* Client */}
             <div>
               <label style={labelStyle}>Client *</label>
@@ -204,7 +196,7 @@ export default function ClientHomepage() {
               <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>STF No.</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Date</th>
-                <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Title</th>
+                <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Client</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Status</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>Priority</th>
                 <th style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}></th>
@@ -215,7 +207,7 @@ export default function ClientHomepage() {
                 <tr key={t.id}>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13, fontFamily: 'monospace' }}>{t.stf_no}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.date}</td>
-                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.title}</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.client}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                     <span style={{ padding: '2px 8px', borderRadius: 9999, fontSize: 12, background: t.status === 'open' ? '#dbeafe' : t.status === 'closed' ? '#dcfce7' : '#fef3c7', color: t.status === 'open' ? '#1d4ed8' : t.status === 'closed' ? '#15803d' : '#92400e' }}>
                       {t.status}
