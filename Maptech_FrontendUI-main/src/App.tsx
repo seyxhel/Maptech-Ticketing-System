@@ -6,8 +6,6 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import { ForgotPassword } from './pages/ForgotPassword';
-import { PrivacyPolicy } from './pages/PrivacyPolicy';
-import { TermsOfService } from './pages/TermsOfService';
 import { SuperAdminLayout } from './layouts/SuperAdminLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { EmployeeLayout } from './layouts/EmployeeLayout';
@@ -22,15 +20,21 @@ import AdminDashboard from './pages/admin/dashboard';
 import AdminTickets from './pages/admin/tickets';
 import AdminEscalation from './pages/admin/escalation';
 import AdminReports from './pages/admin/reports';
+import AdminCreateTicket from './pages/admin/create-ticket';
+import AdminTicketDetails from './pages/admin/ticket-details';
+import AdminSettings from './pages/admin/settings';
 
 import EmployeeDashboard from './pages/employee/dashboard';
 import EmployeeMyTickets from './pages/employee/my-tickets';
 import EmployeeTicketDetails from './pages/employee/ticket-details';
+import EmployeeKnowledgeBase from './pages/employee/knowledge-base';
+import EmployeeSettings from './pages/employee/settings';
 
 import ClientDashboard from './pages/client/dashboard';
 import ClientCreateTicket from './pages/client/create-ticket';
 import ClientMyTickets from './pages/client/my-tickets';
 import ClientTicketDetails from './pages/client/ticket-details';
+import ClientSettings from './pages/client/settings';
 
 function RootRedirect() {
   const { user, getRedirectPath } = useAuth();
@@ -50,8 +54,6 @@ export function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfService />} />
             <Route path="/" element={<RootRedirect />} />
 
             <Route
@@ -82,6 +84,9 @@ export function App() {
               <Route path="tickets" element={<AdminTickets />} />
               <Route path="escalation" element={<AdminEscalation />} />
               <Route path="reports" element={<AdminReports />} />
+              <Route path="create-ticket" element={<AdminCreateTicket />} />
+              <Route path="ticket-details" element={<AdminTicketDetails />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             <Route
@@ -96,6 +101,8 @@ export function App() {
               <Route path="dashboard" element={<EmployeeDashboard />} />
               <Route path="my-tickets" element={<EmployeeMyTickets />} />
               <Route path="ticket-details" element={<EmployeeTicketDetails />} />
+              <Route path="knowledge-base" element={<EmployeeKnowledgeBase />} />
+              <Route path="settings" element={<EmployeeSettings />} />
             </Route>
 
             <Route
@@ -111,6 +118,7 @@ export function App() {
               <Route path="create-ticket" element={<ClientCreateTicket />} />
               <Route path="my-tickets" element={<ClientMyTickets />} />
               <Route path="ticket-details" element={<ClientTicketDetails />} />
+              <Route path="settings" element={<ClientSettings />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

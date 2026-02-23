@@ -51,7 +51,8 @@ export function Layout({
           role={role}
           isDark={isDark}
           onToggleDark={onToggleDark}
-          onMenuClick={() => setIsSidebarOpen(true)} />
+          onMenuClick={() => setIsSidebarOpen(true)}
+          onNavigate={onNavigate} />
 
         <main className="flex-1 p-6 mt-16 overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-6">{children}</div>

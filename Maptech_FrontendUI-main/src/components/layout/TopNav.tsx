@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Search, Sun, Moon, Menu, ChevronDown } from 'lucide-react';
+import { Bell, Search, Sun, Moon, Menu, Settings } from 'lucide-react';
 import { NotificationPanel } from '../NotificationPanel';
 
 interface TopNavProps {
@@ -7,6 +7,7 @@ interface TopNavProps {
   isDark: boolean;
   onToggleDark: () => void;
   onMenuClick?: () => void;
+  onNavigate?: (path: string) => void;
 }
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'Super Administrator',
@@ -36,7 +37,8 @@ export function TopNav({
   role,
   isDark,
   onToggleDark,
-  onMenuClick
+  onMenuClick,
+  onNavigate
 }: TopNavProps) {
   const [notificationOpen, setNotificationOpen] = useState(false);
 
@@ -52,6 +54,7 @@ export function TopNav({
           <Menu className="w-5 h-5" />
         </button>
 
+        {role !== 'Client' && (
         <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800 border border-transparent dark:border-gray-700 rounded-lg px-3 py-2 w-72 transition-colors">
           <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0" />
           <input
@@ -60,6 +63,7 @@ export function TopNav({
             className="bg-transparent border-none focus:outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" />
 
         </div>
+        )}
       </div>
 
       {/* Right: dark toggle, notifications, user */}
@@ -106,7 +110,13 @@ export function TopNav({
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#63D44A] to-[#0E8F79] flex items-center justify-center text-white text-xs font-bold">
               {ROLE_INITIALS[role]}
             </div>
-            <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+            <button
+              onClick={() => onNavigate?.(`/${role.toLowerCase()}/settings`)}
+              className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              title="Settings"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

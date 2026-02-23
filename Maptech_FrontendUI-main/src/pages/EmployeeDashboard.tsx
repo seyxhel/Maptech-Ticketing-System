@@ -1,10 +1,10 @@
 import React from 'react';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
-import { GreenButton } from '../components/ui/GreenButton';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { PriorityBadge } from '../components/ui/PriorityBadge';
 import { SLATimer } from '../components/ui/SLATimer';
+import { MOCK_TICKETS } from '../data/mockTickets';
 import {
   CheckCircle,
   Clock,
@@ -17,9 +17,6 @@ interface EmployeeDashboardProps {
   onNavigate?: (page: string) => void;
 }
 export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
-  const handleTicketClick = () => {
-    if (onNavigate) onNavigate('ticket-view');
-  };
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -28,7 +25,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
             My Workspace
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            Welcome back, Alex. You have 4 tickets needing attention.
+            Welcome back, Sarah. You have 4 tickets needing attention.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
@@ -60,35 +57,8 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             Priority Tickets
           </h3>
-          {[
-          {
-            id: 'TK-9012',
-            title: 'Database connection failure',
-            client: 'FinTech Corp',
-            priority: 'Critical',
-            status: 'In Progress',
-            sla: 1,
-            total: 4
-          },
-          {
-            id: 'TK-9015',
-            title: 'Email sync issues',
-            client: 'Global Logistics',
-            priority: 'High',
-            status: 'Assigned',
-            sla: 3,
-            total: 8
-          },
-          {
-            id: 'TK-9018',
-            title: 'VPN access request',
-            client: 'Remote Team',
-            priority: 'Medium',
-            status: 'Assigned',
-            sla: 12,
-            total: 24
-          }].
-          map((ticket) =>
+          <div className="max-h-[540px] overflow-y-auto space-y-4 pr-1">
+          {MOCK_TICKETS.map((ticket) =>
           <Card
             key={ticket.id}
             className="hover:border-[#3BC25B] dark:hover:border-[#3BC25B] hover:shadow-md transition-all group"
@@ -105,7 +75,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
                     <StatusBadge status={ticket.status} />
                   </div>
                   <h4 className="text-base font-semibold text-gray-900 dark:text-white group-hover:text-[#0E8F79] dark:group-hover:text-green-400 transition-colors">
-                    {ticket.title}
+                    {ticket.issue}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Client: {ticket.client}
@@ -131,6 +101,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
               </div>
             </Card>
           )}
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -187,7 +158,10 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
               Check the internal knowledge base for troubleshooting guides or
               escalate complex issues.
             </p>
-            <button className="w-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium py-2 rounded-lg transition-colors">
+            <button
+              onClick={() => onNavigate?.('knowledge-base')}
+              className="w-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+            >
               Open Knowledge Base
             </button>
           </Card>

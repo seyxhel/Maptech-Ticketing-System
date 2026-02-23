@@ -13,6 +13,16 @@ import {
   Search,
   
 } from 'lucide-react';
+
+const CONTACT_FIELDS = [
+  { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
+  { name: 'contactPerson', label: 'Contact Person', placeholder: 'e.g. Juan Dela Cruz', required: true },
+  { name: 'landline', label: 'Landline No.', placeholder: 'e.g. (02) 1234-5678', required: false },
+  { name: 'mobile', label: 'Mobile No.', placeholder: 'e.g. 09171234567', required: true },
+  { name: 'designation', label: 'Designation', placeholder: 'e.g. IT Manager', required: true },
+  { name: 'department', label: 'Department / Organization', placeholder: 'e.g. Information Technology', required: true },
+] as const;
+
 export function CreateTicket() {
   const getStfNo = () => {
     const d = new Date();
@@ -23,18 +33,60 @@ export function CreateTicket() {
     const suffix = String(Math.floor(Math.random() * 900000) + 100000); // 6 digits
     return `STF-MP-${yyyymmdd}${suffix}`;
   };
-  const stfNo = getStfNo();
+  const [stfNo] = useState(getStfNo);
   const navigate = useNavigate();
 
+  // Contact fields state
+  const [contactValues, setContactValues] = useState<Record<string, string>>({
+    client: '', contactPerson: '', landline: '', mobile: '', designation: '', department: '',
+  });
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+
   const [serviceType, setServiceType] = useState('');
+  const [serviceOthersText, setServiceOthersText] = useState('');
   const [supportType, setSupportType] = useState('');
-  const [warrantyStatus, setWarrantyStatus] = useState('With Warranty');
+  const [description, setDescription] = useState('');
+
+  // Validation
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  const setContactField = (name: string, value: string) => {
+    setContactValues((prev) => ({ ...prev, [name]: value }));
+    if (value.trim()) setErrors((prev) => ({ ...prev, [name]: false }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const newErrors: Record<string, boolean> = {};
+
+    // Validate contact fields
+    CONTACT_FIELDS.forEach((f) => {
+      if (f.required && !contactValues[f.name]?.trim()) newErrors[f.name] = true;
+    });
+    if (!email.trim()) newErrors['email'] = true;
+    if (!address.trim()) newErrors['address'] = true;
+    if (!serviceType) newErrors['serviceType'] = true;
+    if (serviceType === 'Others' && !serviceOthersText.trim()) newErrors['serviceOthersText'] = true;
+    if (!supportType) newErrors['supportType'] = true;
+    if (!description.trim()) newErrors['description'] = true;
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      toast.error('Please fill up all required fields.');
+      return;
+    }
+
+    const now = new Date();
     toast.success('Service Ticket Submitted Successfully', {
-      description: 'Your ticket STF-2024-001 has been created.'
+      description: `Date: ${now.toLocaleDateString()} | STF No.: ${stfNo} | Time In: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
     });
   };
+
+  const errorRing = 'ring-2 ring-red-400 border-red-400';
+
   const inputCls =
   'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all';
   const labelCls =
@@ -85,35 +137,50 @@ export function CreateTicket() {
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>1. Contact Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-            'Client',
-            'Contact Person',
-            'Landline No.',
-            'Mobile No.',
-            'Designation',
-            'Department / Organization'].
-            map((f) =>
-            <div key={f}>
+            {CONTACT_FIELDS.map((f) =>
+            <div key={f.name}>
                 <label className={labelCls}>
-                  {f} {f !== 'Landline No.' && <span className="text-red-500 ml-1">*</span>}
+                  {f.label} {f.required && <span className="text-red-500 ml-1">*</span>}
                 </label>
-                <input type="text" className={inputCls} />
+                <input
+                  type="text"
+                  placeholder={f.placeholder}
+                  value={contactValues[f.name]}
+                  onChange={(e) => setContactField(f.name, e.target.value)}
+                  className={`${inputCls} ${errors[f.name] ? errorRing : ''}`}
+                />
+                {errors[f.name] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
               </div>
             )}
             <div>
               <label className={labelCls}>Email Address <span className="text-red-500 ml-1">*</span></label>
-              <input type="email" className={inputCls} />
+              <input
+                type="email"
+                placeholder="e.g. juandelacruz@email.com"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, email: false })); }}
+                className={`${inputCls} ${errors['email'] ? errorRing : ''}`}
+              />
+              {errors['email'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
             <div className="md:col-span-2">
                 <label className={labelCls}>Full Address <span className="text-red-500 ml-1">*</span></label>
-              <textarea rows={2} className={inputCls + ' resize-none'} />
+              <textarea
+                rows={2}
+                placeholder="e.g. 123 Main Street, Quezon City, Metro Manila"
+                value={address}
+                onChange={(e) => { setAddress(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, address: false })); }}
+                className={`${inputCls} resize-none ${errors['address'] ? errorRing : ''}`}
+              />
+              {errors['address'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
             </div>
           </div>
         </Card>
 
         {/* Section 2 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>2. Type of Service</h3>
+          <h3 className={sectionHeaderCls}>2. Type of Service <span className="text-red-500 ml-1">*</span></h3>
+          {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
             {
@@ -139,7 +206,7 @@ export function CreateTicket() {
             map(({ label, icon: Icon }) =>
             <div
               key={label}
-              onClick={() => setServiceType(label)}
+              onClick={() => { setServiceType((prev) => prev === label ? '' : label); setErrors((p) => ({ ...p, serviceType: false })); }}
               className={`cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${serviceType === label ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
 
                 <div
@@ -155,7 +222,7 @@ export function CreateTicket() {
               </div>
             )}
             <div
-              onClick={() => setServiceType('Others')}
+              onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }}
               className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
 
               <div className="flex items-center gap-3">
@@ -171,12 +238,16 @@ export function CreateTicket() {
                 </span>
               </div>
               {serviceType === 'Others' &&
-              <input
-                type="text"
-                placeholder="Please specify..."
-                className="mt-1 w-full text-sm border-b border-[#3BC25B] bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none"
-                autoFocus />
-
+              <div onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="text"
+                  placeholder="Please specify the service..."
+                  value={serviceOthersText}
+                  onChange={(e) => { setServiceOthersText(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, serviceOthersText: false })); }}
+                  className={`mt-1 w-full text-sm border-b ${errors['serviceOthersText'] ? 'border-red-400' : 'border-[#3BC25B]'} bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none`}
+                  autoFocus />
+                {errors['serviceOthersText'] && <p className="text-red-500 text-xs mt-1">Please specify the service</p>}
+              </div>
               }
             </div>
           </div>
@@ -184,13 +255,14 @@ export function CreateTicket() {
 
         {/* Section 3 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>3. Preferred Type of Support</h3>
+          <h3 className={sectionHeaderCls}>3. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
+          {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a support type</p>}
           <div className="flex flex-wrap gap-4">
             {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) =>
             <button
               key={type}
               type="button"
-              onClick={() => setSupportType(type)}
+              onClick={() => { setSupportType((prev) => prev === type ? '' : type); setErrors((p) => ({ ...p, supportType: false })); }}
               className={`px-6 py-3 rounded-full text-sm font-medium transition-all border ${supportType === type ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
 
                 {type}
@@ -201,60 +273,15 @@ export function CreateTicket() {
 
         {/* Section 4 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>4. Product Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-            'Device / Equipment',
-            'Version No.',
-            'Serial No.',
-            'Sales No.'].
-            map((f) =>
-            <div key={f}>
-                <label className={labelCls}>{f} <span className="text-red-500 ml-1">*</span></label>
-                <input type="text" className={inputCls} />
-              </div>
-            )}
-            <div>
-              <label className={labelCls}>Date Purchased <span className="text-red-500 ml-1">*</span></label>
-              <input type="date" className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Warranty Status <span className="text-red-500 ml-1">*</span></label>
-              <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
-                {['With Warranty', 'Without Warranty'].map((s) =>
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setWarrantyStatus(s)}
-                  className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${warrantyStatus === s ? 'bg-white dark:bg-gray-600 text-[#0E8F79] dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-
-                    {s}
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="md:col-span-2 grid grid-cols-3 gap-4">
-              {['Product (Opt)', 'Brand (Opt)', 'Model (Opt)'].map((f) =>
-              <div key={f}>
-                  <label className={labelCls}>{f}</label>
-                  <input type="text" className={inputCls} />
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        {/* Section 5 */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
           <textarea
             rows={8}
-            className={inputCls + ' resize-none'}
-            placeholder="Please describe the problem in detail..." />
-
+            value={description}
+            onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, description: false })); }}
+            className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`}
+            placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
+          {errors['description'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
         </Card>
-
-        {/* Section 6 (removed) */}
 
         <div className="pt-4">
           <GreenButton

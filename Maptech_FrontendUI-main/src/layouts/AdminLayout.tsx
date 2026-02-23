@@ -3,11 +3,12 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, ShieldAlert, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle } from 'lucide-react';
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
   { id: 'tickets', label: 'Tickets', icon: Ticket, path: '/admin/tickets' },
+  { id: 'create-ticket', label: 'Create Ticket', icon: PlusCircle, path: '/admin/create-ticket' },
   { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
   { id: 'reports', label: 'Reports', icon: BarChart3, path: '/admin/reports' },
 ];

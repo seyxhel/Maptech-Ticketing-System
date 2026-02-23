@@ -22,12 +22,12 @@ interface NotificationItem {
 }
 
 const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  { id: '1', type: 'assignment', title: 'Ticket Assignment', ticketId: 'TK-9012', time: '2m ago' },
-  { id: '2', type: 'escalation', title: 'Ticket Escalation', ticketId: 'TK-9015', time: '15m ago' },
-  { id: '3', type: 'approval', title: 'Ticket Approval', ticketId: 'TK-9018', time: '1h ago' },
-  { id: '4', type: 'resolution', title: 'Resolution Confirmation', ticketId: 'TK-9012', time: '2h ago' },
-  { id: '5', type: 'sla_warning', title: 'SLA Warning', ticketId: 'TK-9015', time: '30m ago' },
-  { id: '6', type: 'new_client_ticket', title: 'New Client Ticket', ticketId: 'TK-9020', time: '5m ago' },
+  { id: '1', type: 'assignment', title: 'Ticket Assignment', ticketId: 'STF-MT-20260223000012', time: '2m ago' },
+  { id: '2', type: 'escalation', title: 'Ticket Escalation', ticketId: 'STF-MT-20260223000015', time: '15m ago' },
+  { id: '3', type: 'approval', title: 'Ticket Approval', ticketId: 'STF-MT-20260223000018', time: '1h ago' },
+  { id: '4', type: 'resolution', title: 'Resolution Confirmation', ticketId: 'STF-MT-20260223000012', time: '2h ago' },
+  { id: '5', type: 'sla_warning', title: 'SLA Warning', ticketId: 'STF-MT-20260223000015', time: '30m ago' },
+  { id: '6', type: 'new_client_ticket', title: 'New Client Ticket', ticketId: 'STF-MT-20260223000020', time: '5m ago' },
 ];
 
 function getTicketDetailsPath(role: Role): string {

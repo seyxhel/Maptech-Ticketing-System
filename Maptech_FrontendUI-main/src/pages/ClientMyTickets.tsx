@@ -118,10 +118,10 @@ export function ClientMyTickets() {
       {/* Pagination */}
       <div className="flex items-center justify-between mt-4">
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-600">Showing {Math.min(total, (currentPage-1)*pageSize + 1)} - {Math.min(total, currentPage*pageSize)} of {total}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Showing {Math.min(total, (currentPage-1)*pageSize + 1)} - {Math.min(total, currentPage*pageSize)} of {total}</div>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600">Per page</label>
-            <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 rounded border">
+            <label className="text-sm text-gray-600 dark:text-gray-400">Per page</label>
+            <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300">
               {[5,10,20,50,100].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
@@ -131,7 +131,7 @@ export function ClientMyTickets() {
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
             disabled={currentPage <= 1}
-            className={`px-3 py-1 rounded-lg border bg-white dark:bg-gray-800 ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
           >Prev</button>
           {/* page numbers */}
           {(() => {
@@ -147,7 +147,7 @@ export function ClientMyTickets() {
                 {idx === 5 && totalPages > 6 && <div className="px-2">...</div>}
                 <button
                   onClick={() => setCurrentPage(p)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-md ${currentPage === p ? 'bg-[#FFB200] text-black font-bold' : 'bg-black/90 text-white'}`}
+                  className={`w-9 h-9 flex items-center justify-center rounded-md transition-colors ${currentPage === p ? 'bg-[#0E8F79] text-white font-bold shadow-md' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                 >{p}</button>
               </React.Fragment>
             ));
@@ -155,7 +155,7 @@ export function ClientMyTickets() {
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage >= totalPages}
-            className={`px-3 py-1 rounded-lg border bg-white dark:bg-gray-800 ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''}`}
           >Next</button>
         </div>
       </div>

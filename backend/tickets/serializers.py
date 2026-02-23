@@ -91,7 +91,8 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         allowed = self._get_allowed_fields()
-        filtered = {k: v for k, v in validated_data.items() if k in allowed}
+        # Always preserve created_by (set by perform_create) — it's not role-gated
+        filtered = {k: v for k, v in validated_data.items() if k in allowed or k == 'created_by'}
         return super().create(filtered)
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:

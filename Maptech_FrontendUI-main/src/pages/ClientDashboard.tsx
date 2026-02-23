@@ -7,6 +7,7 @@ import { PriorityBadge } from '../components/ui/PriorityBadge';
 import { SLATimer } from '../components/ui/SLATimer';
 import { Ticket, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { StatCard } from '../components/ui/StatCard';
+import { MOCK_TICKETS } from '../data/mockTickets';
 export function ClientDashboard() {
   const navigate = useNavigate();
   return (
@@ -43,50 +44,25 @@ export function ClientDashboard() {
       <Card accent>
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            My Tickets
+            Recent Tickets
           </h3>
           <GreenButton variant="ghost" className="text-sm" onClick={() => navigate('/client/my-tickets')}>
             View All
           </GreenButton>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+            <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-3">Ticket</th>
-                <th className="px-4 py-3">Issue</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Response Time</th>
+                <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Ticket</th>
+                <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Issue</th>
+                <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Priority</th>
+                <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Status</th>
+                <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Response Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {[
-              {
-                id: 'TK-9012',
-                issue: 'Database connection failure',
-                priority: 'Critical',
-                status: 'In Progress',
-                sla: 1,
-                total: 4
-              },
-              {
-                id: 'TK-9008',
-                issue: 'Email sync issues',
-                priority: 'High',
-                status: 'Assigned',
-                sla: 3,
-                total: 8
-              },
-              {
-                id: 'TK-8995',
-                issue: 'Software license renewal',
-                priority: 'Low',
-                status: 'Resolved',
-                sla: 0,
-                total: 24
-              }].
-              map((ticket) =>
+              {MOCK_TICKETS.slice(0, 10).map((ticket) =>
               <tr
                 key={ticket.id}
                 className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">

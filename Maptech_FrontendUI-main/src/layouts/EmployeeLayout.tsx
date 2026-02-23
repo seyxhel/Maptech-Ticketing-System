@@ -3,11 +3,12 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket } from 'lucide-react';
+import { LayoutDashboard, Ticket, BookOpen } from 'lucide-react';
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/employee/dashboard' },
-  { id: 'my-tickets', label: 'My Tickets', icon: Ticket, path: '/employee/my-tickets' },
+  { id: 'assigned-tickets', label: 'Assigned Tickets', icon: Ticket, path: '/employee/my-tickets' },
+  { id: 'knowledge-base', label: 'Knowledge Base', icon: BookOpen, path: '/employee/knowledge-base' },
 ];
 
 export function EmployeeLayout() {
