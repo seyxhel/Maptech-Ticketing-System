@@ -1,66 +1,9 @@
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, Template
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, Message, MessageReaction, MessageReadReceipt
+from users.serializers import UserSerializer
 
 
-User = get_user_model()
 
-
-class UserSerializer(serializers.ModelSerializer):
-    has_usable_password = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login', 'is_agreed_privacy_policy', 'has_usable_password']
-
-    def get_has_usable_password(self, obj):
-        return obj.has_usable_password()
-
-
-class RegisterSerializer(serializers.ModelSerializer):
-    accept_terms = serializers.BooleanField(write_only=True, required=True)
-
-    class Meta:
-        model = User
-        fields = ['username', 'email', 'password', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'accept_terms']
-        extra_kwargs = {'password': {'write_only': True}}
-
-    def validate(self, attrs):
-        if not attrs.get('accept_terms'):
-            raise serializers.ValidationError({'accept_terms': 'You must accept the terms.'})
-
-        # required fields enforced server-side
-        if not attrs.get('username'):
-            raise serializers.ValidationError({'username': 'Username is required.'})
-        if not attrs.get('password'):
-            raise serializers.ValidationError({'password': 'Password is required.'})
-        if not attrs.get('first_name'):
-            raise serializers.ValidationError({'first_name': 'First name is required.'})
-        if not attrs.get('last_name'):
-            raise serializers.ValidationError({'last_name': 'Last name is required.'})
-
-        return attrs
-
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError('A user with that username already exists.')
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('A user with that email already exists.')
-        return value
-
-    def create(self, validated_data):
-        validated_data.pop('accept_terms', None)
-        password = validated_data.pop('password')
-        user = User.objects.create_user(
-            password=password,
-            role=User.ROLE_CLIENT,
-            is_agreed_privacy_policy=True,
-            **{k: v for k, v in validated_data.items() if v is not None}
-        )
-        return user
 
 
 class TicketTaskSerializer(serializers.ModelSerializer):
@@ -71,82 +14,95 @@ class TicketTaskSerializer(serializers.ModelSerializer):
         fields = ['id', 'description', 'assigned_to', 'status', 'created_at']
 
 
+class TicketAttachmentSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = TicketAttachment
+        fields = ['id', 'file', 'uploaded_by', 'uploaded_at']
+
+
+class TypeOfServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TypeOfService
+        fields = ['id', 'name', 'description', 'is_active']
+
+
 class TicketSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
     assigned_to = UserSerializer(read_only=True)
     tasks = TicketTaskSerializer(many=True, read_only=True)
+    attachments = TicketAttachmentSerializer(many=True, read_only=True)
+    type_of_service_detail = TypeOfServiceSerializer(source='type_of_service', read_only=True)
 
     class Meta:
         model = Ticket
-        fields = ['id', 'title', 'description', 'status', 'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at']
-
-
-class AdminUserCreateSerializer(serializers.Serializer):
-    first_name = serializers.CharField(max_length=150)
-    middle_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
-    last_name = serializers.CharField(max_length=150)
-    suffix = serializers.CharField(max_length=3, required=False, allow_blank=True)
-    email = serializers.EmailField()
-    phone = serializers.CharField(max_length=13, required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=[('employee', 'Employee'), ('admin', 'Admin')])
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('A user with that email already exists.')
-        return value
-
-    def _generate_username(self, first_name, middle_name, last_name):
-        import re
-        sanitize = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
-        f = sanitize(first_name)
-        m = sanitize(middle_name)
-        l = sanitize(last_name)
-        mid_initial = m[0] if m else ''
-        base = f"{f}{mid_initial}{l}" if mid_initial else f"{f}{l}"
-        if not base:
-            base = 'user'
-        username = base
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base}{counter}"
-            counter += 1
-        return username
-
-    @staticmethod
-    def _format_phone(raw):
-        """Convert 09XXXXXXXXX or 9XXXXXXXXX to +63XXXXXXXXXX."""
-        import re
-        digits = re.sub(r'\D', '', raw or '')
-        if re.match(r'^0\d{10}$', digits):
-            return '+63' + digits[1:]
-        if re.match(r'^9\d{9}$', digits):
-            return '+63' + digits
-        if re.match(r'^63\d{10}$', digits):
-            return '+' + digits
-        return digits  # return as-is if pattern doesn't match
-
-    def create(self, validated_data):
-        username = self._generate_username(
-            validated_data['first_name'],
-            validated_data.get('middle_name', ''),
-            validated_data['last_name'],
-        )
-        phone = self._format_phone(validated_data.get('phone', ''))
-        user = User.objects.create_user(
-            username=username,
-            password='password123',
-            email=validated_data['email'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            role=validated_data['role'],
-            middle_name=validated_data.get('middle_name', ''),
-            suffix=validated_data.get('suffix', ''),
-            phone=phone,
-        )
-        return user
-
-
+        fields = [
+            'id', 'description', 'status',
+            'created_by', 'assigned_to', 'tasks', 'created_at', 'updated_at',
+            # New fields
+            'stf_no', 'date', 'time_in', 'time_out',
+            'client', 'contact_person', 'address', 'designation',
+            'landline', 'department_organization', 'mobile_no', 'email_address',
+            'type_of_service', 'type_of_service_detail', 'type_of_service_others',
+            'priority',
+            'preferred_support_type',
+            'device_equipment', 'version_no', 'date_purchased', 'serial_no',
+            'description_of_problem', 'action_taken', 'remarks',
+            'job_status',
+            'attachments',
+        ]
+        read_only_fields = ['stf_no', 'date', 'time_in', 'time_out']
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Template
         fields = ['id', 'name', 'steps']
+
+
+# ────────────────────────────────────────────
+# Message serializers (used by REST endpoints)
+# ────────────────────────────────────────────
+
+class MessageReactionSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = MessageReaction
+        fields = ['id', 'emoji', 'user_id', 'username', 'created_at']
+
+
+class MessageReadReceiptSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = MessageReadReceipt
+        fields = ['user_id', 'username', 'read_at']
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    sender_id = serializers.IntegerField(source='sender.id', read_only=True)
+    sender_username = serializers.CharField(source='sender.username', read_only=True)
+    sender_role = serializers.CharField(source='sender.role', read_only=True)
+    reactions = MessageReactionSerializer(many=True, read_only=True)
+    read_by = MessageReadReceiptSerializer(source='read_receipts', many=True, read_only=True)
+    reply_to_data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = [
+            'id', 'channel_type', 'sender_id', 'sender_username', 'sender_role',
+            'content', 'reply_to', 'reply_to_data', 'is_system_message',
+            'reactions', 'read_by', 'created_at',
+        ]
+
+    def get_reply_to_data(self, obj):
+        if not obj.reply_to:
+            return None
+        return {
+            'id': obj.reply_to.id,
+            'content': obj.reply_to.content[:100],
+            'sender_id': obj.reply_to.sender.id,
+            'sender_username': obj.reply_to.sender.username,
+        }

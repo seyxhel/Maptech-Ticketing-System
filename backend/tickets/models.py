@@ -1,30 +1,24 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
+class TypeOfService(models.Model):
+    """Admin-managed lookup table for Type of Service dropdown."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
 
-class User(AbstractUser):
-    ROLE_CLIENT = 'client'
-    ROLE_EMPLOYEE = 'employee'
-    ROLE_ADMIN = 'admin'
-    ROLE_CHOICES = [
-        (ROLE_CLIENT, 'Client'),
-        (ROLE_EMPLOYEE, 'Employee'),
-        (ROLE_ADMIN, 'Admin'),
-    ]
-
-    email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=ROLE_CLIENT)
-    middle_name = models.CharField(max_length=150, blank=True)
-    suffix = models.CharField(max_length=3, blank=True)
-    phone = models.CharField(max_length=13, blank=True)
-    is_agreed_privacy_policy = models.BooleanField(default=False)
+    class Meta:
+        verbose_name = 'Type of Service'
+        verbose_name_plural = 'Types of Service'
 
     def __str__(self):
-        return f"{self.username} ({self.role})"
+        return self.name
 
 
 class Ticket(models.Model):
+    # --- Status choices ---
     STATUS_OPEN = 'open'
     STATUS_CLOSED = 'closed'
     STATUS_ESCALATED = 'escalated'
@@ -34,7 +28,47 @@ class Ticket(models.Model):
         (STATUS_ESCALATED, 'Escalated'),
     ]
 
-    title = models.CharField(max_length=200)
+    # --- Priority choices (admin sets) ---
+    PRIORITY_LOW = 'low'
+    PRIORITY_MEDIUM = 'medium'
+    PRIORITY_HIGH = 'high'
+    PRIORITY_CRITICAL = 'critical'
+    PRIORITY_CHOICES = [
+        (PRIORITY_LOW, 'Low'),
+        (PRIORITY_MEDIUM, 'Medium'),
+        (PRIORITY_HIGH, 'High'),
+        (PRIORITY_CRITICAL, 'Critical'),
+    ]
+
+    # --- Preferred support type (employee sets) ---
+    SUPPORT_REMOTE = 'remote_online'
+    SUPPORT_ONSITE = 'onsite'
+    SUPPORT_CHAT = 'chat'
+    SUPPORT_CALL = 'call'
+    SUPPORT_TYPE_CHOICES = [
+        (SUPPORT_REMOTE, 'Remote/Online'),
+        (SUPPORT_ONSITE, 'Onsite'),
+        (SUPPORT_CHAT, 'Chat'),
+        (SUPPORT_CALL, 'Call'),
+    ]
+
+    # --- Job status choices (employee sets) ---
+    JOB_COMPLETED = 'completed'
+    JOB_PENDING = 'pending'
+    JOB_UNDER_WARRANTY = 'under_warranty'
+    JOB_CHARGEABLE = 'chargeable'
+    JOB_FOR_QUOTATION = 'for_quotation'
+    JOB_UNDER_CONTRACT = 'under_contract'
+    JOB_STATUS_CHOICES = [
+        (JOB_COMPLETED, 'Completed'),
+        (JOB_PENDING, 'Pending'),
+        (JOB_UNDER_WARRANTY, 'Under Warranty'),
+        (JOB_CHARGEABLE, 'Chargeable'),
+        (JOB_FOR_QUOTATION, 'For Quotation'),
+        (JOB_UNDER_CONTRACT, 'Under Contract'),
+    ]
+
+    # ---- Original fields ----
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='created_tickets', on_delete=models.CASCADE)
@@ -42,8 +76,81 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ---- New client-side fields ----
+    stf_no = models.CharField(max_length=30, unique=True, blank=True)
+    date = models.DateField(default=timezone.now)  # coerced in save()
+    time_in = models.DateTimeField(null=True, blank=True)       # populated when admin reviews
+    time_out = models.DateTimeField(null=True, blank=True)      # placeholder for later dev
+    client = models.CharField(max_length=200, blank=True)
+    contact_person = models.CharField(max_length=200, blank=True)
+    address = models.TextField(blank=True)
+    designation = models.CharField(max_length=200, blank=True)
+    landline = models.CharField(max_length=30, blank=True)
+    department_organization = models.CharField(max_length=200, blank=True)
+    mobile_no = models.CharField(max_length=11, blank=True)
+    email_address = models.EmailField(blank=True)
+    type_of_service = models.ForeignKey(TypeOfService, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets')
+    type_of_service_others = models.CharField(max_length=200, blank=True)
+
+    # ---- Admin-set field ----
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
+
+    # ---- Employee-set fields ----
+    preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
+
+    # Product details
+    device_equipment = models.CharField(max_length=300, blank=True)
+    version_no = models.CharField(max_length=100, blank=True)
+    date_purchased = models.DateField(null=True, blank=True)
+    serial_no = models.CharField(max_length=200, blank=True)
+
+    description_of_problem = models.TextField(blank=True)
+    action_taken = models.TextField(blank=True)
+    remarks = models.TextField(blank=True)
+
+    job_status = models.CharField(max_length=20, choices=JOB_STATUS_CHOICES, blank=True, default='')
+
+    # Current active assignment session (for messaging scope)
+    current_session = models.ForeignKey('AssignmentSession', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    def save(self, *args, **kwargs):
+        # Coerce date to a plain date if it's a datetime
+        import datetime as _dt
+        if isinstance(self.date, _dt.datetime):
+            self.date = self.date.date()
+        if not self.stf_no:
+            self.stf_no = self._generate_stf_no()
+        super().save(*args, **kwargs)
+
+    @staticmethod
+    def _generate_stf_no():
+        """Generate STF-MP-YYYYMMDDXXXXXX where XXXXXX is zero-padded sequence."""
+        today = timezone.now()
+        date_str = today.strftime('%Y%m%d')
+        prefix = f'STF-MP-{date_str}'
+        last = Ticket.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
+        if last:
+            try:
+                seq = int(last.stf_no[-6:]) + 1
+            except (ValueError, IndexError):
+                seq = 1
+        else:
+            seq = 1
+        return f'{prefix}{seq:06d}'
+
     def __str__(self):
-        return f"{self.title} ({self.status})"
+        return f"{self.stf_no} ({self.status})"
+
+
+class TicketAttachment(models.Model):
+    """File attachments for tickets (images, videos, documents)."""
+    ticket = models.ForeignKey(Ticket, related_name='attachments', on_delete=models.CASCADE)
+    file = models.FileField(upload_to='ticket_attachments/%Y/%m/%d/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Attachment for {self.ticket.stf_no}: {self.file.name}"
 
 
 class Template(models.Model):
@@ -73,3 +180,72 @@ class TicketTask(models.Model):
 
     def __str__(self):
         return f"Task for {self.ticket.title}: {self.description[:30]}"
+
+
+# ────────────────────────────────────────────
+# Messaging models
+# ────────────────────────────────────────────
+
+class AssignmentSession(models.Model):
+    """Tracks each assignment of an employee to a ticket.
+    Messages are scoped to a session so new employees can't see old messages."""
+    ticket = models.ForeignKey(Ticket, related_name='assignment_sessions', on_delete=models.CASCADE)
+    employee = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='assignment_sessions', on_delete=models.CASCADE)
+    started_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-started_at']
+
+    def __str__(self):
+        return f"Session #{self.id} — {self.employee.username} on {self.ticket.stf_no}"
+
+
+class Message(models.Model):
+    CHANNEL_CLIENT_EMPLOYEE = 'client_employee'
+    CHANNEL_ADMIN_EMPLOYEE = 'admin_employee'
+    CHANNEL_CHOICES = [
+        (CHANNEL_CLIENT_EMPLOYEE, 'Client ↔ Employee'),
+        (CHANNEL_ADMIN_EMPLOYEE, 'Admin ↔ Employee'),
+    ]
+
+    ticket = models.ForeignKey(Ticket, related_name='messages', on_delete=models.CASCADE)
+    assignment_session = models.ForeignKey(AssignmentSession, related_name='messages', on_delete=models.CASCADE)
+    channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
+    content = models.TextField()
+    reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
+    is_system_message = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"Msg #{self.id} by {self.sender.username} on {self.ticket.stf_no}"
+
+
+class MessageReaction(models.Model):
+    message = models.ForeignKey(Message, related_name='reactions', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='message_reactions', on_delete=models.CASCADE)
+    emoji = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'user', 'emoji')
+
+    def __str__(self):
+        return f"{self.user.username} reacted {self.emoji} to msg #{self.message.id}"
+
+
+class MessageReadReceipt(models.Model):
+    message = models.ForeignKey(Message, related_name='read_receipts', on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='read_receipts', on_delete=models.CASCADE)
+    read_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('message', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} read msg #{self.message.id}"

@@ -6,210 +6,14 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
+User = get_user_model()
 from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
-from .models import Ticket, TicketTask, Template
-from .serializers import TicketSerializer, RegisterSerializer, UserSerializer, TemplateSerializer
-
-
-User = get_user_model()
-
-
-class RegisterViewSet(viewsets.GenericViewSet):
-    serializer_class = RegisterSerializer
-
-    @action(detail=False, methods=['post'], permission_classes=[])
-    def register(self, request):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        try:
-            user = serializer.save()
-        except IntegrityError as e:
-            return Response({'detail': 'Unable to create account: {}'.format(str(e))}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'detail': 'Unable to create account: {}'.format(str(e))}, status=status.HTTP_400_BAD_REQUEST)
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserSerializer(user).data
-        }, status=status.HTTP_201_CREATED)
-
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def me(self, request):
-        return Response(UserSerializer(request.user).data)
-
-    @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
-    def update_profile(self, request):
-        """Let any authenticated user update their own profile fields."""
-        user = request.user
-        allowed = ['first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'username']
-        for field in allowed:
-            if field in request.data:
-                setattr(user, field, request.data[field])
-        # Format phone server-side
-        import re as _re
-        raw_phone = _re.sub(r'\D', '', user.phone or '')
-        if _re.match(r'^0\d{10}$', raw_phone):
-            user.phone = '+63' + raw_phone[1:]
-        elif _re.match(r'^9\d{9}$', raw_phone):
-            user.phone = '+63' + raw_phone
-        elif _re.match(r'^63\d{10}$', raw_phone):
-            user.phone = '+' + raw_phone
-        user.save()
-        return Response(UserSerializer(user).data)
-
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
-    def accept_privacy(self, request):
-        """Mark the current user as having accepted the privacy policy (one-time)."""
-        user = request.user
-        user.is_agreed_privacy_policy = True
-        user.save(update_fields=['is_agreed_privacy_policy'])
-        return Response(UserSerializer(user).data)
-
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
-    def change_password(self, request):
-        """Let any authenticated user change their password."""
-        user = request.user
-        current = request.data.get('current_password', '')
-        new_pw = request.data.get('new_password', '')
-
-        # Users with unusable password (Google OAuth) can set one without providing current
-        if user.has_usable_password():
-            if not current:
-                return Response({'detail': 'Current password is required.'}, status=status.HTTP_400_BAD_REQUEST)
-            if not user.check_password(current):
-                return Response({'detail': 'Current password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not new_pw or len(new_pw) < 8:
-            return Response({'detail': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(new_pw)
-        user.save()
-        # Return new tokens since password change invalidates old ones
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'detail': 'Password changed successfully.',
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-        })
-
-
-@api_view(['POST'])
-@permission_classes([])
-def google_auth_view(request):
-    """Verify Google ID token. If user exists, log them in. If new, auto-create and log in."""
-    token = request.data.get('token')
-    if not token:
-        return Response({'detail': 'Google token is required.'}, status=status.HTTP_400_BAD_REQUEST)
-    try:
-        idinfo = google_id_token.verify_oauth2_token(
-            token,
-            google_requests.Request(),
-            django_settings.GOOGLE_CLIENT_ID,
-        )
-    except ValueError:
-        return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    email = idinfo.get('email', '')
-    first_name = idinfo.get('given_name', '')
-    last_name = idinfo.get('family_name', '')
-
-    # If a user with this email already exists, log them in
-    try:
-        user = User.objects.get(email=email)
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
-        refresh = RefreshToken.for_user(user)
-        return Response({
-            'exists': True,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': UserSerializer(user).data,
-        })
-    except User.DoesNotExist:
-        pass
-
-    # Auto-generate username from first + last name
-    import re
-    sanitize = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
-    f = sanitize(first_name)
-    l = sanitize(last_name)
-    base = f"{f}{l}" if f and l else f or l or 'user'
-    username = base
-    counter = 1
-    while User.objects.filter(username=username).exists():
-        username = f"{base}{counter}"
-        counter += 1
-
-    # Create user with unusable password (they authenticate via Google)
-    user = User.objects.create_user(
-        username=username,
-        email=email,
-        first_name=first_name,
-        last_name=last_name,
-        role=User.ROLE_CLIENT,
-    )
-    user.set_unusable_password()
-    user.last_login = timezone.now()
-    user.save()
-
-    refresh = RefreshToken.for_user(user)
-    return Response({
-        'exists': False,
-        'created': True,
-        'access': str(refresh.access_token),
-        'refresh': str(refresh),
-        'user': UserSerializer(user).data,
-    }, status=status.HTTP_201_CREATED)
-
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    def post(self, request, *args, **kwargs):
-        # First, try the normal username-based token obtain
-        try:
-            resp = super().post(request, *args, **kwargs)
-        except Exception:
-            resp = None
-
-        # If auth succeeded, attach the user data
-        if resp and getattr(resp, 'status_code', None) == 200 and isinstance(resp.data, dict):
-            username = request.data.get('username') or request.data.get('email')
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                user = None
-            if user:
-                user.last_login = timezone.now()
-                user.save(update_fields=['last_login'])
-            data = {**resp.data}
-            if user:
-                data['user'] = UserSerializer(user).data
-            return Response(data)
-
-        # If auth failed, allow login by email: check whether the provided "username" looks like an email
-        provided = request.data.get('username') or request.data.get('email')
-        password = request.data.get('password')
-        if provided and '@' in str(provided) and password:
-            try:
-                user = User.objects.get(email=provided)
-                if user.check_password(password):
-                    user.last_login = timezone.now()
-                    user.save(update_fields=['last_login'])
-                    refresh = RefreshToken.for_user(user)
-                    data = {
-                        'access': str(refresh.access_token),
-                        'refresh': str(refresh),
-                        'user': UserSerializer(user).data,
-                    }
-                    return Response(data)
-            except User.DoesNotExist:
-                pass
-
-        # otherwise return 401
-        return Response({'detail': 'No active account found with the given credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, AssignmentSession, Message
+from .serializers import TicketSerializer, TemplateSerializer, TypeOfServiceSerializer, TicketAttachmentSerializer
+from users.serializers import RegisterSerializer, UserSerializer
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -243,9 +47,43 @@ class TicketViewSet(viewsets.ModelViewSet):
             emp = User.objects.get(id=employee_id, role=User.ROLE_EMPLOYEE)
         except User.DoesNotExist:
             return Response({'detail': 'Employee not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        old_employee = ticket.assigned_to
+
+        # End previous assignment session
+        if ticket.current_session:
+            prev_session = ticket.current_session
+            prev_session.is_active = False
+            prev_session.ended_at = timezone.now()
+            prev_session.save()
+
+            # Force-disconnect old employee from WebSocket
+            if old_employee and old_employee.id != emp.id:
+                self._send_force_disconnect(ticket.id, old_employee)
+
+        # Create new assignment session
+        new_session = AssignmentSession.objects.create(ticket=ticket, employee=emp)
+
         ticket.assigned_to = emp
+        ticket.current_session = new_session
         ticket.status = Ticket.STATUS_OPEN
         ticket.save()
+
+        # Create system message about reassignment (in both channels)
+        if old_employee and old_employee.id != emp.id:
+            sys_content = f"Employee changed from {old_employee.get_full_name() or old_employee.username} to {emp.get_full_name() or emp.username}"
+            for ch in ['client_employee', 'admin_employee']:
+                Message.objects.create(
+                    ticket=ticket,
+                    assignment_session=new_session,
+                    channel_type=ch,
+                    sender=request.user,
+                    content=sys_content,
+                    is_system_message=True,
+                )
+                # Broadcast system message via channel layer
+                self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
+
         # create tasks from template if provided
         if template_id:
             try:
@@ -256,6 +94,44 @@ class TicketViewSet(viewsets.ModelViewSet):
             except Template.DoesNotExist:
                 pass
         return Response(self.get_serializer(ticket).data)
+
+    @staticmethod
+    def _send_force_disconnect(ticket_id, old_employee):
+        """Send force_disconnect to old employee's WebSocket channels."""
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            for ch in ['client_employee', 'admin_employee']:
+                group = f'chat_{ticket_id}_{ch}'
+                async_to_sync(channel_layer.group_send)(group, {
+                    'type': 'force_disconnect',
+                    'reason': 'You have been unassigned from this ticket.',
+                })
+
+    @staticmethod
+    def _broadcast_system_message(ticket_id, channel_type, content, sender):
+        """Broadcast a system message to the WS group."""
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            group = f'chat_{ticket_id}_{channel_type}'
+            async_to_sync(channel_layer.group_send)(group, {
+                'type': 'system_message',
+                'message': {
+                    'id': None,
+                    'sender_id': sender.id,
+                    'sender_username': sender.username,
+                    'sender_role': sender.role,
+                    'content': content,
+                    'reply_to': None,
+                    'is_system_message': True,
+                    'reactions': {},
+                    'read_by': [],
+                    'created_at': timezone.now().isoformat(),
+                },
+            })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def escalate(self, request, pk=None):
@@ -286,29 +162,65 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.save()
         return Response(self.get_serializer(ticket).data)
 
-
-class UserViewSet(viewsets.GenericViewSet):
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return User.objects.all().order_by('-date_joined')
-
-    @action(detail=False, methods=['get'])
-    def list_users(self, request):
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
+    def review(self, request, pk=None):
+        """Admin reviews a ticket — populates time_in and optionally sets priority."""
         if request.user.role != User.ROLE_ADMIN:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
-        users = self.get_queryset()
-        return Response(UserSerializer(users, many=True).data)
+        ticket = self.get_object()
+        if not ticket.time_in:
+            ticket.time_in = timezone.now()
+        priority = request.data.get('priority')
+        if priority and priority in dict(Ticket.PRIORITY_CHOICES):
+            ticket.priority = priority
+        ticket.save()
+        return Response(self.get_serializer(ticket).data)
 
-    @action(detail=False, methods=['post'])
-    def create_user(self, request):
-        if request.user.role != User.ROLE_ADMIN:
+    @action(detail=True, methods=['patch'], permission_classes=[IsAuthenticated])
+    def update_employee_fields(self, request, pk=None):
+        """Employee updates their specific fields on a ticket."""
+        ticket = self.get_object()
+        user = request.user
+        if user.role != User.ROLE_EMPLOYEE or ticket.assigned_to != user:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
-        from .serializers import AdminUserCreateSerializer
-        serializer = AdminUserCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        allowed = [
+            'preferred_support_type', 'device_equipment', 'version_no',
+            'date_purchased', 'serial_no', 'description_of_problem',
+            'action_taken', 'remarks', 'job_status',
+        ]
+        for field in allowed:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+        ticket.save()
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'], url_path='upload_attachment', permission_classes=[IsAuthenticated])
+    def upload_attachment(self, request, pk=None):
+        """Upload file attachments to a ticket."""
+        ticket = self.get_object()
+        files = request.FILES.getlist('files')
+        if not files:
+            return Response({'detail': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        attachments = []
+        for f in files:
+            att = TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=request.user)
+            attachments.append(att)
+        return Response(TicketAttachmentSerializer(attachments, many=True).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path='delete_attachment/(?P<att_id>[0-9]+)', permission_classes=[IsAuthenticated])
+    def delete_attachment(self, request, pk=None, att_id=None):
+        """Delete a file attachment from a ticket."""
+        ticket = self.get_object()
+        try:
+            att = TicketAttachment.objects.get(id=att_id, ticket=ticket)
+        except TicketAttachment.DoesNotExist:
+            return Response({'detail': 'Attachment not found.'}, status=status.HTTP_404_NOT_FOUND)
+        att.file.delete(save=False)
+        att.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
 
 
 class TemplateViewSet(viewsets.ModelViewSet):
@@ -321,4 +233,17 @@ class TemplateViewSet(viewsets.ModelViewSet):
         if self.request.user.role == User.ROLE_ADMIN:
             return Template.objects.all()
         return Template.objects.none()
+
+
+class TypeOfServiceViewSet(viewsets.ModelViewSet):
+    """CRUD for Type of Service (admin manages, all authenticated can list active)."""
+    queryset = TypeOfService.objects.all().order_by('name')
+    serializer_class = TypeOfServiceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        if self.request.user.role == User.ROLE_ADMIN:
+            return TypeOfService.objects.all().order_by('name')
+        # Non-admins only see active services (for dropdown)
+        return TypeOfService.objects.filter(is_active=True).order_by('name')
 

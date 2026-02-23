@@ -10,9 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='user',
-            name='is_agreed_privacy_policy',
-            field=models.BooleanField(default=False),
-        ),
+        # No-op: field added in `users` app migration.
     ]

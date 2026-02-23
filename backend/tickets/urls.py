@@ -1,12 +1,14 @@
 from rest_framework import routers
 from django.urls import path, include
-from .views import TicketViewSet, RegisterViewSet, CustomTokenObtainPairView, TemplateViewSet, UserViewSet, google_auth_view
+from .views import TicketViewSet, TemplateViewSet, TypeOfServiceViewSet
+from users.views import RegisterViewSet, CustomTokenObtainPairView, UserViewSet, google_auth_view
 
 router = routers.DefaultRouter()
 router.register(r'tickets', TicketViewSet, basename='ticket')
 router.register(r'templates', TemplateViewSet, basename='template')
 router.register(r'auth', RegisterViewSet, basename='auth')
 router.register(r'users', UserViewSet, basename='user')
+router.register(r'type-of-service', TypeOfServiceViewSet, basename='typeofservice')
 
 urlpatterns = [
     path('', include(router.urls)),

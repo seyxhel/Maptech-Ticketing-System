@@ -10,8 +10,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='user',
-            name='is_agree_conditions',
-        ),
+        # No-op: User model and its fields are managed in the `users` app migrations.
     ]

@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import './styles.css'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Header from './shared/components/Header'
@@ -64,9 +66,7 @@ function AppRoutes() {
   )
 }
 
-const GOOGLE_CLIENT_ID =
-  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  '276365794260-8i0l9j64lj0os7t1h5ofa0iglk97jt9e.apps.googleusercontent.com'
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 function App() {
   return (
@@ -75,6 +75,7 @@ function App() {
         <AuthProvider>
           <Header />
           <AppRoutes />
+          <ToastContainer position="top-right" autoClose={3000} />
         </AuthProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>

@@ -1,5 +1,45 @@
 import { API_BASE, authHeaders } from './api'
 
+export async function checkUnique(field: 'email' | 'username' | 'phone', value: string): Promise<boolean | null> {
+  try {
+    const res = await fetch(`${API_BASE}/auth/check_unique/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, value }),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.exists as boolean
+  } catch (err) {
+    console.error('checkUnique error', err)
+    return null
+  }
+}
+
+export async function checkPwnedPassword(password: string): Promise<boolean> {
+  try {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(password)
+    const hashBuffer = await crypto.subtle.digest('SHA-1', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+    const prefix = hashHex.slice(0, 5)
+    const suffix = hashHex.slice(5)
+    const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`)
+    const text = await res.text()
+    const lines = text.split('\n')
+    for (const line of lines) {
+      const [hashSuffix, count] = line.split(':')
+      if (hashSuffix.trim() === suffix) {
+        return parseInt(count.trim(), 10) > 0
+      }
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 export async function register(payload: any) {
   const res = await fetch(`${API_BASE}/auth/register/`, {
     method: 'POST',
