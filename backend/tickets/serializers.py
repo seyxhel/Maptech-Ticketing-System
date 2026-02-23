@@ -42,7 +42,8 @@ class TicketSerializer(serializers.ModelSerializer):
         'type_of_service', 'type_of_service_others',
     }
     EMPLOYEE_FIELDS = {
-        'preferred_support_type', 'device_equipment', 'version_no',
+        'preferred_support_type', 'has_warranty', 'product', 'brand', 'model_name',
+        'device_equipment', 'version_no',
         'date_purchased', 'serial_no', 'description_of_problem',
         'action_taken', 'remarks', 'job_status',
     }
@@ -60,6 +61,7 @@ class TicketSerializer(serializers.ModelSerializer):
             'type_of_service', 'type_of_service_detail', 'type_of_service_others',
             'priority',
             'preferred_support_type',
+            'has_warranty', 'product', 'brand', 'model_name',
             'device_equipment', 'version_no', 'date_purchased', 'serial_no',
             'description_of_problem', 'action_taken', 'remarks',
             'job_status',
@@ -91,7 +93,8 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         allowed = self._get_allowed_fields()
-        filtered = {k: v for k, v in validated_data.items() if k in allowed}
+        # Always keep created_by – it is set by the view, not user input
+        filtered = {k: v for k, v in validated_data.items() if k in allowed or k == 'created_by'}
         return super().create(filtered)
 class TemplateSerializer(serializers.ModelSerializer):
     class Meta:

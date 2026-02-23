@@ -16,6 +16,10 @@ export default function EmployeeDashboard() {
 
   // Employee-editable fields
   const [preferredSupport, setPreferredSupport] = useState('')
+  const [hasWarranty, setHasWarranty] = useState(false)
+  const [product, setProduct] = useState('')
+  const [brand, setBrand] = useState('')
+  const [modelName, setModelName] = useState('')
   const [deviceEquipment, setDeviceEquipment] = useState('')
   const [versionNo, setVersionNo] = useState('')
   const [datePurchased, setDatePurchased] = useState('')
@@ -45,6 +49,10 @@ export default function EmployeeDashboard() {
   const openDetail = (t: any) => {
     setViewTicket(t)
     setPreferredSupport(t.preferred_support_type || '')
+    setHasWarranty(!!t.has_warranty)
+    setProduct(t.product || '')
+    setBrand(t.brand || '')
+    setModelName(t.model_name || '')
     setDeviceEquipment(t.device_equipment || '')
     setVersionNo(t.version_no || '')
     setDatePurchased(t.date_purchased || '')
@@ -61,6 +69,10 @@ export default function EmployeeDashboard() {
     if (!viewTicket) return
     const payload: Record<string, any> = {
       preferred_support_type: preferredSupport,
+      has_warranty: hasWarranty,
+      product,
+      brand,
+      model_name: modelName,
       device_equipment: deviceEquipment,
       version_no: versionNo,
       date_purchased: datePurchased || null,
@@ -204,7 +216,42 @@ export default function EmployeeDashboard() {
             {/* Product Details */}
             <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
               <legend style={{ fontWeight: 700, fontSize: 14, padding: '0 8px' }}>Product Details</legend>
+
+              {/* Warranty Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <label style={{ ...labelStyle, margin: 0 }}>Warranty</label>
+                <button
+                  type="button"
+                  onClick={() => setHasWarranty(!hasWarranty)}
+                  style={{
+                    position: 'relative', width: 48, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                    background: hasWarranty ? '#2563eb' : '#d1d5db', transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: hasWarranty ? 24 : 3,
+                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
+                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                  }} />
+                </button>
+                <span style={{ fontSize: 13, fontWeight: 600, color: hasWarranty ? '#2563eb' : '#6b7280' }}>
+                  {hasWarranty ? 'W/ Warranty' : 'W/O Warranty'}
+                </span>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Product <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+                  <input style={inputStyle} value={product} onChange={(e) => setProduct(e.target.value)} placeholder="e.g. Laptop, Printer" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Brand <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+                  <input style={inputStyle} value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Dell, HP" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Model <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+                  <input style={inputStyle} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Latitude 5520" />
+                </div>
                 <div>
                   <label style={labelStyle}>Device/Equipment</label>
                   <input style={inputStyle} value={deviceEquipment} onChange={(e) => setDeviceEquipment(e.target.value)} />

@@ -98,6 +98,10 @@ class Ticket(models.Model):
     preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
 
     # Product details
+    has_warranty = models.BooleanField(default=False)
+    product = models.CharField(max_length=300, blank=True)
+    brand = models.CharField(max_length=300, blank=True)
+    model_name = models.CharField(max_length=300, blank=True)
     device_equipment = models.CharField(max_length=300, blank=True)
     version_no = models.CharField(max_length=100, blank=True)
     date_purchased = models.DateField(null=True, blank=True)

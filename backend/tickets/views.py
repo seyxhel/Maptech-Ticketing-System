@@ -184,7 +184,8 @@ class TicketViewSet(viewsets.ModelViewSet):
         if user.role != User.ROLE_EMPLOYEE or ticket.assigned_to != user:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         allowed = [
-            'preferred_support_type', 'device_equipment', 'version_no',
+            'preferred_support_type', 'has_warranty', 'product', 'brand', 'model_name',
+            'device_equipment', 'version_no',
             'date_purchased', 'serial_no', 'description_of_problem',
             'action_taken', 'remarks', 'job_status',
         ]
