@@ -234,6 +234,21 @@ class TemplateViewSet(viewsets.ModelViewSet):
             return Template.objects.all()
         return Template.objects.none()
 
+    def create(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
+
 
 class TypeOfServiceViewSet(viewsets.ModelViewSet):
     """CRUD for Type of Service (admin manages, all authenticated can list active)."""
@@ -246,4 +261,19 @@ class TypeOfServiceViewSet(viewsets.ModelViewSet):
             return TypeOfService.objects.all().order_by('name')
         # Non-admins only see active services (for dropdown)
         return TypeOfService.objects.filter(is_active=True).order_by('name')
+
+    def create(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != User.ROLE_ADMIN:
+            return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 

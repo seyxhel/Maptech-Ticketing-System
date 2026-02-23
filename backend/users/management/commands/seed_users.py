@@ -5,6 +5,8 @@ from users.models import User
 SEED_USERS = [
     {
         'username': 'ivo',
+        'first_name': 'Rivo',
+        'last_name': 'Vebayo',
         'email': 'rivovebayo@gmail.com',
         'password': 'RivoVebayo123!',
         'phone': '+639666666666',
@@ -13,6 +15,8 @@ SEED_USERS = [
     },
     {
         'username': 'seyxhel',
+        'first_name': 'Sealtiel Joseph',
+        'last_name': 'Pelagio',
         'email': 'sethpelagio20@gmail.com',
         'password': 'Oklangyan421!',
         'phone': '+639692221370',
@@ -23,6 +27,8 @@ SEED_USERS = [
     },
     {
         'username': 'gerardquadra',
+        'first_name': 'Gerard',
+        'last_name': 'Quadra',
         'email': 'gerard.quadra@gmail.com',
         'password': 'GerardQuadra123!',
         'phone': '+639696969696',
