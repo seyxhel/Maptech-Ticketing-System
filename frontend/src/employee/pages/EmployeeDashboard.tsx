@@ -325,6 +325,11 @@ export default function EmployeeDashboard() {
               </div>
             </div>
 
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 20 }}>
+              <button style={btnSecondary} onClick={closeDetail}>Close</button>
+              <button style={btnPrimary} onClick={handleSave}>Save Changes</button>
+            </div>
+
             {/* ── Chat Section (two channels) ── */}
             {currentUserId > 0 && (
               <div style={{ marginBottom: 20 }}>
@@ -359,10 +364,6 @@ export default function EmployeeDashboard() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btnSecondary} onClick={closeDetail}>Close</button>
-              <button style={btnPrimary} onClick={handleSave}>Save Changes</button>
-            </div>
           </div>
         </div>
       )}
