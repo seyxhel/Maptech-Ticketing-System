@@ -3,6 +3,7 @@ node_modules/
 __pycache__/
 dist/
 db.sqlite3
+media/
 
 # Environment variables (contain secrets)
 .env
