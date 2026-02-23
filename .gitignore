@@ -2,6 +2,7 @@ venv/
 node_modules/
 __pycache__/
 dist/
+db.sqlite3
 
 # Environment variables (contain secrets)
 .env
