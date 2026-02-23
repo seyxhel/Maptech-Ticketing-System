@@ -20,6 +20,12 @@ python manage.py migrate
 python manage.py runserver
 ```
 
+3. Seed default users (optional — creates client, admin, and employee accounts):
+
+```bash
+python manage.py seed_users
+```
+
 API
 
 - List/create: `GET/POST /api/tickets/`
