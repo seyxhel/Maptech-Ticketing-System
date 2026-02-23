@@ -26,6 +26,9 @@ export default function AdminDashboard() {
   const [priority, setPriority] = useState('')
   const [currentUserId, setCurrentUserId] = useState<number>(0)
 
+  // Media preview lightbox
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
+
   useEffect(() => {
     loadAll()
     ;(async () => {
@@ -235,6 +238,37 @@ export default function AdminDashboard() {
               <div><strong>Assigned To:</strong> {viewTicket.assigned_to?.username || '—'}</div>
             </div>
 
+            {/* Attachments */}
+            {viewTicket.attachments && viewTicket.attachments.length > 0 && (
+              <div style={{ marginTop: 20 }}>
+                <label style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, display: 'block' }}>Attachments</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {viewTicket.attachments.map((att: any) => {
+                    const isImage = att.file && att.file.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                    const isVideo = att.file && att.file.match(/\.(mp4|webm|ogg|mov|avi)$/i)
+                    return (
+                      <div
+                        key={att.id}
+                        style={{ position: 'relative', width: 80, height: 80, borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: (isImage || isVideo) ? 'pointer' : 'default' }}
+                        onClick={() => { if (isImage || isVideo) setPreviewMedia({ url: att.file, isVideo: !!isVideo }) }}
+                      >
+                        {isImage ? (
+                          <img src={att.file} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : isVideo ? (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', fontSize: 11, color: '#6b7280' }}>
+                            <span style={{ fontSize: 24, marginBottom: 2 }}>&#9654;</span>
+                            Video
+                          </div>
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', fontSize: 11, color: '#6b7280' }}>File</div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Priority selector */}
             <div style={{ marginTop: 20, padding: 16, background: '#f9fafb', borderRadius: 8 }}>
               <label style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, display: 'block' }}>Priority Level</label>
@@ -276,6 +310,41 @@ export default function AdminDashboard() {
                   <TicketChat ticketId={viewTicket.id} channelType="admin_employee" currentUserId={currentUserId} currentUserRole="admin" />
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ───── MEDIA PREVIEW LIGHTBOX ───── */}
+      {previewMedia && (
+        <div
+          onClick={() => setPreviewMedia(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 2000, cursor: 'pointer',
+          }}
+        >
+          <button
+            onClick={() => setPreviewMedia(null)}
+            style={{
+              position: 'absolute', top: 16, right: 24,
+              background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', zIndex: 2001,
+            }}
+          >&times;</button>
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '85vh' }}>
+            {previewMedia.isVideo ? (
+              <video
+                src={previewMedia.url}
+                controls
+                autoPlay
+                style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8 }}
+              />
+            ) : (
+              <img
+                src={previewMedia.url}
+                alt="Attachment preview"
+                style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, objectFit: 'contain' }}
+              />
             )}
           </div>
         </div>

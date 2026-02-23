@@ -30,6 +30,9 @@ export default function EmployeeDashboard() {
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Media preview lightbox
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
+
   useEffect(() => {
     loadTickets()
     ;(async () => {
@@ -261,19 +264,32 @@ export default function EmployeeDashboard() {
               {/* Existing attachments */}
               {viewTicket.attachments && viewTicket.attachments.length > 0 && (
                 <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {viewTicket.attachments.map((att: any) => (
-                    <div key={att.id} style={{ position: 'relative', width: 80, height: 80, borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                      {att.file && att.file.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                        <img src={att.file} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', fontSize: 11, color: '#6b7280' }}>Video</div>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteAttachment(att.id) }}
-                        style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                      >&times;</button>
-                    </div>
-                  ))}
+                  {viewTicket.attachments.map((att: any) => {
+                    const isImage = att.file && att.file.match(/\.(jpg|jpeg|png|gif|webp)$/i)
+                    const isVideo = att.file && att.file.match(/\.(mp4|webm|ogg|mov|avi)$/i)
+                    return (
+                      <div
+                        key={att.id}
+                        style={{ position: 'relative', width: 80, height: 80, borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb', cursor: (isImage || isVideo) ? 'pointer' : 'default' }}
+                        onClick={() => { if (isImage || isVideo) setPreviewMedia({ url: att.file, isVideo: !!isVideo }) }}
+                      >
+                        {isImage ? (
+                          <img src={att.file} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : isVideo ? (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', fontSize: 11, color: '#6b7280' }}>
+                            <span style={{ fontSize: 24, marginBottom: 2 }}>&#9654;</span>
+                            Video
+                          </div>
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', fontSize: 11, color: '#6b7280' }}>File</div>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteAttachment(att.id) }}
+                          style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                        >&times;</button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
               {/* Pending files */}
@@ -307,6 +323,11 @@ export default function EmployeeDashboard() {
                   >{js.label}</button>
                 ))}
               </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginBottom: 20 }}>
+              <button style={btnSecondary} onClick={closeDetail}>Close</button>
+              <button style={btnPrimary} onClick={handleSave}>Save Changes</button>
             </div>
 
             {/* ── Chat Section (two channels) ── */}
@@ -343,10 +364,41 @@ export default function EmployeeDashboard() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button style={btnSecondary} onClick={closeDetail}>Close</button>
-              <button style={btnPrimary} onClick={handleSave}>Save Changes</button>
-            </div>
+          </div>
+        </div>
+      )}
+      {/* ───── MEDIA PREVIEW LIGHTBOX ───── */}
+      {previewMedia && (
+        <div
+          onClick={() => setPreviewMedia(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 2000, cursor: 'pointer',
+          }}
+        >
+          <button
+            onClick={() => setPreviewMedia(null)}
+            style={{
+              position: 'absolute', top: 16, right: 24,
+              background: 'none', border: 'none', color: '#fff', fontSize: 32, cursor: 'pointer', zIndex: 2001,
+            }}
+          >&times;</button>
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90vw', maxHeight: '85vh' }}>
+            {previewMedia.isVideo ? (
+              <video
+                src={previewMedia.url}
+                controls
+                autoPlay
+                style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8 }}
+              />
+            ) : (
+              <img
+                src={previewMedia.url}
+                alt="Attachment preview"
+                style={{ maxWidth: '90vw', maxHeight: '85vh', borderRadius: 8, objectFit: 'contain' }}
+              />
+            )}
           </div>
         </div>
       )}

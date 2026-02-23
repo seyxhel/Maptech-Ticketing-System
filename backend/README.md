@@ -2,13 +2,19 @@
 
 Quick API backend for ticketing system.
 
+### Command for one click running server
+####  cd backend  
+####  powershell -ExecutionPolicy Bypass -File .\setup_backend.ps1
+
+
+
 Setup
 
 1. Create a virtualenv and install requirements:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate  # on Windows
+python -m venv venv
+venv\Scripts\activate  # on Windows
 pip install -r requirements.txt
 ```
 
@@ -18,6 +24,12 @@ pip install -r requirements.txt
 python manage.py makemigrations
 python manage.py migrate
 python manage.py runserver
+```
+
+3. Seed default users (optional — creates client, admin, and employee accounts):
+
+```bash
+python manage.py seed_users
 ```
 
 API
