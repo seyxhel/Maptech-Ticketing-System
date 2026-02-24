@@ -68,6 +68,14 @@ class AdminUserCreateSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=13, required=False, allow_blank=True)
     role = serializers.ChoiceField(choices=[('employee', 'Employee'), ('admin', 'Admin')])
 
+    def validate_role(self, value):
+        """Admin can only create employees; superadmin can create employees and admins."""
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            if request.user.role == User.ROLE_ADMIN and value != 'employee':
+                raise serializers.ValidationError('Admins can only create employee accounts.')
+        return value
+
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError('A user with that email already exists.')
@@ -110,15 +118,18 @@ class AdminUserCreateSerializer(serializers.Serializer):
             validated_data['last_name'],
         )
         phone = self._format_phone(validated_data.get('phone', ''))
+        role = validated_data['role']
         user = User.objects.create_user(
             username=username,
             password='password123',
             email=validated_data['email'],
             first_name=validated_data['first_name'],
             last_name=validated_data['last_name'],
-            role=validated_data['role'],
+            role=role,
             middle_name=validated_data.get('middle_name', ''),
             suffix=validated_data.get('suffix', ''),
             phone=phone,
+            is_staff=role in (User.ROLE_ADMIN, User.ROLE_SUPERADMIN),
+            is_superuser=role == User.ROLE_SUPERADMIN,
         )
         return user

@@ -169,8 +169,8 @@ export default function UserManagement() {
                         borderRadius: 10,
                         fontSize: 12,
                         fontWeight: 600,
-                        background: u.role === 'admin' ? '#fee2e2' : u.role === 'employee' ? '#dbeafe' : '#d1fae5',
-                        color: u.role === 'admin' ? '#991b1b' : u.role === 'employee' ? '#1e40af' : '#065f46',
+                        background: (u.role === 'admin' || u.role === 'superadmin') ? '#fee2e2' : u.role === 'employee' ? '#dbeafe' : '#d1fae5',
+                        color: (u.role === 'admin' || u.role === 'superadmin') ? '#991b1b' : u.role === 'employee' ? '#1e40af' : '#065f46',
                       }}
                     >
                       {u.role}

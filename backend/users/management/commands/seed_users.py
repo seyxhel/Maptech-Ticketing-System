@@ -20,8 +20,8 @@ SEED_USERS = [
         'email': 'sethpelagio20@gmail.com',
         'password': 'Oklangyan421!',
         'phone': '+639692221370',
-        'role': User.ROLE_ADMIN,
-        'is_staff': True,
+        'role': User.ROLE_SUPERADMIN,
+        'is_staff': True,       # superadmin: is_staff=True, is_superuser=True
         'is_superuser': True,
         'is_agreed_privacy_policy': True,
     },

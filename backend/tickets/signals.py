@@ -9,8 +9,16 @@ def create_initial_admin(sender, **kwargs):
     if sender.name != 'tickets':
         return
     try:
+        # Create default admin (is_staff=True, is_superuser=False)
         if not User.objects.filter(email='admin@gmail.com').exists():
-            User.objects.create_superuser(username='admin', email='admin@gmail.com', password='admin', role=User.ROLE_ADMIN)
+            user = User.objects.create_user(
+                username='admin',
+                email='admin@gmail.com',
+                password='admin',
+                role=User.ROLE_ADMIN,
+                is_staff=True,
+                is_superuser=False,
+            )
     except Exception:
         # avoid failing migrations if DB not ready
         pass

@@ -9,7 +9,7 @@ export default function AdminRoutes() {
       <Route
         path="/admin/dashboard"
         element={
-          <ProtectedRoute role="admin">
+          <ProtectedRoute role={['admin', 'superadmin']}>
             <AdminDashboard />
           </ProtectedRoute>
         }
@@ -17,7 +17,7 @@ export default function AdminRoutes() {
       <Route
         path="/admin/user-management"
         element={
-          <ProtectedRoute role="admin">
+          <ProtectedRoute role={['admin', 'superadmin']}>
             <UserManagement />
           </ProtectedRoute>
         }

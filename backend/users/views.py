@@ -354,17 +354,17 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def list_users(self, request):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         users = self.get_queryset()
         return Response(UserSerializer(users, many=True).data)
 
     @action(detail=False, methods=['post'])
     def create_user(self, request):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         from .serializers import AdminUserCreateSerializer
-        serializer = AdminUserCreateSerializer(data=request.data)
+        serializer = AdminUserCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)

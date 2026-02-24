@@ -23,7 +23,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.role == User.ROLE_ADMIN:
+        if user.is_admin_level:
             return Ticket.objects.all().order_by('-created_at')
         if user.role == User.ROLE_EMPLOYEE:
             return Ticket.objects.filter(assigned_to=user).order_by('-created_at')
@@ -35,8 +35,8 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def assign(self, request, pk=None):
-        # admin only
-        if request.user.role != User.ROLE_ADMIN:
+        # admin / superadmin only
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         ticket = self.get_object()
         employee_id = request.data.get('employee_id')
@@ -164,8 +164,8 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
     def review(self, request, pk=None):
-        """Admin reviews a ticket — populates time_in and optionally sets priority."""
-        if request.user.role != User.ROLE_ADMIN:
+        """Admin/Superadmin reviews a ticket — populates time_in and optionally sets priority."""
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         ticket = self.get_object()
         if not ticket.time_in:
@@ -229,23 +229,23 @@ class TemplateViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # only admins manage templates
-        if self.request.user.role == User.ROLE_ADMIN:
+        # only admins / superadmins manage templates
+        if self.request.user.is_admin_level:
             return Template.objects.all()
         return Template.objects.none()
 
     def create(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 
@@ -257,23 +257,23 @@ class TypeOfServiceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        if self.request.user.role == User.ROLE_ADMIN:
+        if self.request.user.is_admin_level:
             return TypeOfService.objects.all().order_by('name')
         # Non-admins only see active services (for dropdown)
         return TypeOfService.objects.filter(is_active=True).order_by('name')
 
     def create(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Admin only.'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
 

@@ -43,7 +43,7 @@ export default function Header() {
             <Link to="/register">Register</Link>
           </>
         )}
-        {user && location.pathname !== '/login' && user.role === 'admin' && (
+        {user && location.pathname !== '/login' && (user.role === 'admin' || user.role === 'superadmin') && (
           <>
             {' '}
             <Link to="/admin/user-management">User Management</Link>

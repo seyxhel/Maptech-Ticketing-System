@@ -5,7 +5,7 @@ import { getCookie } from '../../utils/auth'
 
 type Props = {
   children: React.ReactNode
-  role?: string
+  role?: string | string[]
 }
 
 export default function ProtectedRoute({ children, role }: Props) {
@@ -17,7 +17,10 @@ export default function ProtectedRoute({ children, role }: Props) {
     return <Navigate to="/login" replace />
   }
 
-  if (role && user.role !== role) return <Navigate to={roleRedirectPath(user)} replace />
+  if (role) {
+    const allowed = Array.isArray(role) ? role : [role]
+    if (!allowed.includes(user.role)) return <Navigate to={roleRedirectPath(user)} replace />
+  }
 
   return <>{children}</>
 }

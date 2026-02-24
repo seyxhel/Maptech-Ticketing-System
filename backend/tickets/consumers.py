@@ -137,8 +137,8 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
                 return True
             return False
         elif self.channel_type == 'admin_employee':
-            # Only admin or the currently assigned employee
-            if user.role == User.ROLE_ADMIN:
+            # Only admin/superadmin or the currently assigned employee
+            if user.is_admin_level:
                 return True
             if ticket.assigned_to_id and user.id == ticket.assigned_to_id:
                 return True
