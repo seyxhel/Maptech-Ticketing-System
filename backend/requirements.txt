@@ -9,3 +9,5 @@ requests
 python-dotenv
 channels[daphne]
 channels
+PyJWT[crypto]
+cryptography

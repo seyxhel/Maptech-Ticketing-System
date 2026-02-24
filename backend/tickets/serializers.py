@@ -100,7 +100,7 @@ class TicketSerializer(serializers.ModelSerializer):
         role = request.user.role
         from django.contrib.auth import get_user_model
         User = get_user_model()
-        if role == User.ROLE_ADMIN:
+        if role == User.ROLE_ADMIN or role == User.ROLE_SUPERADMIN:
             return self.ADMIN_FIELDS
         elif role == User.ROLE_EMPLOYEE:
             return self.EMPLOYEE_FIELDS
@@ -116,7 +116,8 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         allowed = self._get_allowed_fields()
-        # Always keep created_by – it is set by the view, not user input
+        # Always allow `created_by` to pass through (set by the view),
+        # even if it's not in the role-writable fields.
         filtered = {k: v for k, v in validated_data.items() if k in allowed or k == 'created_by'}
         return super().create(filtered)
 class TemplateSerializer(serializers.ModelSerializer):

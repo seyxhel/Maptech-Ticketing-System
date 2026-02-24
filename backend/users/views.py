@@ -10,6 +10,8 @@ from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
+import jwt
+import requests as http_requests
 from .serializers import RegisterSerializer, UserSerializer
 
 User = get_user_model()
@@ -193,6 +195,115 @@ def google_auth_view(request):
     }, status=status.HTTP_201_CREATED)
 
 
+# ---------- Microsoft / Outlook OAuth2 ----------
+
+# Cache the Microsoft JWKS so we don't fetch on every request
+_ms_jwks_client = None
+
+
+def _get_ms_jwks_client():
+    global _ms_jwks_client
+    if _ms_jwks_client is None:
+        tenant = django_settings.MICROSOFT_TENANT_ID or 'common'
+        jwks_url = f'https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys'
+        _ms_jwks_client = jwt.PyJWKClient(jwks_url)
+    return _ms_jwks_client
+
+
+@api_view(['POST'])
+@permission_classes([])
+def microsoft_auth_view(request):
+    """Verify Microsoft ID token. If user exists, log them in. If new, auto-create and log in."""
+    token = request.data.get('token')
+    if not token:
+        return Response({'detail': 'Microsoft token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        tenant = django_settings.MICROSOFT_TENANT_ID or 'common'
+        client_id = django_settings.MICROSOFT_CLIENT_ID
+
+        signing_key = _get_ms_jwks_client().get_signing_key_from_jwt(token)
+
+        # Microsoft tokens use 'aud' for the app client-id
+        # issuer varies by tenant; with 'common' we skip issuer validation
+        decode_options = {
+            'verify_aud': True,
+            'verify_iss': tenant != 'common',
+        }
+        issuer = f'https://login.microsoftonline.com/{tenant}/v2.0' if tenant != 'common' else None
+
+        kwargs = {
+            'jwt': token,
+            'key': signing_key.key,
+            'algorithms': ['RS256'],
+            'audience': client_id,
+            'options': decode_options,
+        }
+        if issuer:
+            kwargs['issuer'] = issuer
+
+        idinfo = jwt.decode(**kwargs)
+    except jwt.ExpiredSignatureError:
+        return Response({'detail': 'Microsoft token has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+    except jwt.InvalidTokenError as e:
+        return Response({'detail': f'Invalid Microsoft token: {e}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    email = idinfo.get('preferred_username') or idinfo.get('email', '')
+    first_name = idinfo.get('given_name', '') or idinfo.get('name', '').split(' ')[0] if idinfo.get('name') else ''
+    last_name = idinfo.get('family_name', '')
+
+    if not email:
+        return Response({'detail': 'No email found in Microsoft token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # If a user with this email already exists, log them in
+    try:
+        user = User.objects.get(email=email)
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'exists': True,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': UserSerializer(user).data,
+        })
+    except User.DoesNotExist:
+        pass
+
+    # Auto-generate username from first + last name
+    import re
+    sanitize = lambda s: re.sub(r'[^a-z0-9]', '', (s or '').lower())
+    f = sanitize(first_name)
+    l = sanitize(last_name)
+    base = f"{f}{l}" if f and l else f or l or 'user'
+    username = base
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base}{counter}"
+        counter += 1
+
+    # Create user with unusable password (they authenticate via Microsoft)
+    user = User.objects.create_user(
+        username=username,
+        email=email,
+        first_name=first_name,
+        last_name=last_name,
+        role=User.ROLE_CLIENT,
+    )
+    user.set_unusable_password()
+    user.last_login = timezone.now()
+    user.save()
+
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'exists': False,
+        'created': True,
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': UserSerializer(user).data,
+    }, status=status.HTTP_201_CREATED)
+
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         # First, try the normal username-based token obtain
@@ -246,17 +357,17 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def list_users(self, request):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         users = self.get_queryset()
         return Response(UserSerializer(users, many=True).data)
 
     @action(detail=False, methods=['post'])
     def create_user(self, request):
-        if request.user.role != User.ROLE_ADMIN:
+        if not request.user.is_admin_level:
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         from .serializers import AdminUserCreateSerializer
-        serializer = AdminUserCreateSerializer(data=request.data)
+        serializer = AdminUserCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)

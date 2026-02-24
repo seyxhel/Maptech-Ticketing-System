@@ -54,5 +54,11 @@ export function roleRedirectPath(u: User | null) {
   if (u.role === 'client') return '/homepage'
   if (u.role === 'employee') return '/employee/dashboard'
   if (u.role === 'admin') return '/admin/dashboard'
+  if (u.role === 'superadmin') return '/admin/dashboard'
   return '/login'
+}
+
+/** Returns true if the user has admin or superadmin role. */
+export function isAdminLevel(u: User | null): boolean {
+  return u?.role === 'admin' || u?.role === 'superadmin'
 }
