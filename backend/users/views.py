@@ -133,9 +133,12 @@ def google_auth_view(request):
             token,
             google_requests.Request(),
             django_settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=60,
         )
-    except ValueError:
-        return Response({'detail': 'Invalid Google token.'}, status=status.HTTP_400_BAD_REQUEST)
+    except ValueError as e:
+        import logging
+        logging.getLogger(__name__).error("Google token verification failed: %s | CLIENT_ID used: %s", e, django_settings.GOOGLE_CLIENT_ID)
+        return Response({'detail': f'Invalid Google token: {e}'}, status=status.HTTP_400_BAD_REQUEST)
 
     email = idinfo.get('email', '')
     first_name = idinfo.get('given_name', '')
