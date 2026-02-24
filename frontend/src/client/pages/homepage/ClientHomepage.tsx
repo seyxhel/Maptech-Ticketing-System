@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchTickets, createTicket } from '../../../services/ticketService'
+import { fetchTickets, createTicket, submitCSAT } from '../../../services/ticketService'
 import { fetchTypesOfService, TypeOfService } from '../../../services/typeOfServiceService'
 import { getCurrentUser } from '../../../services/authService'
 import TicketChat from '../../../shared/components/TicketChat'
@@ -28,6 +28,16 @@ export default function ClientHomepage() {
   const [emailAddress, setEmailAddress] = useState('')
   const [typeOfServiceId, setTypeOfServiceId] = useState<string>('')
   const [typeOfServiceOthers, setTypeOfServiceOthers] = useState('')
+  const [preferredSupport, setPreferredSupport] = useState('')
+  const [descProblem, setDescProblem] = useState('')
+
+  // CSAT survey state
+  const [csatTicket, setCsatTicket] = useState<any | null>(null)
+  const [csatRating, setCsatRating] = useState(0)
+  const [csatComments, setCsatComments] = useState('')
+  const [hasOtherConcerns, setHasOtherConcerns] = useState(false)
+  const [otherConcernsText, setOtherConcernsText] = useState('')
+  const [csatSubmitting, setCsatSubmitting] = useState(false)
 
   useEffect(() => {
     loadTickets()
@@ -48,6 +58,7 @@ export default function ClientHomepage() {
     setClient(''); setContactPerson(''); setAddress('')
     setDesignation(''); setLandline(''); setDeptOrg(''); setMobileNo('')
     setEmailAddress(''); setTypeOfServiceId(''); setTypeOfServiceOthers('')
+    setPreferredSupport(''); setDescProblem('')
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -68,6 +79,8 @@ export default function ClientHomepage() {
     } else if (typeOfServiceId) {
       payload.type_of_service = Number(typeOfServiceId)
     }
+    if (preferredSupport) payload.preferred_support_type = preferredSupport
+    if (descProblem) payload.description_of_problem = descProblem
     await createTicket(payload)
     resetForm()
     await loadTickets()
@@ -84,6 +97,54 @@ export default function ClientHomepage() {
   }
 
   const selectedOthers = typeOfServiceId === 'others'
+
+  const supportTypes = [
+    { value: 'remote_online', label: 'Remote/Online' },
+    { value: 'onsite', label: 'Onsite' },
+    { value: 'chat', label: 'Chat' },
+    { value: 'call', label: 'Call' },
+  ]
+
+  const statusBadge = (s: string) => {
+    const map: Record<string, { bg: string; color: string }> = {
+      open: { bg: '#dbeafe', color: '#1d4ed8' },
+      in_progress: { bg: '#e0e7ff', color: '#4338ca' },
+      closed: { bg: '#dcfce7', color: '#15803d' },
+      escalated: { bg: '#fef3c7', color: '#92400e' },
+      escalated_external: { bg: '#fee2e2', color: '#dc2626' },
+      pending_closure: { bg: '#f3e8ff', color: '#7c3aed' },
+      pending_feedback: { bg: '#fef9c3', color: '#a16207' },
+    }
+    const m = map[s] || { bg: '#f3f4f6', color: '#374151' }
+    return { padding: '2px 8px', borderRadius: 9999, fontSize: 12, background: m.bg, color: m.color }
+  }
+
+  const handleOpenCSAT = (t: any) => {
+    setCsatTicket(t)
+    setCsatRating(0)
+    setCsatComments('')
+    setHasOtherConcerns(false)
+    setOtherConcernsText('')
+  }
+
+  const handleSubmitCSAT = async () => {
+    if (!csatTicket || csatRating === 0) return
+    setCsatSubmitting(true)
+    const result = await submitCSAT({
+      ticket: csatTicket.id,
+      rating: csatRating,
+      comments: csatComments,
+      has_other_concerns: hasOtherConcerns,
+      other_concerns_text: otherConcernsText,
+    })
+    setCsatSubmitting(false)
+    if (result.ok) {
+      setCsatTicket(null)
+      await loadTickets()
+    } else {
+      alert(result.data?.detail || 'Failed to submit survey')
+    }
+  }
 
   return (
     <div style={{ padding: 20, maxWidth: 900, margin: '0 auto' }}>
@@ -175,6 +236,32 @@ export default function ClientHomepage() {
                 <input style={inputStyle} value={typeOfServiceOthers} onChange={(e) => setTypeOfServiceOthers(e.target.value)} placeholder="Specify service" required />
               </div>
             )}
+
+            {/* Preferred Support Type */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Preferred Support Type *</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {supportTypes.map((s) => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => setPreferredSupport(s.value)}
+                    style={{
+                      padding: '6px 16px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                      border: preferredSupport === s.value ? '2px solid #2563eb' : '2px solid #e5e7eb',
+                      background: preferredSupport === s.value ? '#dbeafe' : '#fff',
+                      color: preferredSupport === s.value ? '#1d4ed8' : '#374151',
+                    }}
+                  >{s.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Description of Problem */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Description of Problem *</label>
+              <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} value={descProblem} onChange={(e) => setDescProblem(e.target.value)} placeholder="Describe the issue you're experiencing" required />
+            </div>
           </div>
 
           <div style={{ marginTop: 20, textAlign: 'right' }}>
@@ -209,13 +296,18 @@ export default function ClientHomepage() {
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.date}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.client}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                    <span style={{ padding: '2px 8px', borderRadius: 9999, fontSize: 12, background: t.status === 'open' ? '#dbeafe' : t.status === 'closed' ? '#dcfce7' : '#fef3c7', color: t.status === 'open' ? '#1d4ed8' : t.status === 'closed' ? '#15803d' : '#92400e' }}>
-                      {t.status}
+                    <span style={statusBadge(t.status)}>
+                      {t.status?.replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '—'}</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '\u2014'}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                    <button onClick={() => setViewTicket(t)} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>View</button>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => setViewTicket(t)} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>View</button>
+                      {t.status === 'pending_feedback' && !t.csat_survey && (
+                        <button onClick={() => handleOpenCSAT(t)} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: '#f59e0b', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 12 }}>Rate</button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -251,14 +343,20 @@ export default function ClientHomepage() {
             </div>
 
             {/* Employee fields (read-only for client) */}
-            {(viewTicket.description_of_problem || viewTicket.action_taken || viewTicket.job_status) && (
+            {(viewTicket.action_taken || viewTicket.job_status) && (
               <div style={{ fontSize: 14, marginBottom: 16, padding: 16, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 15 }}>Employee Progress</h4>
-                {viewTicket.preferred_support_type && <div style={{ marginBottom: 4 }}><strong>Support Type:</strong> {viewTicket.preferred_support_type}</div>}
-                {viewTicket.description_of_problem && <div style={{ marginBottom: 4 }}><strong>Problem Description:</strong> {viewTicket.description_of_problem}</div>}
                 {viewTicket.action_taken && <div style={{ marginBottom: 4 }}><strong>Action Taken:</strong> {viewTicket.action_taken}</div>}
                 {viewTicket.remarks && <div style={{ marginBottom: 4 }}><strong>Remarks:</strong> {viewTicket.remarks}</div>}
-                {viewTicket.job_status && <div><strong>Job Status:</strong> {viewTicket.job_status}</div>}
+                {viewTicket.job_status && <div><strong>Job Status:</strong> {viewTicket.job_status?.replace(/_/g, ' ')}</div>}
+              </div>
+            )}
+
+            {/* CSAT survey prompt inside modal */}
+            {viewTicket.status === 'pending_feedback' && !viewTicket.csat_survey && (
+              <div style={{ padding: 16, background: '#fffbeb', borderRadius: 8, border: '1px solid #fde68a', marginBottom: 16, textAlign: 'center' }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 600, color: '#92400e' }}>This ticket is pending your feedback.</p>
+                <button onClick={() => { setViewTicket(null); handleOpenCSAT(viewTicket) }} style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: '#f59e0b', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: 13 }}>Rate &amp; Provide Feedback</button>
               </div>
             )}
 
@@ -271,6 +369,63 @@ export default function ClientHomepage() {
 
             <div style={{ textAlign: 'right' }}>
               <button onClick={() => setViewTicket(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* \u2500\u2500\u2500\u2500\u2500 CSAT SURVEY MODAL \u2500\u2500\u2500\u2500\u2500 */}
+      {csatTicket && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: 480, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+            <h2 style={{ margin: '0 0 4px 0', fontSize: 20 }}>Customer Satisfaction Survey</h2>
+            <p style={{ color: '#6b7280', fontSize: 13, marginTop: 0 }}>Ticket: {csatTicket.stf_no}</p>
+
+            {/* Star rating */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={labelStyle}>How would you rate the service? *</label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setCsatRating(star)}
+                    style={{
+                      fontSize: 32, background: 'none', border: 'none', cursor: 'pointer',
+                      color: star <= csatRating ? '#f59e0b' : '#d1d5db', transition: 'color 0.15s',
+                    }}
+                  >\u2605</button>
+                ))}
+              </div>
+              <p style={{ fontSize: 12, color: '#9ca3af', margin: '4px 0 0 0' }}>
+                {csatRating === 1 ? 'Poor' : csatRating === 2 ? 'Fair' : csatRating === 3 ? 'Good' : csatRating === 4 ? 'Very Good' : csatRating === 5 ? 'Excellent' : 'Select a rating'}
+              </p>
+            </div>
+
+            {/* Comments */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Comments <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+              <textarea style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }} value={csatComments} onChange={(e) => setCsatComments(e.target.value)} placeholder="Any additional feedback..." />
+            </div>
+
+            {/* Other concerns */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={hasOtherConcerns} onChange={(e) => setHasOtherConcerns(e.target.checked)} />
+                <span style={{ fontWeight: 600, fontSize: 13, color: '#374151' }}>I have other concerns</span>
+              </label>
+              {hasOtherConcerns && (
+                <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical', marginTop: 8 }} value={otherConcernsText} onChange={(e) => setOtherConcernsText(e.target.value)} placeholder="Describe your other concerns..." />
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setCsatTicket(null)} style={{ padding: '8px 18px', borderRadius: 6, border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Cancel</button>
+              <button
+                onClick={handleSubmitCSAT}
+                disabled={csatRating === 0 || csatSubmitting}
+                style={{ padding: '8px 20px', borderRadius: 6, border: 'none', background: csatRating === 0 ? '#d1d5db' : '#2563eb', color: '#fff', fontWeight: 600, cursor: csatRating === 0 ? 'not-allowed' : 'pointer', fontSize: 13 }}
+              >{csatSubmitting ? 'Submitting...' : 'Submit Survey'}</button>
             </div>
           </div>
         </div>

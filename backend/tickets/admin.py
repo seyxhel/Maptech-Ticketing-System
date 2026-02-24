@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, EscalationLog, CSATSurvey
 
 User = get_user_model()
 
@@ -13,8 +13,8 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):
-    list_display = ('stf_no', 'status', 'priority', 'created_by', 'assigned_to', 'created_at')
-    list_filter = ('status', 'priority', 'job_status')
+    list_display = ('stf_no', 'status', 'priority', 'created_by', 'assigned_to', 'confirmed_by_admin', 'created_at')
+    list_filter = ('status', 'priority', 'job_status', 'confirmed_by_admin')
     search_fields = ('stf_no', 'client', 'contact_person')
 
 
@@ -36,4 +36,16 @@ class TypeOfServiceAdmin(admin.ModelAdmin):
 
 @admin.register(TicketAttachment)
 class TicketAttachmentAdmin(admin.ModelAdmin):
-    list_display = ('ticket', 'file', 'uploaded_by', 'uploaded_at')
+    list_display = ('ticket', 'file', 'uploaded_by', 'is_resolution_proof', 'uploaded_at')
+    list_filter = ('is_resolution_proof',)
+
+
+@admin.register(EscalationLog)
+class EscalationLogAdmin(admin.ModelAdmin):
+    list_display = ('ticket', 'escalation_type', 'from_user', 'to_user', 'to_external', 'created_at')
+    list_filter = ('escalation_type',)
+
+
+@admin.register(CSATSurvey)
+class CSATSurveyAdmin(admin.ModelAdmin):
+    list_display = ('ticket', 'rating', 'has_other_concerns', 'created_at')

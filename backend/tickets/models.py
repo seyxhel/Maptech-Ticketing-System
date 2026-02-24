@@ -20,12 +20,20 @@ class TypeOfService(models.Model):
 class Ticket(models.Model):
     # --- Status choices ---
     STATUS_OPEN = 'open'
+    STATUS_IN_PROGRESS = 'in_progress'
     STATUS_CLOSED = 'closed'
     STATUS_ESCALATED = 'escalated'
+    STATUS_ESCALATED_EXTERNAL = 'escalated_external'
+    STATUS_PENDING_CLOSURE = 'pending_closure'
+    STATUS_PENDING_FEEDBACK = 'pending_feedback'
     STATUS_CHOICES = [
         (STATUS_OPEN, 'Open'),
+        (STATUS_IN_PROGRESS, 'In Progress'),
         (STATUS_CLOSED, 'Closed'),
-        (STATUS_ESCALATED, 'Escalated'),
+        (STATUS_ESCALATED, 'Escalated (Internal)'),
+        (STATUS_ESCALATED_EXTERNAL, 'Escalated (External)'),
+        (STATUS_PENDING_CLOSURE, 'Pending Closure'),
+        (STATUS_PENDING_FEEDBACK, 'Pending Feedback'),
     ]
 
     # --- Priority choices (admin sets) ---
@@ -40,7 +48,7 @@ class Ticket(models.Model):
         (PRIORITY_CRITICAL, 'Critical'),
     ]
 
-    # --- Preferred support type (employee sets) ---
+    # --- Preferred support type (client sets at submission) ---
     SUPPORT_REMOTE = 'remote_online'
     SUPPORT_ONSITE = 'onsite'
     SUPPORT_CHAT = 'chat'
@@ -93,10 +101,13 @@ class Ticket(models.Model):
 
     # ---- Admin-set field ----
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
+    confirmed_by_admin = models.BooleanField(default=False)
+
+    # ---- Client-set fields (support preference & problem) ----
+    preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
+    description_of_problem = models.TextField(blank=True)
 
     # ---- Employee-set fields ----
-    preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
-
     # Product details
     has_warranty = models.BooleanField(default=False)
     product = models.CharField(max_length=300, blank=True)
@@ -107,11 +118,15 @@ class Ticket(models.Model):
     date_purchased = models.DateField(null=True, blank=True)
     serial_no = models.CharField(max_length=200, blank=True)
 
-    description_of_problem = models.TextField(blank=True)
     action_taken = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
 
     job_status = models.CharField(max_length=20, choices=JOB_STATUS_CHOICES, blank=True, default='')
+
+    # ---- External escalation fields ----
+    external_escalated_to = models.CharField(max_length=300, blank=True, default='')
+    external_escalation_notes = models.TextField(blank=True, default='')
+    external_escalated_at = models.DateTimeField(null=True, blank=True)
 
     # Current active assignment session (for messaging scope)
     current_session = models.ForeignKey('AssignmentSession', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
@@ -151,6 +166,7 @@ class TicketAttachment(models.Model):
     file = models.FileField(upload_to='ticket_attachments/%Y/%m/%d/')
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    is_resolution_proof = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Attachment for {self.ticket.stf_no}: {self.file.name}"
@@ -252,3 +268,44 @@ class MessageReadReceipt(models.Model):
 
     def __str__(self):
         return f"{self.user.username} read msg #{self.message.id}"
+
+
+# ────────────────────────────────────────────
+# Lifecycle models
+# ────────────────────────────────────────────
+
+class EscalationLog(models.Model):
+    """Tracks every escalation event for reporting."""
+    ESCALATION_INTERNAL = 'internal'
+    ESCALATION_EXTERNAL = 'external'
+    ESCALATION_TYPE_CHOICES = [
+        (ESCALATION_INTERNAL, 'Internal (Staff)'),
+        (ESCALATION_EXTERNAL, 'External (Distributor/Principal)'),
+    ]
+
+    ticket = models.ForeignKey(Ticket, related_name='escalation_logs', on_delete=models.CASCADE)
+    escalation_type = models.CharField(max_length=20, choices=ESCALATION_TYPE_CHOICES)
+    from_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='escalations_from', null=True, blank=True, on_delete=models.SET_NULL)
+    to_user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='escalations_to', null=True, blank=True, on_delete=models.SET_NULL)
+    to_external = models.CharField(max_length=300, blank=True, default='')
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Escalation on {self.ticket.stf_no} ({self.escalation_type})"
+
+
+class CSATSurvey(models.Model):
+    """Customer satisfaction survey — mandatory before ticket closure."""
+    ticket = models.OneToOneField(Ticket, related_name='csat_survey', on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField()   # 1–5 stars
+    comments = models.TextField(blank=True, default='')
+    has_other_concerns = models.BooleanField(default=False)
+    other_concerns_text = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"CSAT for {self.ticket.stf_no}: {self.rating}/5"

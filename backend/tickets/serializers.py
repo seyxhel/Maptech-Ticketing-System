@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, Message, MessageReaction, MessageReadReceipt
+from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, Message, MessageReaction, MessageReadReceipt, CSATSurvey, EscalationLog
 from users.serializers import UserSerializer
 
 
@@ -19,7 +19,7 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TicketAttachment
-        fields = ['id', 'file', 'uploaded_by', 'uploaded_at']
+        fields = ['id', 'file', 'uploaded_by', 'uploaded_at', 'is_resolution_proof']
 
 
 class TypeOfServiceSerializer(serializers.ModelSerializer):
@@ -28,23 +28,42 @@ class TypeOfServiceSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'is_active']
 
 
+class EscalationLogSerializer(serializers.ModelSerializer):
+    from_user = UserSerializer(read_only=True)
+    to_user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = EscalationLog
+        fields = ['id', 'escalation_type', 'from_user', 'to_user', 'to_external', 'notes', 'created_at']
+
+
+class CSATSurveySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CSATSurvey
+        fields = ['id', 'ticket', 'rating', 'comments', 'has_other_concerns', 'other_concerns_text', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
 class TicketSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
     assigned_to = UserSerializer(read_only=True)
     tasks = TicketTaskSerializer(many=True, read_only=True)
     attachments = TicketAttachmentSerializer(many=True, read_only=True)
     type_of_service_detail = TypeOfServiceSerializer(source='type_of_service', read_only=True)
+    escalation_logs = EscalationLogSerializer(many=True, read_only=True)
+    csat_survey = CSATSurveySerializer(read_only=True)
 
     # Role-based writable fields
     CLIENT_FIELDS = {
         'client', 'contact_person', 'address', 'designation',
         'landline', 'department_organization', 'mobile_no', 'email_address',
         'type_of_service', 'type_of_service_others',
+        'preferred_support_type', 'description_of_problem',
     }
     EMPLOYEE_FIELDS = {
-        'preferred_support_type', 'has_warranty', 'product', 'brand', 'model_name',
+        'has_warranty', 'product', 'brand', 'model_name',
         'device_equipment', 'version_no',
-        'date_purchased', 'serial_no', 'description_of_problem',
+        'date_purchased', 'serial_no',
         'action_taken', 'remarks', 'job_status',
     }
     ADMIN_FIELDS = {'priority'}
@@ -59,15 +78,19 @@ class TicketSerializer(serializers.ModelSerializer):
             'client', 'contact_person', 'address', 'designation',
             'landline', 'department_organization', 'mobile_no', 'email_address',
             'type_of_service', 'type_of_service_detail', 'type_of_service_others',
-            'priority',
-            'preferred_support_type',
+            'priority', 'confirmed_by_admin',
+            'preferred_support_type', 'description_of_problem',
             'has_warranty', 'product', 'brand', 'model_name',
             'device_equipment', 'version_no', 'date_purchased', 'serial_no',
-            'description_of_problem', 'action_taken', 'remarks',
+            'action_taken', 'remarks',
             'job_status',
+            'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',
             'attachments',
+            'escalation_logs',
+            'csat_survey',
         ]
-        read_only_fields = ['stf_no', 'date', 'time_in', 'time_out']
+        read_only_fields = ['stf_no', 'date', 'time_in', 'time_out', 'confirmed_by_admin',
+                            'external_escalated_to', 'external_escalation_notes', 'external_escalated_at']
 
     def _get_allowed_fields(self):
         """Return the set of writable field names based on the requesting user's role."""
