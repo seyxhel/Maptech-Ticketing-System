@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base {
+  :root {
+    --color-lime: #63D44A;
+    --color-green: #3BC25B;
+    --color-teal: #1FAF8E;
+    --color-deep-teal: #0E8F79;
+  }
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+  body {
+    @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+  }
+  html.dark body {
+    @apply bg-gray-950 text-gray-100;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+}
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+html.dark ::-webkit-scrollbar-thumb { background: #374151; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+/* ── Utility gradients ── */
+.bg-gradient-maptech {
+  background: linear-gradient(135deg, #63D44A 0%, #0E8F79 100%);
+}
+.text-gradient-maptech {
+  background: linear-gradient(135deg, #63D44A 0%, #0E8F79 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
