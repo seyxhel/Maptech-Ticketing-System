@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, EscalationLog, CSATSurvey
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, CSATSurvey
 
 User = get_user_model()
 
@@ -22,11 +22,6 @@ class TicketAdmin(admin.ModelAdmin):
 @admin.register(TicketTask)
 class TicketTaskAdmin(admin.ModelAdmin):
     list_display = ('ticket', 'description', 'assigned_to', 'status', 'created_at')
-
-
-@admin.register(Template)
-class TemplateAdmin(admin.ModelAdmin):
-    list_display = ('name',)
 
 
 @admin.register(TypeOfService)

@@ -4,8 +4,11 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.contrib.auth import get_user_model
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.conf import settings as django_settings
 from django.utils import timezone
 from google.oauth2 import id_token as google_id_token
@@ -121,6 +124,48 @@ class RegisterViewSet(viewsets.GenericViewSet):
             'access': str(refresh.access_token),
             'refresh': str(refresh),
         })
+
+    # ── Password reset (public) ──────────────────────────────────────────
+    @action(detail=False, methods=['post'], permission_classes=[], url_path='password-reset')
+    def password_reset(self, request):
+        """Generate a password-reset token for the given email address."""
+        email = (request.data.get('email') or '').strip().lower()
+        # Always return a generic success to prevent email enumeration
+        generic = {'detail': 'If an account with that email exists, a reset link has been sent.'}
+        if not email:
+            return Response(generic)
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(generic)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        # In production, send an email with the reset link.
+        # For development / SPA, return uid+token so the frontend can build a reset URL.
+        reset_url = f"/reset-password/{uid}/{token}/"
+        # TODO: integrate actual email sending here
+        return Response({'detail': generic['detail'], 'reset_url': reset_url, 'uid': uid, 'token': token})
+
+    @action(detail=False, methods=['post'], permission_classes=[], url_path='password-reset-confirm')
+    def password_reset_confirm(self, request):
+        """Confirm password reset with uid, token, and new_password."""
+        uid = request.data.get('uid', '')
+        token = request.data.get('token', '')
+        new_password = request.data.get('new_password', '')
+        if not uid or not token or not new_password:
+            return Response({'detail': 'uid, token, and new_password are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            pk = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=pk)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'detail': 'Invalid reset link.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'Token is invalid or has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(new_password) < 8:
+            return Response({'detail': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save()
+        return Response({'detail': 'Password has been reset successfully.'})
 
 
 @api_view(['POST'])
@@ -371,3 +416,57 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'], url_path='update_user')
+    def update_user(self, request, pk=None):
+        """Admin updates user profile fields."""
+        if not request.user.is_admin_level:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            target = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        # Prevent editing superadmin unless you are superadmin
+        if target.role == User.ROLE_SUPERADMIN and request.user.role != User.ROLE_SUPERADMIN:
+            return Response({'detail': 'Cannot edit a superadmin account.'}, status=status.HTTP_403_FORBIDDEN)
+        allowed = ['first_name', 'middle_name', 'last_name', 'suffix', 'email', 'phone', 'role']
+        for field in allowed:
+            if field in request.data:
+                setattr(target, field, request.data[field])
+        # Keep is_staff in sync with role
+        if 'role' in request.data:
+            target.is_staff = target.role in (User.ROLE_ADMIN, User.ROLE_SUPERADMIN)
+            target.is_superuser = target.role == User.ROLE_SUPERADMIN
+        target.save()
+        return Response(UserSerializer(target).data)
+
+    @action(detail=True, methods=['post'], url_path='toggle_active')
+    def toggle_active(self, request, pk=None):
+        """Admin activates or deactivates a user account."""
+        if not request.user.is_admin_level:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            target = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        if target.id == request.user.id:
+            return Response({'detail': 'Cannot deactivate your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+        if target.role == User.ROLE_SUPERADMIN and request.user.role != User.ROLE_SUPERADMIN:
+            return Response({'detail': 'Cannot deactivate a superadmin.'}, status=status.HTTP_403_FORBIDDEN)
+        target.is_active = not target.is_active
+        target.save(update_fields=['is_active'])
+        return Response(UserSerializer(target).data)
+
+    @action(detail=True, methods=['post'], url_path='reset_password')
+    def admin_reset_password(self, request, pk=None):
+        """Admin forcefully resets a user's password to a generated default."""
+        if not request.user.is_admin_level:
+            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            target = User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+        temp_password = 'password123'
+        target.set_password(temp_password)
+        target.save()
+        return Response({'detail': f'Password reset to default for {target.username}.', 'temp_password': temp_password})

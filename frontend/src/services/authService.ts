@@ -109,3 +109,33 @@ export async function acceptPrivacy() {
   return res.json()
 }
 
+/** Refresh the access token using a refresh token */
+export async function refreshToken(refresh: string) {
+  const res = await fetch(`${API_BASE}/auth/token/refresh/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh }),
+  })
+  return res.json()
+}
+
+/** Confirm a password reset with uid, token, and new_password */
+export async function resetPasswordConfirm(uid: string, token: string, new_password: string) {
+  const res = await fetch(`${API_BASE}/auth/password-reset-confirm/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid, token, new_password }),
+  })
+  return { ok: res.ok, data: await res.json() }
+}
+
+/** Send Microsoft ID token to backend */
+export async function microsoftAuth(token: string) {
+  const res = await fetch(`${API_BASE}/auth/microsoft/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  return res.json()
+}
+

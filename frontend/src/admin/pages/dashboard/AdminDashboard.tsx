@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { fetchTickets, assignTicket, reviewTicket, confirmTicket, closeTicket, escalateExternal, fetchEmployees, fetchCSAT } from '../../../services/ticketService'
-import { fetchTemplates, createTemplate } from '../../../services/templateService'
 import { fetchTypesOfService, createTypeOfService, updateTypeOfService, deleteTypeOfService, TypeOfService } from '../../../services/typeOfServiceService'
 import { getCurrentUser } from '../../../services/authService'
 import TicketChat from '../../../shared/components/TicketChat'
@@ -26,9 +25,8 @@ const statusBadge = (s: string): React.CSSProperties => {
 
 export default function AdminDashboard() {
   const [tickets, setTickets] = useState<any[]>([])
-  const [templates, setTemplates] = useState<any[]>([])
   const [services, setServices] = useState<TypeOfService[]>([])
-  const [activeTab, setActiveTab] = useState<'tickets' | 'services' | 'templates'>('tickets')
+  const [activeTab, setActiveTab] = useState<'tickets' | 'services'>('tickets')
 
   // Service form
   const [svcName, setSvcName] = useState('')
@@ -47,7 +45,6 @@ export default function AdminDashboard() {
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [assignTicketId, setAssignTicketId] = useState<number | null>(null)
   const [assignEmployeeId, setAssignEmployeeId] = useState('')
-  const [assignTemplateId, setAssignTemplateId] = useState('')
 
   // External escalation modal
   const [showExtEscModal, setShowExtEscModal] = useState(false)
@@ -70,23 +67,12 @@ export default function AdminDashboard() {
 
   const loadAll = async () => {
     setTickets(await fetchTickets())
-    setTemplates(await fetchTemplates())
     setServices(await fetchTypesOfService())
-  }
-
-  // ---------- Templates ----------
-  const handleCreateTemplate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const name = (e.target as any).name.value
-    const steps = (e.target as any).steps.value
-    await createTemplate({ name, steps })
-    setTemplates(await fetchTemplates())
   }
 
   const handleAssign = async (ticketId: number) => {
     setAssignTicketId(ticketId)
     setAssignEmployeeId('')
-    setAssignTemplateId('')
     setShowAssignModal(true)
   }
 
@@ -94,7 +80,6 @@ export default function AdminDashboard() {
     if (!assignTicketId || !assignEmployeeId) return
     await assignTicket(assignTicketId, {
       employee_id: Number(assignEmployeeId),
-      template_id: assignTemplateId ? Number(assignTemplateId) : undefined,
     })
     setShowAssignModal(false)
     setTickets(await fetchTickets())
@@ -175,7 +160,6 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid #e5e7eb', marginBottom: 20 }}>
         <button style={tabStyle(activeTab === 'tickets')} onClick={() => setActiveTab('tickets')}>Tickets</button>
         <button style={tabStyle(activeTab === 'services')} onClick={() => setActiveTab('services')}>Type of Service</button>
-        <button style={tabStyle(activeTab === 'templates')} onClick={() => setActiveTab('templates')}>Templates</button>
       </div>
 
       {/* ───── TICKETS TAB ───── */}
@@ -263,23 +247,6 @@ export default function AdminDashboard() {
               {services.length === 0 && <tr><td colSpan={4} style={{ padding: 16, color: '#888', textAlign: 'center' }}>No services yet.</td></tr>}
             </tbody>
           </table>
-        </section>
-      )}
-
-      {/* ───── TEMPLATES TAB ───── */}
-      {activeTab === 'templates' && (
-        <section>
-          <h3 style={{ marginTop: 0 }}>Templates</h3>
-          <form onSubmit={handleCreateTemplate} style={{ marginBottom: 16 }}>
-            <input name="name" placeholder="Template name" required style={{ ...inputStyle, width: 250, marginRight: 8, display: 'inline-block' }} />
-            <textarea name="steps" placeholder="One step per line" style={{ ...inputStyle, width: 350, verticalAlign: 'top', display: 'inline-block' }} />
-            <button style={{ ...btnPrimary, marginLeft: 8 }}>Create Template</button>
-          </form>
-          <ul>
-            {templates.map((t: any) => (
-              <li key={t.id} style={{ marginBottom: 8 }}><strong>{t.name}</strong> — {t.steps?.split('\n').length || 0} steps</li>
-            ))}
-          </ul>
         </section>
       )}
 
@@ -434,13 +401,6 @@ export default function AdminDashboard() {
               <option value="">-- Select Employee --</option>
               {employees.map((emp: any) => (
                 <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name} ({emp.username})</option>
-              ))}
-            </select>
-            <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4, marginTop: 12 }}>Template <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
-            <select style={inputStyle} value={assignTemplateId} onChange={(e) => setAssignTemplateId(e.target.value)}>
-              <option value="">-- No Template --</option>
-              {templates.map((t: any) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
               ))}
             </select>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>

@@ -8,7 +8,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login', 'is_agreed_privacy_policy', 'has_usable_password']
+        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login', 'is_active', 'is_agreed_privacy_policy', 'has_usable_password']
 
     def get_has_usable_password(self, obj):
         return obj.has_usable_password()

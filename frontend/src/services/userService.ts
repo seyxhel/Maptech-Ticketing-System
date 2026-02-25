@@ -21,3 +21,28 @@ export async function createUser(payload: {
   })
   return { ok: res.ok, data: await res.json() }
 }
+
+export async function updateUser(id: number, payload: Record<string, any>) {
+  const res = await fetch(`${API_BASE}/users/${id}/update_user/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+  })
+  return { ok: res.ok, data: await res.json() }
+}
+
+export async function toggleUserActive(id: number) {
+  const res = await fetch(`${API_BASE}/users/${id}/toggle_active/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  return { ok: res.ok, data: await res.json() }
+}
+
+export async function adminResetPassword(id: number) {
+  const res = await fetch(`${API_BASE}/users/${id}/reset_password/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  })
+  return { ok: res.ok, data: await res.json() }
+}

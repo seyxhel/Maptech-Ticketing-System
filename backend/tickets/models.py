@@ -172,15 +172,6 @@ class TicketAttachment(models.Model):
         return f"Attachment for {self.ticket.stf_no}: {self.file.name}"
 
 
-class Template(models.Model):
-    # Admin-created template with newline-separated steps
-    name = models.CharField(max_length=200)
-    steps = models.TextField(blank=True)
-
-    def __str__(self):
-        return self.name
-
-
 class TicketTask(models.Model):
     STATUS_TODO = 'todo'
     STATUS_IN_PROGRESS = 'in_progress'

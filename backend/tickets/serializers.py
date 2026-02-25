@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Ticket, TicketTask, Template, TypeOfService, TicketAttachment, Message, MessageReaction, MessageReadReceipt, CSATSurvey, EscalationLog
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, MessageReaction, MessageReadReceipt, CSATSurvey, EscalationLog
 from users.serializers import UserSerializer
 
 
@@ -101,7 +101,7 @@ class TicketSerializer(serializers.ModelSerializer):
         from django.contrib.auth import get_user_model
         User = get_user_model()
         if role == User.ROLE_ADMIN or role == User.ROLE_SUPERADMIN:
-            return self.ADMIN_FIELDS
+            return self.ADMIN_FIELDS | self.CLIENT_FIELDS
         elif role == User.ROLE_EMPLOYEE:
             return self.EMPLOYEE_FIELDS
         elif role == User.ROLE_CLIENT:
@@ -120,15 +120,67 @@ class TicketSerializer(serializers.ModelSerializer):
         # even if it's not in the role-writable fields.
         filtered = {k: v for k, v in validated_data.items() if k in allowed or k == 'created_by'}
         return super().create(filtered)
-class TemplateSerializer(serializers.ModelSerializer):
+
+
+# ────────────────────────────────────────────
+# Role-specific form serializers (DRF browsable API)
+# ────────────────────────────────────────────
+
+class ClientCreateTicketSerializer(serializers.ModelSerializer):
+    """Form shown to clients when creating a new ticket."""
     class Meta:
-        model = Template
-        fields = ['id', 'name', 'steps']
+        model = Ticket
+        fields = [
+            'client', 'contact_person', 'address', 'designation',
+            'landline', 'department_organization', 'mobile_no', 'email_address',
+            'type_of_service', 'type_of_service_others',
+            'description_of_problem', 'preferred_support_type',
+        ]
+
+
+class AdminTicketActionSerializer(serializers.Serializer):
+    """Form shown to admins: pick a ticket, set priority & assign agent."""
+    ticket = serializers.IntegerField(help_text='Ticket ID')
+    priority = serializers.ChoiceField(
+        choices=[('', '---')] + list(Ticket.PRIORITY_CHOICES),
+        required=False,
+    )
+    assign_agent = serializers.IntegerField(
+        required=False,
+        help_text='Employee user ID to assign',
+    )
+
+
+class EmployeeTicketActionSerializer(serializers.Serializer):
+    """Form shown to employees: pick a ticket, fill in product/service fields."""
+    ticket = serializers.IntegerField(help_text='Ticket ID')
+    has_warranty = serializers.BooleanField(required=False, default=False)
+    product = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    brand = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    model_name = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    device_equipment = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    version_no = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    date_purchased = serializers.DateField(required=False, allow_null=True)
+    serial_no = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    action_taken = serializers.CharField(required=False, allow_blank=True, style={'base_template': 'textarea.html'})
+    remarks = serializers.CharField(required=False, allow_blank=True, style={'base_template': 'textarea.html'})
+    job_status = serializers.ChoiceField(
+        required=False,
+        choices=[('', '---')] + list(Ticket.JOB_STATUS_CHOICES),
+    )
 
 
 # ────────────────────────────────────────────
 # Message serializers (used by REST endpoints)
 # ────────────────────────────────────────────
+
+class AssignmentSessionSerializer(serializers.ModelSerializer):
+    employee = UserSerializer(read_only=True)
+
+    class Meta:
+        model = AssignmentSession
+        fields = ['id', 'employee', 'started_at', 'ended_at', 'is_active']
+
 
 class MessageReactionSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True)

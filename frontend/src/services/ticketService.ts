@@ -28,7 +28,7 @@ export async function updateTicket(id: number, payload: any) {
   return res.json()
 }
 
-export async function assignTicket(ticketId: number, payload: { employee_id: number; template_id?: number }) {
+export async function assignTicket(ticketId: number, payload: { employee_id: number }) {
   const res = await fetch(`${API_BASE}/tickets/${ticketId}/assign/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -162,5 +162,39 @@ export async function fetchCSAT(ticketId: number) {
 
 export async function fetchEmployees() {
   const res = await fetch(`${API_BASE}/employees/`, { headers: authHeaders() })
+  return res.json()
+}
+
+// ── Dashboard statistics ────────────────────────────────────────────
+export async function fetchTicketStats() {
+  const res = await fetch(`${API_BASE}/tickets/stats/`, { headers: authHeaders() })
+  return res.json()
+}
+
+// ── REST message history ────────────────────────────────────────────
+export async function fetchMessages(ticketId: number, channel?: string, currentSessionOnly?: boolean) {
+  const params = new URLSearchParams()
+  if (channel) params.set('channel', channel)
+  if (currentSessionOnly) params.set('current_session', '1')
+  const qs = params.toString() ? `?${params.toString()}` : ''
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/messages/${qs}`, { headers: authHeaders() })
+  return res.json()
+}
+
+// ── Assignment session history ──────────────────────────────────────
+export async function fetchAssignmentHistory(ticketId: number) {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/assignment_history/`, { headers: authHeaders() })
+  return res.json()
+}
+
+// ── Escalation logs ─────────────────────────────────────────────────
+export async function fetchEscalationLogs() {
+  const res = await fetch(`${API_BASE}/escalation-logs/`, { headers: authHeaders() })
+  return res.json()
+}
+
+// ── CSAT surveys list (admin) ───────────────────────────────────────
+export async function fetchAllCSAT() {
+  const res = await fetch(`${API_BASE}/csat/list/`, { headers: authHeaders() })
   return res.json()
 }
