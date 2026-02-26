@@ -31,6 +31,17 @@ class IsAdminLevel(BasePermission):
         )
 
 
+class IsSuperAdmin(BasePermission):
+    """Allow only users with `superadmin` role."""
+    message = 'Only superadmins can perform this action.'
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and request.user.role == User.ROLE_SUPERADMIN
+        )
+
+
 class IsAssignedEmployee(BasePermission):
     """Allow only the employee currently assigned to the ticket (object-level)."""
     message = 'Only the assigned employee can perform this action.'

@@ -44,6 +44,10 @@ export default function Header() {
             <Link to="/admin/dashboard">Dashboard</Link>
             {' | '}
             <Link to="/admin/create-ticket">Create Ticket</Link>
+          </>
+        )}
+        {user && location.pathname !== '/login' && user.role === 'superadmin' && (
+          <>
             {' | '}
             <Link to="/admin/user-management">User Management</Link>
           </>

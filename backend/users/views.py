@@ -402,15 +402,15 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'])
     def list_users(self, request):
-        if not request.user.is_admin_level:
-            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role != 'superadmin':
+            return Response({'detail': 'Only superadmins can manage users.'}, status=status.HTTP_403_FORBIDDEN)
         users = self.get_queryset()
         return Response(UserSerializer(users, many=True).data)
 
     @action(detail=False, methods=['post'])
     def create_user(self, request):
-        if not request.user.is_admin_level:
-            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role != 'superadmin':
+            return Response({'detail': 'Only superadmins can manage users.'}, status=status.HTTP_403_FORBIDDEN)
         from .serializers import AdminUserCreateSerializer
         serializer = AdminUserCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -419,9 +419,9 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=['patch'], url_path='update_user')
     def update_user(self, request, pk=None):
-        """Admin updates user profile fields."""
-        if not request.user.is_admin_level:
-            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        """Superadmin updates user profile fields."""
+        if request.user.role != 'superadmin':
+            return Response({'detail': 'Only superadmins can manage users.'}, status=status.HTTP_403_FORBIDDEN)
         try:
             target = User.objects.get(pk=pk)
         except User.DoesNotExist:
@@ -442,9 +442,9 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=['post'], url_path='toggle_active')
     def toggle_active(self, request, pk=None):
-        """Admin activates or deactivates a user account."""
-        if not request.user.is_admin_level:
-            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        """Superadmin activates or deactivates a user account."""
+        if request.user.role != 'superadmin':
+            return Response({'detail': 'Only superadmins can manage users.'}, status=status.HTTP_403_FORBIDDEN)
         try:
             target = User.objects.get(pk=pk)
         except User.DoesNotExist:
@@ -459,9 +459,9 @@ class UserViewSet(viewsets.GenericViewSet):
 
     @action(detail=True, methods=['post'], url_path='reset_password')
     def admin_reset_password(self, request, pk=None):
-        """Admin forcefully resets a user's password to a generated default."""
-        if not request.user.is_admin_level:
-            return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        """Superadmin forcefully resets a user's password to a generated default."""
+        if request.user.role != 'superadmin':
+            return Response({'detail': 'Only superadmins can manage users.'}, status=status.HTTP_403_FORBIDDEN)
         try:
             target = User.objects.get(pk=pk)
         except User.DoesNotExist:
