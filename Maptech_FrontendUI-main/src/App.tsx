@@ -8,6 +8,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { SuperAdminLayout } from './layouts/SuperAdminLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { EmployeeLayout } from './layouts/EmployeeLayout';
+import { ClientLayout } from './layouts/ClientLayout';
 
 import SuperAdminDashboard from './pages/superadmin/dashboard';
 import SuperAdminUsers from './pages/superadmin/users';
@@ -27,6 +28,12 @@ import EmployeeMyTickets from './pages/employee/my-tickets';
 import EmployeeTicketDetails from './pages/employee/ticket-details';
 import EmployeeKnowledgeBase from './pages/employee/knowledge-base';
 import EmployeeSettings from './pages/employee/settings';
+
+import ClientDashboard from './pages/client/dashboard';
+import ClientMyTickets from './pages/client/my-tickets';
+import ClientCreateTicket from './pages/client/create-ticket';
+import ClientTicketDetails from './pages/client/ticket-details';
+import ClientSettings from './pages/client/settings';
 
 
 
@@ -96,6 +103,22 @@ export function App() {
               <Route path="ticket-details" element={<EmployeeTicketDetails />} />
               <Route path="knowledge-base" element={<EmployeeKnowledgeBase />} />
               <Route path="settings" element={<EmployeeSettings />} />
+            </Route>
+
+            <Route
+              path="/client"
+              element={
+                <ProtectedRoute allowedRole="client">
+                  <ClientLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Navigate to="/client/dashboard" replace />} />
+              <Route path="dashboard" element={<ClientDashboard />} />
+              <Route path="my-tickets" element={<ClientMyTickets />} />
+              <Route path="create-ticket" element={<ClientCreateTicket />} />
+              <Route path="ticket-details" element={<ClientTicketDetails />} />
+              <Route path="settings" element={<ClientSettings />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
