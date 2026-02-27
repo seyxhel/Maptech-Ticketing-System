@@ -30,13 +30,25 @@ export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   { id: '6', type: 'new_client_ticket', title: 'New Client Ticket',       ticketId: 'STF-MT-20260223000020', time: '5m ago',  read: false },
 ];
 
-function getTicketDetailsPath(role: Role): string {
+function getNotificationPath(role: Role, type: NotificationItem['type']): string {
   switch (role) {
-    case 'Employee':   return '/employee/ticket-details';
-    case 'Client':     return '/client/ticket-details';
-    case 'Admin':      return '/admin/tickets';
-    case 'SuperAdmin': return '/superadmin/dashboard';
-    default:           return '/';
+    case 'Admin':
+      switch (type) {
+        case 'escalation':        return '/admin/escalation';
+        case 'new_client_ticket': return '/admin/tickets';
+        default:                  return '/admin/ticket-details';
+      }
+    case 'Employee':
+      return '/employee/ticket-details';
+    case 'Client':
+      return '/client/ticket-details';
+    case 'SuperAdmin':
+      switch (type) {
+        case 'escalation': return '/superadmin/dashboard';
+        default:           return '/superadmin/dashboard';
+      }
+    default:
+      return '/';
   }
 }
 
@@ -62,14 +74,14 @@ interface NotificationPanelProps {
 
 export function NotificationPanel({ isOpen, onClose, role, notifications, onNotificationsChange }: NotificationPanelProps) {
   const navigate = useNavigate();
-  const ticketPath = getTicketDetailsPath(role);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const handleClick = (item: NotificationItem) => {
     onNotificationsChange(notifications.map((n) => n.id === item.id ? { ...n, read: true } : n));
     onClose();
-    navigate(ticketPath, item.ticketId ? { state: { ticketId: item.ticketId } } : undefined);
+    const path = getNotificationPath(role, item.type);
+    navigate(path, item.ticketId ? { state: { ticketId: item.ticketId } } : undefined);
   };
 
   const markAllRead = (e: React.MouseEvent) => {

@@ -1,15 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { PriorityBadge } from '../components/ui/PriorityBadge';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { SLATimer } from '../components/ui/SLATimer';
 import { GreenButton } from '../components/ui/GreenButton';
-import { MessageSquare, ArrowLeft, Camera, Video, Upload, FileText, ClipboardList, Package, Paperclip, CheckCircle } from 'lucide-react';
+import {
+  MessageSquare, ArrowLeft, Camera, Video, Upload, FileText, ClipboardList, Package,
+  Paperclip, CheckCircle, Wifi, WifiOff, Send, X, Smile, Reply, ChevronDown,
+  Search as SearchIcon, Check, CheckCheck, CornerDownRight, Maximize2, Minimize2,
+  User as UserIcon, Shield, Image, Film, File, Download, Play
+} from 'lucide-react';
 import { getTicketById } from '../data/mockTickets';
 import { useAuth } from '../context/AuthContext';
+import { TicketChatSocket } from '../services/chatService';
+import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
+import { fetchTicketByStf } from '../services/api';
+import type { BackendTicket } from '../services/api';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👀'];
+
+const INPUT_EMOJIS: { label: string; emojis: string[] }[] = [
+  { label: 'Smileys', emojis: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😋', '😛', '😜', '🤪', '😝', '🤗', '🤭', '🫢', '🤫', '🤔', '🫡', '🤐', '🤨', '😐', '😑', '😶', '🫥', '😏', '😒', '🙄', '😬', '🤥'] },
+  { label: 'Gestures', emojis: ['👍', '👎', '👌', '🤌', '🤏', '✌️', '🤞', '🫰', '🤟', '🤘', '🤙', '👏', '🙌', '👐', '🤝', '🫶', '💪', '🫵', '☝️', '👆', '👇', '👈', '👉'] },
+  { label: 'Hearts', emojis: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❤️‍🔥', '💕', '💞', '💓', '💗', '💖', '💘', '💝'] },
+  { label: 'Objects', emojis: ['🎉', '🎊', '🎈', '🔥', '⭐', '🌟', '✨', '💫', '🏆', '🥇', '🎯', '💡', '📌', '📎', '✅', '❌', '⚠️', '💬', '👀', '🚀', '💻', '🔧', '🔨', '📱'] },
+];
+
+/** Group messages by date for separator rendering. */
+function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages: ChatMessage[] }[] {
+  const groups: { date: string; messages: ChatMessage[] }[] = [];
+  let currentDate = '';
+  for (const msg of messages) {
+    const d = new Date(msg.created_at).toLocaleDateString('en-US', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    });
+    if (d !== currentDate) {
+      currentDate = d;
+      groups.push({ date: d, messages: [] });
+    }
+    groups[groups.length - 1].messages.push(msg);
+  }
+  return groups;
+}
+
+/** Returns initials from a username. */
+function getInitials(name: string): string {
+  return name
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
 
 export function TicketView() {
   const { user } = useAuth();
@@ -71,32 +116,298 @@ export function TicketView() {
       };
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [showChat, setShowChat] = useState(false);
-  // Admin↔Employee chat channel
-  const [adminMessages, setAdminMessages] = useState<Array<{from: 'admin' | 'engineer' | 'system'; text: string; time?: string}>>([
-    { from: 'admin', text: 'Please prioritize this ticket.', time: '9:15 AM' },
-    { from: 'engineer', text: 'Understood, I\'m working on it now.', time: '9:20 AM' }
-  ]);
+
+  // ── WebSocket Chat State ──
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMsg, setNewMsg] = useState('');
+  const [wsConnected, setWsConnected] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Map<number, string>>(new Map());
+  const chatSocketRef = useRef<TicketChatSocket | null>(null);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Enhanced chat UI state
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [hoveredMsgKey, setHoveredMsgKey] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null); // message key for emoji picker
+  const [showInputEmoji, setShowInputEmoji] = useState(false);
+  const [chatSearch, setChatSearch] = useState('');
+  const [showChatSearch, setShowChatSearch] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Attachment state
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<{ file: File; url: string; type: 'image' | 'video' | 'file' }[]>([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Resolve the numeric ticket ID for the WebSocket
+  const [backendTicketId, setBackendTicketId] = useState<number | null>(
+    (location.state as any)?.backendTicketId ?? null
+  );
+  const [_backendTicket, setBackendTicket] = useState<BackendTicket | null>(null);
+
+  // If we have an STF but no numeric ID, try fetching from the backend API
+  useEffect(() => {
+    if (backendTicketId) return; // already resolved
+    const stf = stfFromUrl || (location.state as any)?.ticketId;
+    if (!stf) return;
+    let cancelled = false;
+    fetchTicketByStf(stf).then((bt) => {
+      if (!cancelled && bt) {
+        setBackendTicketId(bt.id);
+        setBackendTicket(bt);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [stfFromUrl, backendTicketId, location.state]);
+
+  const handleChatEvent = useCallback((event: ChatEvent) => {
+    switch (event.type) {
+      case 'message_history':
+        setChatMessages(event.messages);
+        break;
+      case 'new_message':
+        setChatMessages((prev) => [...prev, event.message]);
+        break;
+      case 'typing':
+        setTypingUsers((prev) => {
+          const next = new Map(prev);
+          if (event.is_typing) {
+            next.set(event.user_id, event.username);
+          } else {
+            next.delete(event.user_id);
+          }
+          return next;
+        });
+        break;
+      case 'reaction_update': {
+        const { message_id, reactions } = event.data;
+        setChatMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== message_id) return m;
+            const grouped: ChatMessage['reactions'] = {};
+            for (const r of reactions) {
+              if (!grouped[r.emoji]) grouped[r.emoji] = [];
+              grouped[r.emoji].push({ user_id: r.user_id, username: r.username });
+            }
+            return { ...m, reactions: grouped };
+          })
+        );
+        break;
+      }
+      case 'read_receipt':
+        // Could update read_by on messages — skipping for now
+        break;
+      case 'force_disconnect':
+        setWsConnected(false);
+        break;
+    }
+  }, []);
+
+  // Open / close WebSocket when chat panel is toggled
+  useEffect(() => {
+    if (showChat && backendTicketId) {
+      const sock = new TicketChatSocket(backendTicketId, 'admin_employee', {
+        onEvent: handleChatEvent,
+        onOpen: () => setWsConnected(true),
+        onClose: () => setWsConnected(false),
+        onError: () => setWsConnected(false),
+      });
+      chatSocketRef.current = sock;
+      return () => {
+        sock.disconnect();
+        chatSocketRef.current = null;
+      };
+    }
+    return undefined;
+  }, [showChat, backendTicketId, handleChatEvent]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const sendMessage = () => {
+    const hasText = newMsg.trim().length > 0;
+    const hasFiles = pendingFiles.length > 0;
+    if (!hasText && !hasFiles) return;
+
+    const sock = chatSocketRef.current;
+
+    // Send attachments first (each as a separate message via WS)
+    if (hasFiles && sock && sock.isConnected) {
+      pendingFiles.forEach((file) => {
+        sock.sendAttachment(file, '');
+      });
+    }
+
+    // Build local attachment previews for offline mode
+    const localAttachments: ChatAttachment[] = pendingFiles.map((file) => ({
+      file_name: file.name,
+      file_url: URL.createObjectURL(file),
+      file_type: getFileCategory(file),
+      file_size: file.size,
+    }));
+
+    if (sock && sock.isConnected) {
+      if (hasText) {
+        sock.sendMessage(newMsg.trim(), replyTo?.id ?? undefined);
+      }
+      sock.sendTyping(false);
+    } else {
+      // Offline fallback – show locally
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: null,
+          sender_id: user?.id ?? 0,
+          sender_username: user?.username || user?.name || (isAdmin ? 'Admin' : 'Employee'),
+          sender_role: user?.role || 'employee',
+          content: newMsg.trim(),
+          attachments: localAttachments.length > 0 ? localAttachments : undefined,
+          reply_to: replyTo ? { id: replyTo.id!, content: replyTo.content.slice(0, 100), sender_id: replyTo.sender_id, sender_username: replyTo.sender_username } : null,
+          is_system_message: false,
+          reactions: {},
+          read_by: [],
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    }
+    setNewMsg('');
+    setReplyTo(null);
+    setHoveredMsgKey(null);
+    setShowEmojiPicker(null);
+    setShowInputEmoji(false);
+    clearPendingFiles();
+    inputRef.current?.focus();
+  };
+
+  const handleTyping = () => {
+    const sock = chatSocketRef.current;
+    if (!sock || !sock.isConnected) return;
+    sock.sendTyping(true);
+    clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => sock.sendTyping(false), 2000);
+  };
+
+  const isMine = (msg: ChatMessage) => {
+    if (user?.id) return msg.sender_id === user.id;
+    // Fallback for test accounts without id
+    if (isAdmin) return msg.sender_role === 'admin' || msg.sender_role === 'superadmin';
+    if (isEmployee) return msg.sender_role === 'employee';
+    return false;
+  };
+
+  const formatTime = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return '';
+    }
+  };
+
+  const filteredMessages = chatSearch.trim()
+    ? chatMessages.filter((m) => m.content.toLowerCase().includes(chatSearch.toLowerCase()))
+    : chatMessages;
+
+  const messageGroups = groupMessagesByDate(filteredMessages);
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  const handleChatScroll = () => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    setShowScrollDown(!isNearBottom);
+    if (isNearBottom) setUnreadCount(0);
+  };
+
+  const scrollToBottom = () => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setUnreadCount(0);
+  };
+
+  // Track new messages while scrolled up
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (!isNearBottom && chatMessages.length > 0) {
+      setUnreadCount((c) => c + 1);
+    }
+  }, [chatMessages.length]);
+
+  // Avatar color based on role
+  const getAvatarColor = (role: string) => {
+    if (role === 'admin' || role === 'superadmin') return 'bg-blue-500';
+    if (role === 'employee') return 'bg-[#0E8F79]';
+    return 'bg-gray-500';
+  };
+
+  const getRoleIcon = (role: string) => {
+    if (role === 'admin' || role === 'superadmin') return Shield;
+    return UserIcon;
+  };
+
+  // ── Attachment helpers ──
+  const getFileCategory = (file: File): 'image' | 'video' | 'file' => {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'file';
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (!files) return;
+    const newFiles = Array.from(files);
+    setPendingFiles((prev) => [...prev, ...newFiles]);
+    const newPreviews = newFiles.map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+      type: getFileCategory(file),
+    }));
+    setPreviewUrls((prev) => [...prev, ...newPreviews]);
+  };
+
+  const removePendingFile = (index: number) => {
+    URL.revokeObjectURL(previewUrls[index].url);
+    setPendingFiles((prev) => prev.filter((_, j) => j !== index));
+    setPreviewUrls((prev) => prev.filter((_, j) => j !== index));
+  };
+
+  const clearPendingFiles = () => {
+    previewUrls.forEach((p) => URL.revokeObjectURL(p.url));
+    setPendingFiles([]);
+    setPreviewUrls([]);
+  };
+
+  const getAttachmentTypeFromMime = (mime: string): 'image' | 'video' | 'file' => {
+    if (mime.startsWith('image')) return 'image';
+    if (mime.startsWith('video')) return 'video';
+    return 'file';
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'image') return Image;
+    if (fileType === 'video') return Film;
+    return File;
+  };
+
+  // ── Non-chat form state ──
   const [jobStatus, setJobStatus] = useState(ticket.jobStatus || '');
   const [actionTaken, setActionTaken] = useState(ticket.actionTaken || '');
   const [remarksText, setRemarksText] = useState(ticket.remarks || '');
-
-  const sendMessage = () => {
-    if (!newMsg.trim()) return;
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const from = isAdmin ? 'admin' : 'engineer';
-    setAdminMessages((m) => [...m, { from, text: newMsg.trim(), time }]);
-    setNewMsg('');
-  };
-
-  const isMine = (from: string) => {
-    if (isAdmin) return from === 'admin';
-    if (isEmployee) return from === 'engineer';
-    return false;
-  };
-  
-  const currentMessages = adminMessages;
 
   return (
     <div className="space-y-6">
@@ -342,43 +653,537 @@ export function TicketView() {
         </div>
       </div>
 
-      {/* Chat panel */}
+      {/* ═══════════════════════════════════════════════════════════
+           ENHANCED CHAT PANEL
+           ═══════════════════════════════════════════════════════════ */}
       {showChat && (
-        <div className="fixed right-6 bottom-6 top-16 w-96 max-w-full z-50 flex flex-col bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-          {/* Chat Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-            <div className="text-sm font-semibold">
-              {isAdmin ? 'Admin ↔ Employee' : 'Employee ↔ Admin'}
+        <div
+          className={`fixed z-50 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
+            chatExpanded
+              ? 'right-4 bottom-4 top-4 left-4 lg:left-[calc(50%-24rem)] lg:right-4 lg:top-4 lg:bottom-4'
+              : 'right-6 bottom-6 w-[420px] max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-6rem)]'
+          }`}
+        >
+          {/* ── Chat Header ── */}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#0E8F79] to-[#0b7a67]">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <MessageSquare className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white">
+                  {isAdmin ? 'Admin ↔ Employee' : 'Employee ↔ Admin'}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {wsConnected ? (
+                    <span className="flex items-center gap-1 text-[10px] text-green-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" /> Connected
+                    </span>
+                  ) : backendTicketId ? (
+                    <span className="flex items-center gap-1 text-[10px] text-yellow-200">
+                      <WifiOff className="w-2.5 h-2.5" /> Reconnecting…
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/60">Offline mode</span>
+                  )}
+                </div>
+              </div>
             </div>
-            <span className="text-xs text-green-500">• Connected</span>
+            <div className="flex items-center gap-1">
+              {/* Search toggle */}
+              <button
+                onClick={() => { setShowChatSearch(!showChatSearch); setChatSearch(''); }}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                title="Search messages"
+              >
+                <SearchIcon className="w-4 h-4" />
+              </button>
+              {/* Expand/Collapse */}
+              <button
+                onClick={() => setChatExpanded(!chatExpanded)}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                title={chatExpanded ? 'Minimize' : 'Maximize'}
+              >
+                {chatExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              </button>
+              {/* Close */}
+              <button
+                onClick={() => setShowChat(false)}
+                className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label="Close chat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          {/* Messages */}
-          <div className="p-4 flex-1 overflow-auto space-y-3">
-            {currentMessages.map((m, i) => {
-              const mine = isMine(m.from);
-              return (
-                <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div>
-                    <div className={`${mine ? 'inline-block bg-blue-500 text-white' : 'inline-block bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100'} px-4 py-2 rounded-lg max-w-[85%]`}>{m.text}</div>
-                    <div className={`text-xs text-gray-400 mt-1 ${mine ? 'text-right' : 'text-left'}`}>{m.time}</div>
+
+          {/* ── Search Bar (conditional) ── */}
+          {showChatSearch && (
+            <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+              <div className="relative">
+                <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  autoFocus
+                  value={chatSearch}
+                  onChange={(e) => setChatSearch(e.target.value)}
+                  placeholder="Search messages..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-xs text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-[#0E8F79]/30"
+                />
+                {chatSearch && (
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                    {filteredMessages.length} result{filteredMessages.length !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Messages Area ── */}
+          <div
+            ref={chatScrollRef}
+            onScroll={handleChatScroll}
+            className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-1 scroll-smooth"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
+          >
+            {chatMessages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-[#0E8F79]/10 flex items-center justify-center mb-4">
+                  <MessageSquare className="w-7 h-7 text-[#0E8F79]" />
+                </div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between admin and employee here.</p>
+              </div>
+            )}
+
+            {messageGroups.map((group) => (
+              <React.Fragment key={group.date}>
+                {/* ── Date Separator ── */}
+                <div className="flex items-center gap-3 py-3">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                    {group.date}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                </div>
+
+                {group.messages.map((m, i) => {
+                  const mine = isMine(m);
+                  const prevMsg = i > 0 ? group.messages[i - 1] : null;
+                  const isConsecutive = prevMsg && prevMsg.sender_id === m.sender_id && !m.is_system_message && !prevMsg.is_system_message;
+                  const RoleIcon = getRoleIcon(m.sender_role);
+
+                  // System message
+                  if (m.is_system_message) {
+                    return (
+                      <div key={m.id ?? `sys-${i}`} className="flex justify-center py-2">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-700/30">
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">{m.content}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const msgKey = m.id != null ? `id-${m.id}` : `idx-${i}`;
+
+                  return (
+                    <div
+                      key={msgKey}
+                      className={`group flex items-end gap-2 ${mine ? 'flex-row-reverse' : 'flex-row'} ${isConsecutive ? 'mt-0.5' : 'mt-3'}`}
+                      onMouseEnter={() => setHoveredMsgKey(msgKey)}
+                      onMouseLeave={() => { setHoveredMsgKey(null); setShowEmojiPicker(null); }}
+                    >
+                      {/* Avatar */}
+                      {!isConsecutive ? (
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${getAvatarColor(m.sender_role)} flex items-center justify-center shadow-sm`}>
+                          <span className="text-[10px] font-bold text-white">{getInitials(m.sender_username)}</span>
+                        </div>
+                      ) : (
+                        <div className="w-8 flex-shrink-0" />
+                      )}
+
+                      {/* Message Content */}
+                      <div className={`relative max-w-[75%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
+                        {/* Sender Name + Role badge (first in group) */}
+                        {!isConsecutive && !mine && (
+                          <div className="flex items-center gap-1.5 mb-1 ml-1">
+                            <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{m.sender_username}</span>
+                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-wider ${
+                              m.sender_role === 'admin' || m.sender_role === 'superadmin'
+                                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                            }`}>
+                              <RoleIcon className="w-2.5 h-2.5" />
+                              {m.sender_role}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Reply preview */}
+                        {m.reply_to && (
+                          <div className={`mb-1 px-2.5 py-1.5 rounded-lg text-[11px] border-l-2 border-[#0E8F79] ${
+                            mine
+                              ? 'bg-[#0E8F79]/20 text-white/80 self-end'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                          }`}>
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <CornerDownRight className="w-2.5 h-2.5" />
+                              <span className="font-semibold">{m.reply_to.sender_username}</span>
+                            </div>
+                            <p className="truncate opacity-80">{m.reply_to.content}</p>
+                          </div>
+                        )}
+
+                        {/* Bubble + hover actions row */}
+                        <div className="relative">
+                          {/* Emoji picker popover – FB Messenger style floating bar above bubble */}
+                          {showEmojiPicker === msgKey && (
+                            <div className={`absolute bottom-full mb-1 ${mine ? 'right-0' : 'left-0'} bg-white dark:bg-gray-800 rounded-full shadow-xl border border-gray-200 dark:border-gray-600 px-2 py-1.5 z-20 flex gap-0.5`}>
+                              {QUICK_EMOJIS.map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  onClick={() => { chatSocketRef.current?.react(m.id!, emoji); setShowEmojiPicker(null); }}
+                                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-base transition-all hover:scale-125 active:scale-90"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className={`flex items-center gap-1 ${mine ? 'flex-row-reverse' : 'flex-row'}`}>
+                            {/* Bubble */}
+                            <div
+                              className={`overflow-hidden text-[13px] leading-relaxed ${
+                                mine
+                                  ? 'bg-[#0E8F79] text-white rounded-2xl rounded-br-md shadow-sm'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-2xl rounded-bl-md shadow-sm'
+                              }`}
+                            >
+                              {/* Attachments inside bubble */}
+                              {m.attachments && m.attachments.length > 0 && (
+                                <div className={`${m.content ? '' : ''} ${m.attachments.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''}`}>
+                                  {m.attachments.map((att, ai) => {
+                                    const attType = att.file_type?.startsWith('image') ? 'image' : att.file_type?.startsWith('video') ? 'video' : (att.file_type as string);
+                                    if (attType === 'image') {
+                                      return (
+                                        <button
+                                          key={ai}
+                                          onClick={() => setLightboxUrl(att.file_url)}
+                                          className="block w-full cursor-pointer hover:opacity-90 transition-opacity"
+                                        >
+                                          <img
+                                            src={att.file_url}
+                                            alt={att.file_name}
+                                            className="w-full max-h-52 object-cover"
+                                            loading="lazy"
+                                          />
+                                        </button>
+                                      );
+                                    }
+                                    if (attType === 'video') {
+                                      return (
+                                        <div key={ai} className="relative">
+                                          <video
+                                            src={att.file_url}
+                                            className="w-full max-h-52 object-cover"
+                                            controls
+                                            preload="metadata"
+                                          />
+                                        </div>
+                                      );
+                                    }
+                                    // Generic file
+                                    const FileIcon = getFileIcon(attType);
+                                    return (
+                                      <a
+                                        key={ai}
+                                        href={att.file_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`flex items-center gap-2 px-3 py-2 m-1 rounded-lg transition-colors ${
+                                          mine
+                                            ? 'bg-white/10 hover:bg-white/20'
+                                            : 'bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
+                                        }`}
+                                      >
+                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                          mine ? 'bg-white/20' : 'bg-[#0E8F79]/10'
+                                        }`}>
+                                          <FileIcon className={`w-4 h-4 ${mine ? 'text-white' : 'text-[#0E8F79]'}`} />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className={`text-xs font-medium truncate ${mine ? 'text-white' : 'text-gray-700 dark:text-gray-200'}`}>{att.file_name}</div>
+                                          {att.file_size && (
+                                            <div className={`text-[10px] ${mine ? 'text-white/60' : 'text-gray-400'}`}>{formatFileSize(att.file_size)}</div>
+                                          )}
+                                        </div>
+                                        <Download className={`w-3.5 h-3.5 flex-shrink-0 ${mine ? 'text-white/60' : 'text-gray-400'}`} />
+                                      </a>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              {/* Text content */}
+                              {m.content && <div className="px-3.5 py-2">{m.content}</div>}
+                            </div>
+
+                            {/* Hover actions – side of bubble */}
+                            {hoveredMsgKey === msgKey && (
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  onClick={() => { setReplyTo(m); inputRef.current?.focus(); }}
+                                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                  title="Reply"
+                                >
+                                  <Reply className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => setShowEmojiPicker(showEmojiPicker === msgKey ? null : msgKey)}
+                                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                  title="React"
+                                >
+                                  <Smile className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* FB Messenger-style reaction pills – floating at bottom of bubble */}
+                          {Object.keys(m.reactions).length > 0 && (
+                            <div className={`flex items-center -mt-2 mb-1 ${mine ? 'justify-end pr-2' : 'justify-start pl-2'}`}>
+                              <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white dark:bg-gray-800 shadow-md border border-gray-100 dark:border-gray-600">
+                                {Object.entries(m.reactions).map(([emoji, users]) => {
+                                  const iReacted = users.some((u) => u.user_id === (user?.id ?? 0));
+                                  return (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => chatSocketRef.current?.react(m.id!, emoji)}
+                                      className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                                        iReacted ? 'bg-[#0E8F79]/10' : ''
+                                      }`}
+                                      title={users.map((u) => u.username).join(', ')}
+                                    >
+                                      <span className="text-sm">{emoji}</span>
+                                      {users.length > 1 && <span className="text-[10px] font-medium text-gray-500">{users.length}</span>}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Time + Read receipt */}
+                        <div className={`flex items-center gap-1.5 mt-0.5 ${mine ? 'justify-end mr-1' : 'ml-1'}`}>
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatTime(m.created_at)}</span>
+                          {mine && (
+                            m.read_by.length > 0
+                              ? <CheckCheck className="w-3 h-3 text-blue-400" title={`Read by ${m.read_by.map((r) => r.username).join(', ')}`} />
+                              : <Check className="w-3 h-3 text-gray-400" title="Sent" />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+
+            {/* Typing indicators */}
+            {typingUsers.size > 0 && (
+              <div className="flex items-center gap-2 mt-2 ml-10">
+                <div className="flex items-center gap-1 px-3 py-2 rounded-2xl bg-gray-100 dark:bg-gray-800">
+                  <div className="flex gap-0.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 </div>
-              );
-            })}
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {Array.from(typingUsers.values()).join(', ')} typing…
+                </span>
+              </div>
+            )}
+
+            <div ref={chatBottomRef} />
           </div>
-          {/* Input */}
-          <div className="px-3 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-            <div className="flex items-center gap-2">
-              <input
-                value={newMsg}
-                onChange={(e) => setNewMsg(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sendMessage(); } }}
-                placeholder="Type a message..."
-                className="flex-1 px-3 py-2 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none"
-              />
-              <button onClick={sendMessage} className="px-3 py-2 rounded-md bg-[#63D44A] text-white">Send</button>
+
+          {/* ── Scroll-to-bottom FAB ── */}
+          {showScrollDown && (
+            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
+              <button
+                onClick={scrollToBottom}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 hover:shadow-xl transition-all"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+                {unreadCount > 0 ? `${unreadCount} new message${unreadCount > 1 ? 's' : ''}` : 'Scroll to bottom'}
+              </button>
+            </div>
+          )}
+
+          {/* ── Reply Preview Bar ── */}
+          {replyTo && (
+            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-[#0E8F79]/5 dark:bg-[#0E8F79]/10">
+              <CornerDownRight className="w-4 h-4 text-[#0E8F79] flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] font-semibold text-[#0E8F79]">Replying to {replyTo.sender_username}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{replyTo.content}</div>
+              </div>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-400 transition-colors flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* ── Input Area ── */}
+          <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
+            {/* Emoji Picker Popover */}
+            {showInputEmoji && (
+              <div className="mx-3 mt-2 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-600 overflow-hidden">
+                <div className="max-h-52 overflow-y-auto p-2 space-y-2" style={{ scrollbarWidth: 'thin' }}>
+                  {INPUT_EMOJIS.map((cat) => (
+                    <div key={cat.label}>
+                      <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider px-1 mb-1">{cat.label}</div>
+                      <div className="flex flex-wrap gap-0.5">
+                        {cat.emojis.map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => {
+                              setNewMsg((prev) => prev + emoji);
+                              inputRef.current?.focus();
+                            }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-lg transition-transform hover:scale-110"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* File preview strip */}
+            {previewUrls.length > 0 && (
+              <div className="px-3 pt-2 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'thin' }}>
+                {previewUrls.map((p, idx) => (
+                  <div key={idx} className="relative flex-shrink-0 group/preview">
+                    {p.type === 'image' ? (
+                      <img src={p.url} alt={p.file.name} className="w-16 h-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600" />
+                    ) : p.type === 'video' ? (
+                      <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-900 flex items-center justify-center relative overflow-hidden">
+                        <video src={p.url} className="w-full h-full object-cover opacity-60" preload="metadata" />
+                        <Play className="w-5 h-5 text-white absolute" />
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex flex-col items-center justify-center px-1">
+                        <File className="w-5 h-5 text-gray-400 mb-0.5" />
+                        <span className="text-[8px] text-gray-500 truncate w-full text-center">{p.file.name.split('.').pop()?.toUpperCase()}</span>
+                      </div>
+                    )}
+                    {/* Remove button */}
+                    <button
+                      onClick={() => removePendingFile(idx)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md opacity-0 group-hover/preview:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    {/* File size */}
+                    <div className="absolute bottom-0.5 left-0.5 right-0.5 text-center">
+                      <span className="text-[8px] bg-black/50 text-white px-1 rounded">{formatFileSize(p.file.size)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+              onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }}
+              className="hidden"
+            />
+
+            <div className="flex items-end gap-1.5 px-3 py-3">
+              {/* Attachment button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-[#0E8F79] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                title="Attach file"
+              >
+                <Paperclip className="w-5 h-5" />
+              </button>
+
+              {/* Emoji toggle button */}
+              <button
+                onClick={() => setShowInputEmoji(!showInputEmoji)}
+                className={`flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
+                  showInputEmoji
+                    ? 'bg-[#0E8F79]/10 text-[#0E8F79] ring-2 ring-[#0E8F79]/30'
+                    : 'text-gray-400 hover:text-[#0E8F79] hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+                title="Emoji"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+
+              <div className="flex-1 relative">
+                <input
+                  ref={inputRef}
+                  value={newMsg}
+                  onChange={(e) => { setNewMsg(e.target.value); handleTyping(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); setShowInputEmoji(false); } }}
+                  onFocus={() => { /* keep picker open */ }}
+                  placeholder={replyTo ? `Reply to ${replyTo.sender_username}...` : pendingFiles.length > 0 ? 'Add a caption...' : 'Type a message...'}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] transition-all placeholder:text-gray-400"
+                />
+              </div>
+              <button
+                onClick={() => { sendMessage(); setShowInputEmoji(false); }}
+                disabled={!newMsg.trim() && pendingFiles.length === 0}
+                className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#0E8F79] hover:bg-[#0b7a67] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-all hover:shadow-md disabled:hover:shadow-none"
+                title="Send message"
+              >
+                <Send className="w-4 h-4" />
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Image Lightbox ── */}
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Preview"
+            className="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <a
+            href={lightboxUrl}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+          >
+            <Download className="w-4 h-4" /> Download
+          </a>
         </div>
       )}
     </div>
