@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Search, Sun, Moon, Menu, Settings } from 'lucide-react';
+import { Bell, Sun, Moon, Menu, Settings } from 'lucide-react';
 import { NotificationPanel, INITIAL_NOTIFICATIONS } from '../NotificationPanel';
 import type { NotificationItem } from '../NotificationPanel';
 
@@ -82,7 +82,7 @@ export function TopNav({
   return (
     <>
     <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 lg:left-64 z-40 px-6 flex items-center justify-between shadow-sm transition-colors duration-200">
-      {/* Left: hamburger + search */}
+      {/* Left: hamburger */}
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
@@ -90,17 +90,6 @@ export function TopNav({
 
           <Menu className="w-5 h-5" />
         </button>
-
-        {role !== 'Client' && (
-        <div className="hidden md:flex items-center bg-gray-100 dark:bg-gray-800 border border-transparent dark:border-gray-700 rounded-lg px-3 py-2 w-72 transition-colors">
-          <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0" />
-          <input
-            type="text"
-            placeholder="Search tickets, users..."
-            className="bg-transparent border-none focus:outline-none text-sm w-full text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500" />
-
-        </div>
-        )}
       </div>
 
       {/* Right: dark toggle, notifications, user */}
