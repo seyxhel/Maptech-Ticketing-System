@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, MessageReaction, MessageReadReceipt, EscalationLog
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, MessageReaction, MessageReadReceipt, EscalationLog, AuditLog
 from users.serializers import UserSerializer
 
 
@@ -205,3 +205,25 @@ class MessageSerializer(serializers.ModelSerializer):
             'sender_id': obj.reply_to.sender.id,
             'sender_username': obj.reply_to.sender.username,
         }
+
+
+# ────────────────────────────────────────────
+# Audit Log serializer
+# ────────────────────────────────────────────
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    actor_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id', 'timestamp', 'entity', 'entity_id', 'action',
+            'activity', 'actor', 'actor_email', 'actor_name',
+            'ip_address', 'changes',
+        ]
+
+    def get_actor_name(self, obj):
+        if obj.actor:
+            name = obj.actor.get_full_name()
+            return name if name.strip() else obj.actor.username
+        return obj.actor_email or 'System'

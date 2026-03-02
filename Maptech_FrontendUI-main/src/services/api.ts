@@ -436,3 +436,80 @@ export async function fetchEscalationLogs(): Promise<EscalationLog[]> {
   const res = await fetch(`${API_BASE}/escalation-logs/`, { headers: authHeaders() });
   return handleResponse<EscalationLog[]>(res);
 }
+
+// ── Audit Log types & endpoints ──
+
+export interface AuditLogEntry {
+  id: number;
+  timestamp: string;
+  entity: string;
+  entity_id: number | null;
+  action: string;
+  activity: string;
+  actor: number | null;
+  actor_email: string;
+  actor_name: string;
+  ip_address: string | null;
+  changes: Record<string, unknown> | null;
+}
+
+export interface AuditLogSummary {
+  total: number;
+  last_24h: number;
+  by_entity: Record<string, number>;
+  by_action: Record<string, number>;
+}
+
+/** Fetch audit logs with optional filters (superadmin only). */
+export async function fetchAuditLogs(params?: {
+  search?: string;
+  entity?: string;
+  action?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+}): Promise<AuditLogEntry[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.entity) query.set('entity', params.entity);
+  if (params?.action) query.set('action', params.action);
+  if (params?.date_from) query.set('date_from', params.date_from);
+  if (params?.date_to) query.set('date_to', params.date_to);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${API_BASE}/audit-logs/${qs}`, { headers: authHeaders() });
+  return handleResponse<AuditLogEntry[]>(res);
+}
+
+/** Fetch audit log summary stats (superadmin only). */
+export async function fetchAuditLogSummary(): Promise<AuditLogSummary> {
+  const res = await fetch(`${API_BASE}/audit-logs/summary/`, { headers: authHeaders() });
+  return handleResponse<AuditLogSummary>(res);
+}
+
+/** Export audit logs as CSV download. */
+export async function exportAuditLogs(params?: {
+  search?: string;
+  entity?: string;
+  action?: string;
+  date_from?: string;
+  date_to?: string;
+}): Promise<void> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.entity) query.set('entity', params.entity);
+  if (params?.action) query.set('action', params.action);
+  if (params?.date_from) query.set('date_from', params.date_from);
+  if (params?.date_to) query.set('date_to', params.date_to);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${API_BASE}/audit-logs/export/${qs}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Export failed');
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}

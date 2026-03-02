@@ -131,6 +131,21 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             if user:
                 user.last_login = timezone.now()
                 user.save(update_fields=['last_login'])
+                # Audit log for login
+                try:
+                    from tickets.models import AuditLog
+                    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+                    ip = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+                    AuditLog.log(
+                        entity=AuditLog.ENTITY_USER,
+                        entity_id=user.id,
+                        action=AuditLog.ACTION_LOGIN,
+                        activity=f"{user.email} logged in via username",
+                        actor=user,
+                        ip_address=ip,
+                    )
+                except Exception:
+                    pass
             data = {**resp.data}
             if user:
                 data['user'] = UserSerializer(user).data
@@ -146,6 +161,21 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     user.last_login = timezone.now()
                     user.save(update_fields=['last_login'])
                     refresh = RefreshToken.for_user(user)
+                    # Audit log for email login
+                    try:
+                        from tickets.models import AuditLog
+                        x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+                        ip = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+                        AuditLog.log(
+                            entity=AuditLog.ENTITY_USER,
+                            entity_id=user.id,
+                            action=AuditLog.ACTION_LOGIN,
+                            activity=f"{user.email} logged in via email",
+                            actor=user,
+                            ip_address=ip,
+                        )
+                    except Exception:
+                        pass
                     data = {
                         'access': str(refresh.access_token),
                         'refresh': str(refresh),
@@ -181,6 +211,23 @@ class UserViewSet(viewsets.GenericViewSet):
         serializer = AdminUserCreateSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        # Audit log
+        try:
+            from tickets.models import AuditLog
+            x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+            ip = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+            AuditLog.log(
+                entity=AuditLog.ENTITY_USER,
+                entity_id=user.id,
+                action=AuditLog.ACTION_CREATE,
+                activity=f"{request.user.email} created user {user.email} with role {user.role}",
+                actor=request.user,
+                ip_address=ip,
+            )
+        except Exception:
+            pass
+
         return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], url_path='update_user')
@@ -221,6 +268,24 @@ class UserViewSet(viewsets.GenericViewSet):
             return Response({'detail': 'Cannot deactivate a superadmin.'}, status=status.HTTP_403_FORBIDDEN)
         target.is_active = not target.is_active
         target.save(update_fields=['is_active'])
+
+        # Audit log
+        try:
+            from tickets.models import AuditLog
+            x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+            ip = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+            action_text = 'activated' if target.is_active else 'deactivated'
+            AuditLog.log(
+                entity=AuditLog.ENTITY_USER,
+                entity_id=target.id,
+                action=AuditLog.ACTION_UPDATE,
+                activity=f"{request.user.email} {action_text} user {target.email}",
+                actor=request.user,
+                ip_address=ip,
+            )
+        except Exception:
+            pass
+
         return Response(UserSerializer(target).data)
 
     @action(detail=True, methods=['post'], url_path='reset_password')
@@ -235,4 +300,21 @@ class UserViewSet(viewsets.GenericViewSet):
         temp_password = 'password123'
         target.set_password(temp_password)
         target.save()
+
+        # Audit log
+        try:
+            from tickets.models import AuditLog
+            x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+            ip = x_forwarded.split(',')[0].strip() if x_forwarded else request.META.get('REMOTE_ADDR')
+            AuditLog.log(
+                entity=AuditLog.ENTITY_USER,
+                entity_id=target.id,
+                action=AuditLog.ACTION_PASSWORD_RESET,
+                activity=f"{request.user.email} reset password for {target.email}",
+                actor=request.user,
+                ip_address=ip,
+            )
+        except Exception:
+            pass
+
         return Response({'detail': f'Password reset to default for {target.username}.', 'temp_password': temp_password})

@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog
 
 User = get_user_model()
 
@@ -40,3 +40,11 @@ class TicketAttachmentAdmin(admin.ModelAdmin):
 class EscalationLogAdmin(admin.ModelAdmin):
     list_display = ('ticket', 'escalation_type', 'from_user', 'to_user', 'to_external', 'created_at')
     list_filter = ('escalation_type',)
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('timestamp', 'entity', 'action', 'activity', 'actor_email', 'ip_address')
+    list_filter = ('entity', 'action')
+    search_fields = ('activity', 'actor_email', 'ip_address')
+    readonly_fields = ('timestamp', 'entity', 'entity_id', 'action', 'activity', 'actor', 'actor_email', 'ip_address', 'changes')

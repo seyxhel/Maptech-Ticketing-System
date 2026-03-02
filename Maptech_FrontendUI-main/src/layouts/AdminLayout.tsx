@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle } from 'lucide-react';
+import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'tickets', label: 'Tickets', icon: Ticket, path: '/admin/tickets' },
   { id: 'create-ticket', label: 'Create Ticket', icon: PlusCircle, path: '/admin/create-ticket' },
   { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
+  { id: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/admin/audit-logs' },
   { id: 'reports', label: 'Reports', icon: BarChart3, path: '/admin/reports' },
 ];
 

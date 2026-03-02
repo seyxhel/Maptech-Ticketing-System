@@ -6,16 +6,25 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.utils import timezone
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, EscalationLog
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, EscalationLog, AuditLog
 from .serializers import (
     TicketSerializer, TypeOfServiceSerializer,
     TicketAttachmentSerializer, EscalationLogSerializer,
     MessageSerializer, AssignmentSessionSerializer,
     AdminCreateTicketSerializer,
     EmployeeTicketActionSerializer,
+    AuditLogSerializer,
 )
-from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant
+from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant, IsSuperAdmin
 from users.serializers import UserSerializer
+
+
+def _get_client_ip(request):
+    """Extract the client IP address from the request."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        return x_forwarded_for.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR')
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -77,6 +86,16 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.time_in = timezone.now()
             ticket.confirmed_by_admin = True
             ticket.save()
+
+            # Audit log
+            AuditLog.log(
+                entity=AuditLog.ENTITY_TICKET,
+                entity_id=ticket.id,
+                action=AuditLog.ACTION_CREATE,
+                activity=f"{user.email} created ticket {ticket.stf_no}",
+                actor=user,
+                ip_address=_get_client_ip(request),
+            )
 
             return Response(
                 TicketSerializer(ticket, context={'request': request}).data,
@@ -184,6 +203,17 @@ class TicketViewSet(viewsets.ModelViewSet):
                 # Broadcast system message via channel layer
                 self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
 
+        # Audit log
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=AuditLog.ACTION_ASSIGN,
+            activity=f"{request.user.email} assigned ticket {ticket.stf_no} to {emp.email}",
+            actor=request.user,
+            ip_address=_get_client_ip(request),
+            changes={'assigned_to': emp.id, 'employee_email': emp.email},
+        )
+
         return Response(self.get_serializer(ticket).data)
 
     @staticmethod
@@ -264,6 +294,17 @@ class TicketViewSet(viewsets.ModelViewSet):
                 is_system_message=True,
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
+
+        # Audit log
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=AuditLog.ACTION_ESCALATE,
+            activity=f"{user.email} escalated ticket {ticket.stf_no} internally",
+            actor=user,
+            ip_address=_get_client_ip(request),
+            changes={'escalation_type': 'internal', 'notes': notes},
+        )
 
         return Response(self.get_serializer(ticket).data)
 
@@ -360,6 +401,17 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket = self.get_object()
         ticket.confirmed_by_admin = True
         ticket.save()
+
+        # Audit log
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=AuditLog.ACTION_UPDATE,
+            activity=f"{request.user.email} confirmed ticket {ticket.stf_no}",
+            actor=request.user,
+            ip_address=_get_client_ip(request),
+        )
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['post'])
@@ -402,6 +454,17 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
+        # Audit log
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=AuditLog.ACTION_ESCALATE,
+            activity=f"{user.email} escalated ticket {ticket.stf_no} externally to {escalated_to}",
+            actor=user,
+            ip_address=_get_client_ip(request),
+            changes={'escalation_type': 'external', 'escalated_to': escalated_to, 'notes': notes},
+        )
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['post'])
@@ -432,6 +495,16 @@ class TicketViewSet(viewsets.ModelViewSet):
                     is_system_message=True,
                 )
                 self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
+
+        # Audit log
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=AuditLog.ACTION_CLOSE,
+            activity=f"{request.user.email} closed ticket {ticket.stf_no}",
+            actor=request.user,
+            ip_address=_get_client_ip(request),
+        )
 
         return Response(self.get_serializer(ticket).data)
 
@@ -636,4 +709,112 @@ def list_employees(request):
         return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
     employees = User.objects.filter(role=User.ROLE_EMPLOYEE).order_by('first_name', 'last_name')
     return Response(UserSerializer(employees, many=True).data)
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only viewset for audit logs.
+    - Superadmin sees audit logs of both admin and employee actors.
+    - Admin sees audit logs of employee actors only.
+    """
+    serializer_class = AuditLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminLevel]
+    swagger_tags = ['Audit Logs']
+
+    def _role_filtered_qs(self):
+        """Return base queryset filtered by the requesting user's role."""
+        qs = AuditLog.objects.all().order_by('-timestamp')
+        user = self.request.user
+        if user.role == User.ROLE_SUPERADMIN:
+            # Superadmin sees admin + employee logs (exclude superadmin's own & system)
+            qs = qs.filter(
+                Q(actor__role__in=[User.ROLE_ADMIN, User.ROLE_EMPLOYEE]) |
+                Q(actor__isnull=True)  # system-generated logs
+            )
+        elif user.role == User.ROLE_ADMIN:
+            # Admin sees only employee logs
+            qs = qs.filter(actor__role=User.ROLE_EMPLOYEE)
+        else:
+            qs = qs.none()
+        return qs
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return AuditLog.objects.none()
+        qs = self._role_filtered_qs()
+
+        # Filter by entity type
+        entity = self.request.query_params.get('entity')
+        if entity:
+            qs = qs.filter(entity=entity)
+
+        # Filter by action type
+        action_filter = self.request.query_params.get('action')
+        if action_filter:
+            qs = qs.filter(action=action_filter)
+
+        # Filter by actor email
+        actor_email = self.request.query_params.get('actor_email')
+        if actor_email:
+            qs = qs.filter(actor_email__icontains=actor_email)
+
+        # Search across activity text
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(activity__icontains=search) |
+                Q(actor_email__icontains=search) |
+                Q(entity__icontains=search)
+            )
+
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        if date_from:
+            qs = qs.filter(timestamp__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(timestamp__date__lte=date_to)
+
+        return qs
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Return audit log summary stats for dashboard cards."""
+        qs = self._role_filtered_qs()
+        total = qs.count()
+        by_entity = dict(qs.values_list('entity').annotate(c=Count('id')).values_list('entity', 'c'))
+        by_action = dict(qs.values_list('action').annotate(c=Count('id')).values_list('action', 'c'))
+
+        # Recent 24h count
+        last_24h = qs.filter(timestamp__gte=timezone.now() - timezone.timedelta(hours=24)).count()
+
+        return Response({
+            'total': total,
+            'last_24h': last_24h,
+            'by_entity': by_entity,
+            'by_action': by_action,
+        })
+
+    @action(detail=False, methods=['get'])
+    def export(self, request):
+        """Export audit logs as CSV."""
+        import csv
+        from django.http import HttpResponse as DjangoHttpResponse
+
+        qs = self.get_queryset()
+        response = DjangoHttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="audit_logs_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Timestamp', 'Entity', 'Action', 'Activity', 'Actor', 'IP Address'])
+        for log in qs[:5000]:  # Limit export to 5000 rows
+            writer.writerow([
+                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                log.entity,
+                log.action,
+                log.activity,
+                log.actor_email,
+                log.ip_address or '',
+            ])
+
+        return response
 

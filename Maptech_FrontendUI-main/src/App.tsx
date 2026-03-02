@@ -18,6 +18,7 @@ import SuperAdminDashboard from './pages/superadmin/dashboard';
 import SuperAdminUsers from './pages/superadmin/users';
 import SuperAdminReports from './pages/superadmin/reports';
 import SuperAdminSettings from './pages/superadmin/settings';
+import SuperAdminAuditLogs from './pages/superadmin/audit-logs';
 
 import AdminDashboard from './pages/admin/dashboard';
 import AdminTickets from './pages/admin/tickets';
@@ -26,6 +27,7 @@ import AdminReports from './pages/admin/reports';
 import AdminCreateTicket from './pages/admin/create-ticket';
 import AdminTicketDetails from './pages/admin/ticket-details';
 import AdminSettings from './pages/admin/settings';
+import AdminAuditLogs from './pages/admin/audit-logs';
 
 import EmployeeDashboard from './pages/employee/dashboard';
 import EmployeeMyTickets from './pages/employee/my-tickets';
@@ -74,6 +76,7 @@ export function App() {
               <Route index element={<Navigate to="/superadmin/dashboard" replace />} />
               <Route path="dashboard" element={<SuperAdminDashboard />} />
               <Route path="users" element={<SuperAdminUsers />} />
+              <Route path="audit-logs" element={<SuperAdminAuditLogs />} />
               <Route path="reports" element={<SuperAdminReports />} />
               <Route path="settings" element={<SuperAdminSettings />} />
             </Route>
@@ -93,6 +96,7 @@ export function App() {
               <Route path="reports" element={<AdminReports />} />
               <Route path="create-ticket" element={<AdminCreateTicket />} />
               <Route path="ticket-details" element={<AdminTicketDetails />} />
+              <Route path="audit-logs" element={<AdminAuditLogs />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
 

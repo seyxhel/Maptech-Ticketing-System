@@ -1,7 +1,7 @@
 from rest_framework import routers
 from django.urls import path, include
 from drf_yasg.utils import swagger_auto_schema
-from .views import TicketViewSet, TypeOfServiceViewSet, EscalationLogViewSet, list_employees
+from .views import TicketViewSet, TypeOfServiceViewSet, EscalationLogViewSet, AuditLogViewSet, list_employees
 from users.views import AuthViewSet, CustomTokenObtainPairView, UserViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
@@ -21,6 +21,7 @@ router.register(r'auth', AuthViewSet, basename='auth')
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'type-of-service', TypeOfServiceViewSet, basename='typeofservice')
 router.register(r'escalation-logs', EscalationLogViewSet, basename='escalationlog')
+router.register(r'audit-logs', AuditLogViewSet, basename='auditlog')
 
 urlpatterns = [
     path('', include(router.urls)),
