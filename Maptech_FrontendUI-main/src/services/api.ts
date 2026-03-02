@@ -341,7 +341,17 @@ export async function fetchUsers(): Promise<BackendUser[]> {
 }
 
 /** Create a new user (superadmin). */
-export async function createUser(data: Partial<BackendUser> & { password?: string }): Promise<BackendUser> {
+export interface CreateUserPayload {
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  suffix?: string;
+  email: string;
+  phone?: string;
+  role: 'employee' | 'admin';
+}
+
+export async function createUser(data: CreateUserPayload): Promise<BackendUser> {
   const res = await fetch(`${API_BASE}/users/create_user/`, {
     method: 'POST',
     headers: authHeaders(),

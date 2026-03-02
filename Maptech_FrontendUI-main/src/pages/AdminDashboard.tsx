@@ -25,49 +25,87 @@ import {
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-function makeSTF(n: number) {
-  // Fixed date for stable demo IDs — replace with real backend IDs when connected
-  return `STF-MT-20260226${String(100000 + n).slice(1)}`;
-}
-
-const ADMIN_TICKETS = [
-  { id: makeSTF(1), subject: 'System outage in North Wing', client: 'TechCorp Inc.', priority: 'Critical' as const, status: 'New' as const, sla: 2, totalSla: 4, assignee: null as string | null },
-  { id: makeSTF(2), subject: 'Printer configuration error', client: 'Logistics Ltd.', priority: 'Medium' as const, status: 'Assigned' as const, sla: 18, totalSla: 24, assignee: 'John D.' },
-  { id: makeSTF(3), subject: 'Software license renewal', client: 'Alpha Group', priority: 'Low' as const, status: 'In Progress' as const, sla: 45, totalSla: 48, assignee: 'Sarah M.' },
-  { id: makeSTF(4), subject: 'Network latency issues', client: 'Beta Systems', priority: 'High' as const, status: 'Escalated' as const, sla: 1, totalSla: 8, assignee: 'Mike R.' },
-  { id: makeSTF(5), subject: 'New user onboarding', client: 'Gamma Corp', priority: 'Low' as const, status: 'Resolved' as const, sla: 0, totalSla: 24, assignee: 'Jenny L.' },
-  { id: makeSTF(6), subject: 'Server backup failure', client: 'DataFlow Ltd.', priority: 'High' as const, status: 'New' as const, sla: 3, totalSla: 8, assignee: null },
-  { id: makeSTF(7), subject: 'Email gateway down', client: 'CloudNine', priority: 'Critical' as const, status: 'In Progress' as const, sla: 1, totalSla: 4, assignee: 'Mike R.' },
-  { id: makeSTF(8), subject: 'VPN connectivity issue', client: 'NovaStar', priority: 'Medium' as const, status: 'Assigned' as const, sla: 10, totalSla: 24, assignee: 'Sarah M.' },
-  { id: makeSTF(9), subject: 'Hardware replacement', client: 'PrimeTech', priority: 'Low' as const, status: 'Pending' as const, sla: 20, totalSla: 48, assignee: null },
-  { id: makeSTF(10), subject: 'Database migration request', client: 'UrbanSoft', priority: 'High' as const, status: 'New' as const, sla: 5, totalSla: 12, assignee: null },
-];
-
-const MOCK_ESCALATIONS = [
-  { id: 1, ticketId: makeSTF(4), type: 'Escalated', to: 'Senior Engineer', reason: 'Complex network configuration required', time: '2h ago' },
-  { id: 2, ticketId: makeSTF(2), type: 'Cascaded', to: 'Cisco Support (Principal)', reason: 'Hardware failure confirmed, warranty claim', time: '5h ago' },
-  { id: 3, ticketId: makeSTF(8), type: 'Cascaded', to: 'Local Distributor', reason: 'Part replacement needed', time: '1d ago' },
-];
+import {
+  fetchTickets,
+  fetchTicketStats,
+  fetchEscalationLogs,
+  deleteTicket as apiDeleteTicket,
+  updateTicket as apiUpdateTicket,
+  escalateExternal,
+} from '../services/api';
+import type { BackendTicket, TicketStats } from '../services/api';
+import { mapBackendTicketToUI, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
+import type { UITicket } from '../services/ticketMapper';
 
 const ITEMS_PER_PAGE = 5;
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Pending'];
+const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
   const [escalationReason, setEscalationReason] = useState('');
-  const [selectedEscalationTicket, setSelectedEscalationTicket] = useState(ADMIN_TICKETS[0]?.id ?? '');
+  const [selectedEscalationTicket, setSelectedEscalationTicket] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilter, setShowFilter] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [tickets, setTickets] = useState(() => ADMIN_TICKETS);
-  const [editTicket, setEditTicket] = useState<typeof ADMIN_TICKETS[0] | null>(null);
+  const [tickets, setTickets] = useState<UITicket[]>([]);
+  const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
+  const [editTicket, setEditTicket] = useState<UITicket | null>(null);
   const [editFields, setEditFields] = useState({ status: '', priority: '', assignee: '' });
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [escalationHistory, setEscalationHistory] = useState<
+    { id: number; ticketId: string; type: string; to: string; reason: string; time: string }[]
+  >([]);
+
+  // Fetch tickets from backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [raw, statsData, escLogs] = await Promise.all([
+          fetchTickets(),
+          fetchTicketStats().catch(() => null),
+          fetchEscalationLogs().catch(() => []),
+        ]);
+        if (cancelled) return;
+        setBackendTickets(raw);
+        const mapped = raw.map(mapBackendTicketToUI);
+        setTickets(mapped);
+        if (mapped.length > 0) setSelectedEscalationTicket(mapped[0].id);
+        if (statsData) setStats(statsData);
+        // Map escalation logs
+        const escMapped = (escLogs as any[]).map((log: any) => {
+          const ticketBt = raw.find((t) => t.id === log.ticket);
+          const isExternal = log.escalation_type === 'external';
+          const elapsed = Date.now() - new Date(log.created_at).getTime();
+          const timeAgo = elapsed < 3600000
+            ? `${Math.round(elapsed / 60000)}m ago`
+            : elapsed < 86400000
+            ? `${Math.round(elapsed / 3600000)}h ago`
+            : `${Math.round(elapsed / 86400000)}d ago`;
+          return {
+            id: log.id,
+            ticketId: ticketBt?.stf_no || `#${log.ticket}`,
+            type: isExternal ? 'Cascaded' : 'Escalated',
+            to: log.to_external || (log.to_user ? `${log.to_user.first_name || ''} ${log.to_user.last_name || ''}`.trim() || log.to_user.username : 'Higher Position'),
+            reason: log.notes || 'No reason provided',
+            time: timeAgo,
+          };
+        });
+        setEscalationHistory(escMapped);
+      } catch (err) {
+        if (!cancelled) toast.error('Failed to load tickets from server.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Close open menu when clicking anywhere outside
   useEffect(() => {
@@ -76,28 +114,43 @@ export function AdminDashboard() {
     return () => document.removeEventListener('click', handler);
   }, []);
 
-  const openEdit = (ticket: typeof ADMIN_TICKETS[0]) => {
+  const openEdit = (ticket: UITicket) => {
     setEditTicket(ticket);
     setEditFields({ status: ticket.status, priority: ticket.priority, assignee: ticket.assignee || '' });
     setOpenMenuId(null);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editTicket) return;
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === editTicket.id
-          ? { ...t, status: editFields.status as typeof t.status, priority: editFields.priority as typeof t.priority, assignee: editFields.assignee || null }
-          : t
-      )
-    );
-    toast.success(`Ticket ${editTicket.id} updated.`);
+    try {
+      await apiUpdateTicket(editTicket.backendId, {
+        status: reverseMapStatus(editFields.status),
+        priority: reverseMapPriority(editFields.priority),
+      } as any);
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === editTicket.id
+            ? { ...t, status: editFields.status, priority: editFields.priority as UITicket['priority'], assignee: editFields.assignee || null }
+            : t
+        )
+      );
+      toast.success(`Ticket ${editTicket.id} updated.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update ticket.');
+    }
     setEditTicket(null);
   };
 
-  const deleteTicket = (id: string) => {
-    setTickets((prev) => prev.filter((t) => t.id !== id));
-    toast.success(`Ticket ${id} deleted.`);
+  const deleteTicket = async (id: string) => {
+    const bt = backendTickets.find((t) => t.stf_no === id);
+    if (!bt) return;
+    try {
+      await apiDeleteTicket(bt.id);
+      setTickets((prev) => prev.filter((t) => t.id !== id));
+      toast.success(`Ticket ${id} deleted.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete ticket.');
+    }
     setOpenMenuId(null);
   };
 
@@ -115,11 +168,28 @@ export function AdminDashboard() {
   const pagedTickets = filteredTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
 
-  const handleEscalate = () => {
+  const handleEscalate = async () => {
     if (!escalationReason) { toast.error('Please provide a reason for escalation'); return; }
-    toast.success(`Ticket ${selectedEscalationTicket} escalated successfully`);
-    setEscalationReason('');
+    const bt = backendTickets.find((t) => t.stf_no === selectedEscalationTicket);
+    if (!bt) { toast.error('Ticket not found'); return; }
+    try {
+      const targetName = escalationType === 'Distributor' ? 'Distributor' : escalationType === 'Principal' ? 'Principal' : 'Higher Position';
+      await escalateExternal(bt.id, { external_escalated_to: targetName, external_escalation_notes: escalationReason } as any);
+      toast.success(`Ticket ${selectedEscalationTicket} escalated successfully`);
+      setEscalationReason('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Escalation failed');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
+        <span className="ml-3 text-gray-500">Loading tickets...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -132,10 +202,10 @@ export function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Unassigned" value="12" icon={Ticket} color="orange" subtext="Needs immediate assignment" />
-        <StatCard title="Pending Evaluation" value="8" icon={Clock} color="blue" subtext="Waiting for approval" />
-        <StatCard title="Active Agents" value="14/18" icon={UserCheck} color="green" />
-        <StatCard title="SLA Breaches" value="2" icon={AlertOctagon} color="purple" trend={{ value: 50, isPositive: false }} />
+        <StatCard title="Unassigned" value={String(tickets.filter(t => !t.assignee).length)} icon={Ticket} color="orange" subtext="Needs immediate assignment" />
+        <StatCard title="Open" value={String(stats?.open ?? tickets.filter(t => t.status === 'New').length)} icon={Clock} color="blue" subtext="Waiting for action" />
+        <StatCard title="In Progress" value={String(stats?.in_progress ?? tickets.filter(t => t.status === 'In Progress' || t.status === 'Assigned').length)} icon={UserCheck} color="green" />
+        <StatCard title="Escalated" value={String(stats?.escalated ?? tickets.filter(t => t.status === 'Escalated').length)} icon={AlertOctagon} color="purple" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -175,7 +245,7 @@ export function AdminDashboard() {
                     <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
                     <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
                     <td className="px-6 py-4">
-                      {ticket.status !== 'Resolved' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
+                      {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
                     </td>
                     <td className="px-6 py-4">
                       {ticket.assignee ? (
@@ -223,7 +293,7 @@ export function AdminDashboard() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Ticket</label>
                 <select value={selectedEscalationTicket} onChange={(e) => setSelectedEscalationTicket(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
-                  {tickets.filter(t => t.status !== 'Resolved').map(t => (
+                  {tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed').map(t => (
                     <option key={t.id} value={t.id}>{t.id} — {t.subject.slice(0, 28)}{t.subject.length > 28 ? '…' : ''}</option>
                   ))}
                 </select>
@@ -253,7 +323,10 @@ export function AdminDashboard() {
               <h3 className="font-bold text-gray-900 dark:text-white">Escalation History</h3>
             </div>
             <div className="space-y-4">
-              {MOCK_ESCALATIONS.map((item) => (
+              {escalationHistory.length === 0 && (
+                <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No escalation history yet.</p>
+              )}
+              {escalationHistory.map((item) => (
                 <div key={item.id} className={`pl-3 border-l-4 ${item.type === 'Escalated' ? 'border-orange-400' : 'border-[#0E8F79]'}`}>
                   <div className="flex justify-between items-start"><span className="text-xs font-bold text-gray-900 dark:text-white">{item.ticketId}</span><span className="text-[10px] text-gray-500 dark:text-gray-400">{item.time}</span></div>
                   <div className="flex items-center gap-2 mt-1"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${item.type === 'Escalated' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' : 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'}`}>{item.type}</span><span className="text-xs text-gray-600 dark:text-gray-400">to {item.to}</span></div>

@@ -11,12 +11,13 @@ import {
   Search as SearchIcon, Check, CheckCheck, CornerDownRight, Maximize2, Minimize2,
   User as UserIcon, Shield, Image, Film, File, Download, Play
 } from 'lucide-react';
-import { getTicketById } from '../data/mockTickets';
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, uploadResolutionProof, deleteAttachment } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields } from '../services/api';
+import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
+import { mapStatus, mapPriority, getAssigneeName } from '../services/ticketMapper';
 import { Loader2, Trash2 } from 'lucide-react';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
@@ -66,54 +67,77 @@ export function TicketView() {
   const params = new URLSearchParams(search);
   const stfFromUrl = params.get('stf') || undefined;
 
-  const found = getTicketById(stfFromUrl);
+  // Backend ticket state
+  const [btLoading, setBtLoading] = useState(true);
+  const [btData, setBtData] = useState<BackendTicket | null>(null);
 
-  const ticket = found
-    ? {
-        id: found.id,
-        priority: found.priority,
-        status: found.status,
-        sla: found.sla,
-        total: found.total,
-        client: found.client ?? 'Acme Corp',
-        created: found.created ?? new Date().toLocaleDateString(),
-        description: found.description ?? 'No description provided.',
-        contact: found.contact ?? 'N/A',
-        assignedTo: found.assignedTo ?? 'unassigned',
-        issue: found.issue,
-        productDetails: found.productDetails ?? null,
-        actionTaken: found.actionTaken ?? '',
-        remarks: found.remarks ?? '',
-        jobStatus: found.jobStatus ?? '',
-        ticketAttachments: found.ticketAttachments ?? [],
-      }
+  // Compute SLA from backend data
+  function computeSla(bt: BackendTicket) {
+    const prioritySlaHours: Record<string, number> = { critical: 4, high: 8, medium: 24, low: 48 };
+    const totalSla = prioritySlaHours[bt.priority] || 24;
+    const created = new Date(bt.created_at).getTime();
+    const elapsed = (Date.now() - created) / (1000 * 60 * 60);
+    return { sla: Math.max(0, Math.round(totalSla - elapsed)), total: totalSla };
+  }
+
+  // Build the ticket view object from backend data
+  const ticket = btData
+    ? (() => {
+        const { sla, total } = computeSla(btData);
+        return {
+          id: btData.stf_no,
+          priority: mapPriority(btData.priority) as 'Critical' | 'High' | 'Medium' | 'Low',
+          status: mapStatus(btData.status, btData.assigned_to) as 'In Progress' | 'Assigned' | 'Resolved' | 'Closed' | 'Pending' | 'Escalated' | 'New',
+          sla,
+          total,
+          client: btData.client || 'N/A',
+          created: new Date(btData.created_at).toLocaleDateString(),
+          description: btData.description_of_problem || 'No description provided.',
+          contact: btData.contact_person || 'N/A',
+          assignedTo: getAssigneeName(btData) || 'unassigned',
+          issue: btData.description_of_problem || btData.type_of_service_detail?.name || 'No description',
+          department: btData.department_organization || 'N/A',
+          typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
+          productDetails: (btData.device_equipment || btData.brand || btData.product) ? {
+            deviceEquipment: btData.device_equipment || '',
+            versionNo: btData.version_no || '',
+            datePurchased: btData.date_purchased || '',
+            serialNo: btData.serial_no || '',
+            warranty: btData.has_warranty ? 'With Warranty' : 'Without Warranty',
+            product: btData.product || '',
+            brand: btData.brand || '',
+            model: btData.model_name || '',
+          } : null,
+          actionTaken: btData.action_taken || '',
+          remarks: btData.remarks || '',
+          jobStatus: btData.job_status || '',
+          ticketAttachments: (btData.attachments || []).map((a: any) => ({
+            name: a.file?.split('/').pop() || 'file',
+            type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
+          })),
+          timeIn: btData.time_in ? new Date(btData.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+        };
+      })()
     : {
-        id: stfFromUrl ?? 'TK-9012',
-        priority: 'Critical' as const,
-        status: 'In Progress' as const,
-        sla: 2,
-        total: 8,
-        client: 'Acme Corp',
-        created: new Date().toLocaleDateString(),
-        description:
-          'Intermittent failures observed connecting to the primary database. Errors occur under load and require immediate investigation.',
-        contact: 'Mr. John Doe',
-        assignedTo: 'gerardquadra',
-        issue: 'Database connection failure',
-        productDetails: {
-          deviceEquipment: 'Database Server',
-          versionNo: 'PostgreSQL 15.2',
-          datePurchased: 'Mar 15, 2024',
-          serialNo: 'SRV-DB-2024-0451',
-          warranty: 'With Warranty',
-          brand: 'Dell',
-          model: 'PowerEdge R750',
-          salesNo: 'SO-2024-1087',
-        },
+        id: stfFromUrl ?? 'TK-0000',
+        priority: 'Medium' as const,
+        status: 'New' as const,
+        sla: 0,
+        total: 24,
+        client: '',
+        created: '',
+        description: 'Loading...',
+        contact: '',
+        assignedTo: '',
+        issue: 'Loading...',
+        department: '',
+        typeOfService: '',
+        productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string } | null,
         actionTaken: '',
         remarks: '',
         jobStatus: '',
         ticketAttachments: [] as { name: string; type: 'screenshot' | 'recording' }[],
+        timeIn: '',
       };
 
   const navigate = useNavigate();
@@ -162,22 +186,30 @@ export function TicketView() {
   const [backendTicketId, setBackendTicketId] = useState<number | null>(
     (location.state as any)?.backendTicketId ?? null
   );
-  const [_backendTicket, setBackendTicket] = useState<BackendTicket | null>(null);
 
-  // If we have an STF but no numeric ID, try fetching from the backend API
+  // Fetch backend ticket data
   useEffect(() => {
-    if (backendTicketId) return; // already resolved
     const stf = stfFromUrl || (location.state as any)?.ticketId;
-    if (!stf) return;
+    const existingId = (location.state as any)?.backendTicketId ?? null;
+
+    if (!stf && !existingId) { setBtLoading(false); return; }
+
     let cancelled = false;
-    fetchTicketByStf(stf).then((bt) => {
+    setBtLoading(true);
+
+    const doFetch = existingId
+      ? fetchTicketById(existingId)
+      : fetchTicketByStf(stf!);
+
+    doFetch.then((bt) => {
       if (!cancelled && bt) {
         setBackendTicketId(bt.id);
-        setBackendTicket(bt);
+        setBtData(bt);
       }
-    });
+    }).finally(() => { if (!cancelled) setBtLoading(false); });
+
     return () => { cancelled = true; };
-  }, [stfFromUrl, backendTicketId, location.state]);
+  }, [stfFromUrl, location.state]);
 
   const handleChatEvent = useCallback((event: ChatEvent) => {
     switch (event.type) {
@@ -419,6 +451,43 @@ export function TicketView() {
   const [jobStatus, setJobStatus] = useState(ticket.jobStatus || '');
   const [actionTaken, setActionTaken] = useState(ticket.actionTaken || '');
   const [remarksText, setRemarksText] = useState(ticket.remarks || '');
+  const [savingFields, setSavingFields] = useState(false);
+  const [closingTicket, setClosingTicket] = useState(false);
+
+  /** Employee saves action taken, remarks, job status */
+  const handleSaveFields = async () => {
+    if (!backendTicketId) return;
+    setSavingFields(true);
+    try {
+      const updated = await updateEmployeeFields(backendTicketId, {
+        action_taken: actionTaken,
+        remarks: remarksText,
+        job_status: jobStatus,
+      });
+      setBtData(updated);
+      toast.success('Fields saved successfully.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save fields.');
+    } finally {
+      setSavingFields(false);
+    }
+  };
+
+  /** Admin closes the ticket */
+  const handleCloseTicket = async () => {
+    if (!backendTicketId) return;
+    if (!confirm('Are you sure you want to close this ticket?')) return;
+    setClosingTicket(true);
+    try {
+      const updated = await closeTicket(backendTicketId);
+      setBtData(updated);
+      toast.success('Ticket closed successfully.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to close ticket.');
+    } finally {
+      setClosingTicket(false);
+    }
+  };
 
   // ── Attachment file handlers ──
   const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -499,6 +568,12 @@ export function TicketView() {
 
   return (
     <div className="space-y-6">
+      {btLoading ? (
+        <div className="flex items-center justify-center py-32">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0E8F79]" />
+        </div>
+      ) : (
+      <>
       {/* Back + Messages */}
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -540,7 +615,7 @@ export function TicketView() {
                 Date Created <span className="ml-1 font-medium text-gray-800 dark:text-gray-200">{ticket.created}</span>
               </div>
               <div className="text-gray-500 dark:text-gray-400">
-                Time In <span className="ml-1 font-medium text-gray-800 dark:text-gray-200">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                Time In <span className="ml-1 font-medium text-gray-800 dark:text-gray-200">{ticket.timeIn}</span>
               </div>
             </div>
 
@@ -556,7 +631,7 @@ export function TicketView() {
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Type of Service</div>
-                <div className="text-gray-900 dark:text-gray-100">Demo/POC</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.typeOfService}</div>
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Assigned To</div>
@@ -564,7 +639,7 @@ export function TicketView() {
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Department</div>
-                <div className="text-gray-900 dark:text-gray-100">IT Department</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.department}</div>
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Issue</div>
@@ -851,6 +926,42 @@ export function TicketView() {
               </div>
             )}
           </Card>
+
+          {/* ── Action Buttons ── */}
+          {ticket.status !== 'Closed' && ticket.status !== 'Resolved' && (
+            <div className="space-y-3">
+              {/* Employee: Save work fields */}
+              {isEmployee && (
+                <button
+                  type="button"
+                  disabled={savingFields}
+                  onClick={handleSaveFields}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0E8F79] to-[#0b7a67] hover:shadow-lg hover:shadow-[#0E8F79]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {savingFields ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4" /> Save Changes</>
+                  )}
+                </button>
+              )}
+              {/* Admin: Close Ticket */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  disabled={closingTicket}
+                  onClick={handleCloseTicket}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg hover:shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {closingTicket ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Closing...</>
+                  ) : (
+                    <><X className="w-4 h-4" /> Close Ticket</>
+                  )}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1386,6 +1497,8 @@ export function TicketView() {
             <Download className="w-4 h-4" /> Download
           </a>
         </div>
+      )}
+      </>
       )}
     </div>
   );

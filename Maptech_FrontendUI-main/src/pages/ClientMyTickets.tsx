@@ -66,6 +66,7 @@ export function ClientMyTickets() {
             <option value="In Progress">In Progress</option>
             <option value="Assigned">Assigned</option>
             <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
             <option value="Pending">Pending</option>
           </select>
           <GreenButton onClick={() => navigate('/client/create-ticket')}>+ New Ticket</GreenButton>
@@ -92,11 +93,14 @@ export function ClientMyTickets() {
                   <td className="px-4 py-3"><PriorityBadge priority={ticket.priority} /></td>
                   <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
                   <td className="px-4 py-3">
-                    {ticket.status !== 'Resolved' && (
+                    {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && (
                       <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.total} />
                     )}
                     {ticket.status === 'Resolved' && (
                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Resolved</span>
+                    )}
+                    {ticket.status === 'Closed' && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">✓ Closed</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">

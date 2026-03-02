@@ -47,6 +47,11 @@ const ACTION_OPTIONS = [
   { value: 'ASSIGN', label: 'Assign' },
   { value: 'ESCALATE', label: 'Escalate' },
   { value: 'CLOSE', label: 'Close' },
+  { value: 'PASS', label: 'Pass' },
+  { value: 'REVIEW', label: 'Review' },
+  { value: 'RESOLVE', label: 'Resolve' },
+  { value: 'UPLOAD', label: 'Upload' },
+  { value: 'CONFIRM', label: 'Confirm' },
   { value: 'STATUS_CHANGE', label: 'Status Change' },
   { value: 'PASSWORD_RESET', label: 'Password Reset' },
 ];
@@ -65,6 +70,11 @@ function actionBadge(action: string) {
     ASSIGN: 'bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700',
     ESCALATE: 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700',
     CLOSE: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700',
+    PASS: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700',
+    REVIEW: 'bg-sky-50 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-700',
+    RESOLVE: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700',
+    UPLOAD: 'bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-700',
+    CONFIRM: 'bg-lime-50 dark:bg-lime-900/30 text-lime-700 dark:text-lime-300 border-lime-200 dark:border-lime-700',
     STATUS_CHANGE: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-200 dark:border-yellow-700',
     PASSWORD_RESET: 'bg-pink-50 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-700',
   };

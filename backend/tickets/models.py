@@ -326,6 +326,11 @@ class AuditLog(models.Model):
     ACTION_CLOSE = 'CLOSE'
     ACTION_STATUS_CHANGE = 'STATUS_CHANGE'
     ACTION_PASSWORD_RESET = 'PASSWORD_RESET'
+    ACTION_PASS = 'PASS'
+    ACTION_REVIEW = 'REVIEW'
+    ACTION_RESOLVE = 'RESOLVE'
+    ACTION_UPLOAD = 'UPLOAD'
+    ACTION_CONFIRM = 'CONFIRM'
     ACTION_CHOICES = [
         (ACTION_CREATE, 'Create'),
         (ACTION_UPDATE, 'Update'),
@@ -337,6 +342,11 @@ class AuditLog(models.Model):
         (ACTION_CLOSE, 'Close'),
         (ACTION_STATUS_CHANGE, 'Status Change'),
         (ACTION_PASSWORD_RESET, 'Password Reset'),
+        (ACTION_PASS, 'Pass'),
+        (ACTION_REVIEW, 'Review'),
+        (ACTION_RESOLVE, 'Resolve'),
+        (ACTION_UPLOAD, 'Upload'),
+        (ACTION_CONFIRM, 'Confirm'),
     ]
 
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

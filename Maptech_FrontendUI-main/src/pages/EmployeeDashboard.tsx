@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { PriorityBadge } from '../components/ui/PriorityBadge';
 import { SLATimer } from '../components/ui/SLATimer';
-import { MOCK_TICKETS } from '../data/mockTickets';
+import { fetchTickets, fetchTicketStats } from '../services/api';
+import type { TicketStats } from '../services/api';
+import { mapBackendTicketToEmployee } from '../services/ticketMapper';
+import type { UIEmployeeTicket } from '../services/ticketMapper';
 import { useAuth } from '../context/AuthContext';
 import {
   CheckCircle,
@@ -22,6 +25,43 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const firstName = user?.name?.split(' ')[0] || 'there';
+
+  const [tickets, setTickets] = useState<UIEmployeeTicket[]>([]);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [raw, statsData] = await Promise.all([
+          fetchTickets(),
+          fetchTicketStats().catch(() => null),
+        ]);
+        if (cancelled) return;
+        setTickets(raw.map(mapBackendTicketToEmployee));
+        if (statsData) setStats(statsData);
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const inProgressCount = stats?.in_progress ?? tickets.filter((t) => t.status === 'In Progress').length;
+  const avgResolution = stats?.avg_resolution_time != null ? `${stats.avg_resolution_time.toFixed(1)}h` : 'N/A';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
+        <span className="ml-3 text-gray-500">Loading...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -30,7 +70,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
             My Workspace
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            Welcome back, {firstName}. You have 4 tickets needing attention.
+            Welcome back, {firstName}. You have {tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed').length} tickets needing attention.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-700">
@@ -42,19 +82,18 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           title="Assigned to Me"
-          value="8"
+          value={String(tickets.length)}
           icon={ListTodo}
           color="blue" />
 
-        <StatCard title="In Progress" value="4" icon={Clock} color="orange" />
+        <StatCard title="In Progress" value={String(inProgressCount)} icon={Clock} color="orange" />
         <StatCard
           title="Avg Resolution"
-          value="2.4h"
+          value={avgResolution}
           icon={CheckCircle}
-          color="green"
-          subtext="Top 10% of team" />
+          color="green" />
 
-        <StatCard title="My Rating" value="4.8/5" icon={Star} color="purple" />
+        <StatCard title="Resolved / Closed" value={String((stats?.closed ?? 0) + tickets.filter(t => t.status === 'Resolved').length)} icon={Star} color="purple" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -63,7 +102,10 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
             Priority Tickets
           </h3>
           <div className="max-h-[540px] overflow-y-auto space-y-4 pr-1">
-          {MOCK_TICKETS.map((ticket) =>
+          {tickets.length === 0 && (
+            <p className="text-gray-400 dark:text-gray-500 text-center py-8">No tickets assigned to you.</p>
+          )}
+          {tickets.map((ticket) =>
           <Card
             key={ticket.id}
             className="hover:border-[#3BC25B] dark:hover:border-[#3BC25B] hover:shadow-md transition-all group"

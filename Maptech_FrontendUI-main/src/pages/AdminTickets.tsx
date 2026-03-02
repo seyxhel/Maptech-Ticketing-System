@@ -16,30 +16,18 @@ import {
   Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-function makeSTF(n: number) {
-  // Fixed date for stable demo IDs — replace with real backend IDs when connected
-  return `STF-MT-20260226${String(100000 + n).slice(1)}`;
-}
-
-const ALL_TICKETS = [
-  { id: makeSTF(1), subject: 'System outage in North Wing', client: 'TechCorp Inc.', priority: 'Critical' as const, status: 'New' as const, sla: 2, totalSla: 4, assignee: null as string | null, created: '2025-06-01' },
-  { id: makeSTF(2), subject: 'Printer configuration error', client: 'Logistics Ltd.', priority: 'Medium' as const, status: 'Assigned' as const, sla: 18, totalSla: 24, assignee: 'John D.', created: '2025-06-01' },
-  { id: makeSTF(3), subject: 'Software license renewal', client: 'Alpha Group', priority: 'Low' as const, status: 'In Progress' as const, sla: 45, totalSla: 48, assignee: 'Sarah M.', created: '2025-05-31' },
-  { id: makeSTF(4), subject: 'Network latency issues', client: 'Beta Systems', priority: 'High' as const, status: 'Escalated' as const, sla: 1, totalSla: 8, assignee: 'Mike R.', created: '2025-05-31' },
-  { id: makeSTF(5), subject: 'New user onboarding', client: 'Gamma Corp', priority: 'Low' as const, status: 'Resolved' as const, sla: 0, totalSla: 24, assignee: 'Jenny L.', created: '2025-05-30' },
-  { id: makeSTF(6), subject: 'Server backup failure', client: 'DataFlow Ltd.', priority: 'High' as const, status: 'New' as const, sla: 3, totalSla: 8, assignee: null, created: '2025-05-30' },
-  { id: makeSTF(7), subject: 'Email gateway down', client: 'CloudNine', priority: 'Critical' as const, status: 'In Progress' as const, sla: 1, totalSla: 4, assignee: 'Mike R.', created: '2025-05-29' },
-  { id: makeSTF(8), subject: 'VPN connectivity issue', client: 'NovaStar', priority: 'Medium' as const, status: 'Assigned' as const, sla: 10, totalSla: 24, assignee: 'Sarah M.', created: '2025-05-29' },
-  { id: makeSTF(9), subject: 'Hardware replacement', client: 'PrimeTech', priority: 'Low' as const, status: 'Pending' as const, sla: 20, totalSla: 48, assignee: null, created: '2025-05-28' },
-  { id: makeSTF(10), subject: 'Database migration request', client: 'UrbanSoft', priority: 'High' as const, status: 'New' as const, sla: 5, totalSla: 12, assignee: null, created: '2025-05-28' },
-  { id: makeSTF(11), subject: 'Firewall rule update', client: 'SecureNet', priority: 'Medium' as const, status: 'In Progress' as const, sla: 12, totalSla: 24, assignee: 'John D.', created: '2025-05-27' },
-  { id: makeSTF(12), subject: 'Desktop setup for new hire', client: 'PixelWorks', priority: 'Low' as const, status: 'Assigned' as const, sla: 30, totalSla: 48, assignee: 'Jenny L.', created: '2025-05-27' },
-];
+import {
+  fetchTickets,
+  deleteTicket as apiDeleteTicket,
+  updateTicket as apiUpdateTicket,
+} from '../services/api';
+import type { BackendTicket } from '../services/api';
+import { mapBackendTicketToUI, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
+import type { UITicket } from '../services/ticketMapper';
 
 const ITEMS_PER_PAGE = 5;
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Pending'];
+const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
 
 export function AdminTickets() {
   const navigate = useNavigate();
@@ -49,9 +37,29 @@ export function AdminTickets() {
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [tickets, setTickets] = useState(() => ALL_TICKETS);
-  const [editTicket, setEditTicket] = useState<typeof ALL_TICKETS[0] | null>(null);
+  const [tickets, setTickets] = useState<UITicket[]>([]);
+  const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
+  const [editTicket, setEditTicket] = useState<UITicket | null>(null);
   const [editFields, setEditFields] = useState({ status: '', priority: '', assignee: '' });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch tickets from backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await fetchTickets();
+        if (cancelled) return;
+        setBackendTickets(raw);
+        setTickets(raw.map(mapBackendTicketToUI));
+      } catch (err) {
+        if (!cancelled) toast.error('Failed to load tickets.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Close open menu when clicking anywhere outside
   useEffect(() => {
@@ -60,28 +68,43 @@ export function AdminTickets() {
     return () => document.removeEventListener('click', handler);
   }, []);
 
-  const openEdit = (ticket: typeof ALL_TICKETS[0]) => {
+  const openEdit = (ticket: UITicket) => {
     setEditTicket(ticket);
     setEditFields({ status: ticket.status, priority: ticket.priority, assignee: ticket.assignee || '' });
     setOpenMenuId(null);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editTicket) return;
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === editTicket.id
-          ? { ...t, status: editFields.status as typeof t.status, priority: editFields.priority as typeof t.priority, assignee: editFields.assignee || null }
-          : t
-      )
-    );
-    toast.success(`Ticket ${editTicket.id} updated.`);
+    try {
+      await apiUpdateTicket(editTicket.backendId, {
+        status: reverseMapStatus(editFields.status),
+        priority: reverseMapPriority(editFields.priority),
+      } as any);
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === editTicket.id
+            ? { ...t, status: editFields.status, priority: editFields.priority as UITicket['priority'], assignee: editFields.assignee || null }
+            : t
+        )
+      );
+      toast.success(`Ticket ${editTicket.id} updated.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update ticket.');
+    }
     setEditTicket(null);
   };
 
-  const deleteTicket = (id: string) => {
-    setTickets((prev) => prev.filter((t) => t.id !== id));
-    toast.success(`Ticket ${id} deleted.`);
+  const deleteTicket = async (id: string) => {
+    const bt = backendTickets.find((t) => t.stf_no === id);
+    if (!bt) return;
+    try {
+      await apiDeleteTicket(bt.id);
+      setTickets((prev) => prev.filter((t) => t.id !== id));
+      toast.success(`Ticket ${id} deleted.`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete ticket.');
+    }
     setOpenMenuId(null);
   };
 
@@ -95,6 +118,15 @@ export function AdminTickets() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paged = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
+        <span className="ml-3 text-gray-500">Loading tickets...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -142,7 +174,7 @@ export function AdminTickets() {
                   <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
                   <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
                   <td className="px-6 py-4">
-                    {ticket.status !== 'Resolved' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
+                    {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
                   </td>
                   <td className="px-6 py-4">
                     {ticket.assignee ? (

@@ -17,6 +17,13 @@ import {
   CheckCircle2,
   X,
 } from 'lucide-react';
+import {
+  createTicket,
+  fetchEmployees,
+  fetchTypesOfService,
+  assignTicket,
+} from '../services/api';
+import type { TypeOfService as ServiceType } from '../services/api';
 
 const CONTACT_FIELDS = [
   { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
@@ -26,14 +33,6 @@ const CONTACT_FIELDS = [
   { name: 'designation', label: 'Designation', placeholder: 'e.g. IT Manager', required: true },
   { name: 'department', label: 'Department / Organization', placeholder: 'e.g. Information Technology', required: true },
 ] as const;
-
-const EMPLOYEES = [
-  { id: 1, name: 'John Doe', role: 'Network Engineer', avatar: 'JD', available: true },
-  { id: 2, name: 'Sarah Miller', role: 'Systems Admin', avatar: 'SM', available: true },
-  { id: 3, name: 'Mike Reyes', role: 'Field Technician', avatar: 'MR', available: false },
-  { id: 4, name: 'Jenny Lopez', role: 'Help Desk Agent', avatar: 'JL', available: true },
-  { id: 5, name: 'Carlos Santos', role: 'Senior Engineer', avatar: 'CS', available: true },
-];
 
 /* Flow: form → calling (5s countdown) → ongoing call → end call → priority modal → assign employee */
 type ModalStep = 'none' | 'calling' | 'ongoing' | 'priority' | 'assign';
@@ -65,6 +64,30 @@ export function AdminCreateTicket() {
   const [countdown, setCountdown] = useState(5);
   const [priorityLevel, setPriorityLevel] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null);
+
+  // Data from backend
+  const [employees, setEmployees] = useState<{ id: number; name: string; role: string; avatar: string; available: boolean }[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+
+  // Fetch employees and service types from backend
+  useEffect(() => {
+    fetchEmployees()
+      .then((emps) => {
+        setEmployees(
+          emps.map((e: any) => ({
+            id: e.id,
+            name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username,
+            role: e.role || 'Employee',
+            avatar: `${(e.first_name || 'E')[0]}${(e.last_name || '')[0] || ''}`.toUpperCase(),
+            available: e.is_active !== false,
+          }))
+        );
+      })
+      .catch(() => {});
+    fetchTypesOfService()
+      .then((types) => setServiceTypes(types))
+      .catch(() => {});
+  }, []);
 
   const setContactField = (name: string, value: string) => {
     setContactValues((prev) => ({ ...prev, [name]: value }));
@@ -118,17 +141,58 @@ export function AdminCreateTicket() {
     setSelectedEmployee(null);
   };
 
-  const handleAssign = () => {
+  const handleAssign = async () => {
     if (!selectedEmployee) {
       toast.error('Please select an employee to assign.');
       return;
     }
-    const emp = EMPLOYEES.find((e) => e.id === selectedEmployee);
-    setModalStep('none');
-    toast.success(`Ticket ${stfNo} assigned to ${emp?.name}`, {
-      description: `Priority: ${priorityLevel} | Service: ${serviceType}`,
-    });
-    navigate('/admin/dashboard');
+    const emp = employees.find((e) => e.id === selectedEmployee);
+
+    // Map support type label to backend value
+    const supportTypeMap: Record<string, string> = {
+      'Remote / Online': 'remote_online',
+      'Onsite': 'onsite',
+      'Chat': 'chat',
+      'Call': 'call',
+    };
+
+    // Find the service type ID from the backend
+    const matchedService = serviceTypes.find((s) => s.name === serviceType);
+
+    try {
+      const ticketData: Record<string, unknown> = {
+        client: contactValues.client,
+        contact_person: contactValues.contactPerson,
+        landline: contactValues.landline,
+        mobile_no: contactValues.mobile,
+        designation: contactValues.designation,
+        department_organization: contactValues.department,
+        email_address: email,
+        address,
+        description_of_problem: description,
+        preferred_support_type: supportTypeMap[supportType] || '',
+        priority: priorityLevel.toLowerCase(),
+        assign_to: selectedEmployee,
+      };
+
+      if (matchedService) {
+        ticketData.type_of_service = matchedService.id;
+      } else if (serviceType === 'Others') {
+        ticketData.type_of_service_others = serviceOthersText;
+      } else if (serviceType) {
+        ticketData.type_of_service_others = serviceType;
+      }
+
+      const created = await createTicket(ticketData as any);
+
+      setModalStep('none');
+      toast.success(`Ticket ${created.stf_no} assigned to ${emp?.name}`, {
+        description: `Priority: ${priorityLevel} | Service: ${serviceType}`,
+      });
+      navigate('/admin/dashboard');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to create ticket.');
+    }
   };
 
   const errorRing = 'ring-2 ring-red-400 border-red-400';
@@ -340,7 +404,10 @@ export function AdminCreateTicket() {
                 </div>
 
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {EMPLOYEES.map((emp) => (
+                  {employees.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">No employees found.</p>
+                  )}
+                  {employees.map((emp) => (
                     <button
                       key={emp.id}
                       onClick={() => emp.available && setSelectedEmployee(emp.id)}

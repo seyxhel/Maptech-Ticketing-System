@@ -11,11 +11,11 @@ def create_initial_admin(sender, **kwargs):
         return
     try:
         # Create default admin (is_staff=True, is_superuser=False)
-        if not User.objects.filter(email='admin@gmail.com').exists():
+        if not User.objects.filter(email='rvebayo@gmail.com').exists():
             user = User.objects.create_user(
-                username='admin',
-                email='admin@gmail.com',
-                password='admin',
+                username='Rivo Vebayo',
+                email='rvebayo@gmail.com',
+                password='rvebayo123!',
                 role=User.ROLE_ADMIN,
                 is_staff=True,
                 is_superuser=False,

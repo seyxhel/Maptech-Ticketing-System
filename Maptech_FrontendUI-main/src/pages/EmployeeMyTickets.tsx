@@ -5,7 +5,9 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { PriorityBadge } from '../components/ui/PriorityBadge';
 import { SLATimer } from '../components/ui/SLATimer';
 import { Eye } from 'lucide-react';
-import { MOCK_TICKETS } from '../data/mockTickets';
+import { fetchTickets } from '../services/api';
+import { mapBackendTicketToEmployee } from '../services/ticketMapper';
+import type { UIEmployeeTicket } from '../services/ticketMapper';
 
 /** Returns an array of page numbers and 'ellipsis' markers for smart pagination. */
 function getPaginationPages(current: number, total: number): (number | 'ellipsis')[] {
@@ -27,15 +29,34 @@ export function EmployeeMyTickets() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [tickets, setTickets] = useState<UIEmployeeTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch tickets from backend
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = await fetchTickets();
+        if (cancelled) return;
+        setTickets(raw.map(mapBackendTicketToEmployee));
+      } catch {
+        // silently fail
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
-    return MOCK_TICKETS.filter((t) => {
+    return tickets.filter((t) => {
       const q = searchQuery.trim().toLowerCase();
       const matchesSearch = !q || t.id.toLowerCase().includes(q) || t.issue.toLowerCase().includes(q);
       const matchesStatus = filterStatus === 'All' || t.status === filterStatus;
       return matchesSearch && matchesStatus;
     });
-  }, [searchQuery, filterStatus]);
+  }, [searchQuery, filterStatus, tickets]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -52,6 +73,13 @@ export function EmployeeMyTickets() {
 
   return (
     <div className="space-y-6">
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
+          <span className="ml-3 text-gray-500">Loading tickets...</span>
+        </div>
+      ) : (
+      <>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Assigned Tickets</h1>
@@ -75,6 +103,7 @@ export function EmployeeMyTickets() {
             <option value="In Progress">In Progress</option>
             <option value="Assigned">Assigned</option>
             <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
             <option value="Pending">Pending</option>
           </select>
         </div>
@@ -102,11 +131,14 @@ export function EmployeeMyTickets() {
                   <td className="px-4 py-3"><PriorityBadge priority={ticket.priority} /></td>
                   <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
                   <td className="px-4 py-3">
-                    {ticket.status !== 'Resolved' && (
+                    {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && (
                       <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.total} />
                     )}
                     {ticket.status === 'Resolved' && (
                       <span className="text-xs text-green-600 dark:text-green-400 font-medium">✓ Resolved</span>
+                    )}
+                    {ticket.status === 'Closed' && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">✓ Closed</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -170,6 +202,8 @@ export function EmployeeMyTickets() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

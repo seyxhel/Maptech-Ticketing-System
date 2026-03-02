@@ -9,9 +9,8 @@ import {
   Unlock,
   X,
   Users,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
+  Loader2 } from
+'lucide-react';
 import { toast } from 'sonner';
 import {
   fetchUsers,
@@ -19,55 +18,87 @@ import {
   updateUser,
   toggleUserActive,
   type BackendUser,
+  type CreateUserPayload,
 } from '../services/api';
 
-/* ── helpers ─────────────────────────────────────────── */
+interface UserAccount {
+  id: number;
+  name: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  suffix: string;
+  email: string;
+  phone: string;
+  role: 'Admin' | 'Employee' | 'Superadmin';
+  status: 'Active' | 'Blocked';
+}
 
-/** Build display name from backend user fields. */
-const displayName = (u: BackendUser) =>
-  [u.first_name, u.middle_name, u.last_name].filter(Boolean).join(' ') || u.username;
-
-/** Capitalise first letter (admin → Admin). */
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-type RoleFilter = 'All' | 'superadmin' | 'admin' | 'employee';
+/** Map a BackendUser to the local UserAccount shape. */
+function toUserAccount(u: BackendUser): UserAccount {
+  const fullName = [u.first_name, u.middle_name, u.last_name, u.suffix]
+    .map((s) => (s || '').trim())
+    .filter(Boolean)
+    .join(' ');
+  const roleMap: Record<string, 'Admin' | 'Employee' | 'Superadmin'> = {
+    admin: 'Admin',
+    employee: 'Employee',
+    superadmin: 'Superadmin',
+  };
+  return {
+    id: u.id,
+    name: fullName || u.username,
+    firstName: u.first_name || '',
+    middleName: u.middle_name || '',
+    lastName: u.last_name || '',
+    suffix: u.suffix || '',
+    email: u.email,
+    phone: u.phone || '',
+    role: roleMap[u.role] || 'Employee',
+    status: u.is_active ? 'Active' : 'Blocked',
+  };
+}
 
 const EMPTY_FORM = {
   lastName: '',
   firstName: '',
   middleName: '',
+  suffix: '',
   email: '',
   contactNumber: '',
   role: 'employee' as 'admin' | 'employee',
 };
 
 export function UserManagement() {
-  /* ── state ─────────────────────────────────────────── */
-  const [users, setUsers] = useState<BackendUser[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<RoleFilter>('All');
+  const [submitting, setSubmitting] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<
+    'All' | 'Admin' | 'Employee' | 'Superadmin'>(
+    'All');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<BackendUser | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
 
-  /* ── fetch users ──────────────────────────────────── */
+  // ── Fetch users from backend ──
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchUsers();
-      setUsers(data);
+      setUsers(data.map(toUserAccount));
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to load users');
+      const msg = err instanceof Error ? err.message : 'Failed to fetch users';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
 
-  /* ── filtering ────────────────────────────────────── */
   const filteredUsers = users.filter((u) => {
     const matchesRole = roleFilter === 'All' || u.role === roleFilter;
     const name = displayName(u).toLowerCase();
@@ -94,83 +125,86 @@ export function UserManagement() {
   const openEditModal = (user: BackendUser) => {
     setEditingUser(user);
     setFormData({
-      lastName: user.last_name ?? '',
-      firstName: user.first_name ?? '',
-      middleName: user.middle_name ?? '',
+      lastName: user.lastName,
+      firstName: user.firstName,
+      middleName: user.middleName,
+      suffix: user.suffix,
       email: user.email,
-      contactNumber: user.phone ?? '',
-      role: (user.role === 'admin' ? 'admin' : 'employee') as 'admin' | 'employee',
+      contactNumber: user.phone,
+      role: user.role === 'Superadmin' ? 'Admin' : user.role,
+      status: user.status
     });
     setIsModalOpen(true);
   };
-
-  /* ── save (create / update) ───────────────────────── */
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
+    setSubmitting(true);
     try {
       if (editingUser) {
-        const updated = await updateUser(editingUser.id, {
+        // Update existing user via API
+        const payload: Record<string, string> = {
           first_name: formData.firstName.trim(),
-          middle_name: formData.middleName.trim(),
           last_name: formData.lastName.trim(),
+          middle_name: formData.middleName.trim(),
           email: formData.email.trim(),
           phone: formData.contactNumber.trim(),
-          role: formData.role,
-        });
-        setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-        toast.success(`Account for ${displayName(updated)} updated successfully.`);
+          role: formData.role.toLowerCase(),
+        };
+        await updateUser(editingUser.id, payload as never);
+        toast.success(`Account for ${formData.firstName} ${formData.lastName} updated successfully.`);
       } else {
-        const created = await createUser({
+        // Create new user via API
+        const payload: CreateUserPayload = {
           first_name: formData.firstName.trim(),
-          middle_name: formData.middleName.trim(),
           last_name: formData.lastName.trim(),
+          middle_name: formData.middleName.trim(),
           email: formData.email.trim(),
           phone: formData.contactNumber.trim(),
-          role: formData.role,
-        });
-        setUsers((prev) => [created, ...prev]);
-        toast.success(`New ${cap(created.role)} account created for ${displayName(created)}.`);
+          role: formData.role.toLowerCase() as 'employee' | 'admin',
+        };
+        await createUser(payload);
+        toast.success(
+          `New ${formData.role} account created for ${formData.firstName} ${formData.lastName}.`
+        );
       }
       setIsModalOpen(false);
+      await loadUsers(); // Refresh the list from the backend
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save user');
+      const msg = err instanceof Error ? err.message : 'Operation failed';
+      toast.error(msg);
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
-
-  /* ── toggle active / blocked ──────────────────────── */
-  const toggleStatus = async (userId: number) => {
+  const toggleStatus = async (id: number) => {
     try {
-      const updated = await toggleUserActive(userId);
-      setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
-      const name = displayName(updated);
-      toast.info(`${name} has been ${updated.is_active ? 'activated' : 'blocked'}.`);
+      await toggleUserActive(id);
+      await loadUsers(); // Refresh
+      const user = users.find((u) => u.id === id);
+      if (user) {
+        const next = user.status === 'Active' ? 'blocked' : 'activated';
+        toast.info(`${user.name} has been ${next}.`);
+      }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to toggle status');
+      const msg = err instanceof Error ? err.message : 'Toggle failed';
+      toast.error(msg);
     }
   };
-
-  /* ── style helpers ────────────────────────────────── */
   const roleBadge = (role: string) => {
-    if (role === 'admin' || role === 'superadmin')
-      return 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700';
-    if (role === 'employee')
-      return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+    if (role === 'Admin')
+    return 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700';
+    if (role === 'Employee')
+    return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
+    if (role === 'Superadmin')
+    return 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
     return 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600';
   };
-
-  /* ── loading skeleton ─────────────────────────────── */
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 text-[#0E8F79] animate-spin" />
-      </div>
-    );
-  }
-
-  /* ── render ────────────────────────────────────────── */
+  const roleCounts = {
+    All: users.length,
+    Admin: users.filter((u) => u.role === 'Admin').length,
+    Employee: users.filter((u) => u.role === 'Employee').length,
+    Superadmin: users.filter((u) => u.role === 'Superadmin').length
+  };
   return (
     <div className="space-y-6">
       {/* header */}
@@ -201,12 +235,28 @@ export function UserManagement() {
       {/* summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Users', count: users.length, cls: 'bg-gray-900 dark:bg-gray-700 text-white' },
-          { label: 'Superadmins', count: roleCounts.superadmin, cls: 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700' },
-          { label: 'Admins', count: roleCounts.admin, cls: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700' },
-          { label: 'Employees', count: roleCounts.employee, cls: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700' },
-        ].map((item) => (
-          <div key={item.label} className={`rounded-xl p-4 ${item.cls}`}>
+        {
+          label: 'Total Users',
+          count: users.length,
+          cls: 'bg-gray-900 dark:bg-gray-700 text-white'
+        },
+        {
+          label: 'Admins',
+          count: roleCounts.Admin,
+          cls: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700'
+        },
+        {
+          label: 'Employees',
+          count: roleCounts.Employee,
+          cls: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+        },
+        {
+          label: 'Superadmins',
+          count: roleCounts.Superadmin,
+          cls: 'bg-amber-50 dark:bg-amber-800/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700'
+        }].
+        map((item) =>
+        <div key={item.label} className={`rounded-xl p-4 ${item.cls}`}>
             <p className="text-2xl font-bold">{item.count}</p>
             <p className="text-sm mt-1 opacity-80">{item.label}</p>
           </div>
@@ -217,17 +267,13 @@ export function UserManagement() {
       <Card accent>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg gap-1">
-            {(['All', 'superadmin', 'admin', 'employee'] as RoleFilter[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setRoleFilter(tab)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-                  roleFilter === tab
-                    ? 'bg-white dark:bg-gray-600 text-[#0E8F79] dark:text-green-400 shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                }`}
-              >
-                {cap(tab)}
+            {(['All', 'Admin', 'Employee', 'Superadmin'] as const).map((tab) =>
+            <button
+              key={tab}
+              onClick={() => setRoleFilter(tab)}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${roleFilter === tab ? 'bg-white dark:bg-gray-600 text-[#0E8F79] dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+
+                {tab}
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     roleFilter === tab
@@ -264,8 +310,17 @@ export function UserManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {filteredUsers.length === 0 ? (
-                <tr>
+              {loading ?
+              <tr>
+                  <td colSpan={5} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
+                      <Loader2 className="w-8 h-8 animate-spin" />
+                      <p className="font-medium">Loading users...</p>
+                    </div>
+                  </td>
+                </tr> :
+              filteredUsers.length === 0 ?
+              <tr>
                   <td colSpan={5} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-400 dark:text-gray-500">
                       <Users className="w-8 h-8" />
@@ -463,14 +518,22 @@ export function UserManagement() {
 
               <div className="flex gap-3 pt-2">
                 <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
+                type="button"
+                onClick={() => setIsModalOpen(false)}
+                disabled={submitting}
+                className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50">
+
                   Cancel
                 </button>
-                <GreenButton type="submit" className="flex-1" disabled={saving}>
-                  {saving ? 'Saving…' : editingUser ? 'Save Changes' : 'Create Account'}
+                <GreenButton type="submit" className="flex-1" disabled={submitting}>
+                  {submitting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {editingUser ? 'Saving...' : 'Creating...'}
+                    </span>
+                  ) : (
+                    editingUser ? 'Save Changes' : 'Create Account'
+                  )}
                 </GreenButton>
               </div>
             </form>
