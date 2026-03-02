@@ -43,6 +43,18 @@ class TicketViewSet(viewsets.ModelViewSet):
             return Ticket.objects.filter(assigned_to=user).order_by('-created_at')
         return Ticket.objects.none()
 
+    def _audit_ticket(self, request, ticket, action, activity, changes=None):
+        """Shortcut to create an AuditLog entry for a ticket action."""
+        AuditLog.log(
+            entity=AuditLog.ENTITY_TICKET,
+            entity_id=ticket.id,
+            action=action,
+            activity=activity,
+            actor=request.user,
+            ip_address=_get_client_ip(request),
+            changes=changes,
+        )
+
     def get_serializer_class(self):
         """Return a role-specific serializer for the create action so the
         DRF browsable API shows different form fields per role."""
@@ -87,15 +99,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.confirmed_by_admin = True
             ticket.save()
 
-            # Audit log
-            AuditLog.log(
-                entity=AuditLog.ENTITY_TICKET,
-                entity_id=ticket.id,
-                action=AuditLog.ACTION_CREATE,
-                activity=f"{user.email} created ticket {ticket.stf_no}",
-                actor=user,
-                ip_address=_get_client_ip(request),
-            )
+            self._audit_ticket(request, ticket, AuditLog.ACTION_CREATE,
+                               f"{user.email} created ticket {ticket.stf_no}")
 
             return Response(
                 TicketSerializer(ticket, context={'request': request}).data,
@@ -203,16 +208,9 @@ class TicketViewSet(viewsets.ModelViewSet):
                 # Broadcast system message via channel layer
                 self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
 
-        # Audit log
-        AuditLog.log(
-            entity=AuditLog.ENTITY_TICKET,
-            entity_id=ticket.id,
-            action=AuditLog.ACTION_ASSIGN,
-            activity=f"{request.user.email} assigned ticket {ticket.stf_no} to {emp.email}",
-            actor=request.user,
-            ip_address=_get_client_ip(request),
-            changes={'assigned_to': emp.id, 'employee_email': emp.email},
-        )
+        self._audit_ticket(request, ticket, AuditLog.ACTION_ASSIGN,
+                           f"{request.user.email} assigned ticket {ticket.stf_no} to {emp.email}",
+                           changes={'assigned_to': emp.id, 'employee_email': emp.email})
 
         return Response(self.get_serializer(ticket).data)
 
@@ -295,16 +293,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
-        # Audit log
-        AuditLog.log(
-            entity=AuditLog.ENTITY_TICKET,
-            entity_id=ticket.id,
-            action=AuditLog.ACTION_ESCALATE,
-            activity=f"{user.email} escalated ticket {ticket.stf_no} internally",
-            actor=user,
-            ip_address=_get_client_ip(request),
-            changes={'escalation_type': 'internal', 'notes': notes},
-        )
+        self._audit_ticket(request, ticket, AuditLog.ACTION_ESCALATE,
+                           f"{user.email} escalated ticket {ticket.stf_no} internally",
+                           changes={'escalation_type': 'internal', 'notes': notes})
 
         return Response(self.get_serializer(ticket).data)
 
@@ -402,15 +393,8 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.confirmed_by_admin = True
         ticket.save()
 
-        # Audit log
-        AuditLog.log(
-            entity=AuditLog.ENTITY_TICKET,
-            entity_id=ticket.id,
-            action=AuditLog.ACTION_UPDATE,
-            activity=f"{request.user.email} confirmed ticket {ticket.stf_no}",
-            actor=request.user,
-            ip_address=_get_client_ip(request),
-        )
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
+                           f"{request.user.email} confirmed ticket {ticket.stf_no}")
 
         return Response(self.get_serializer(ticket).data)
 
@@ -454,16 +438,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
-        # Audit log
-        AuditLog.log(
-            entity=AuditLog.ENTITY_TICKET,
-            entity_id=ticket.id,
-            action=AuditLog.ACTION_ESCALATE,
-            activity=f"{user.email} escalated ticket {ticket.stf_no} externally to {escalated_to}",
-            actor=user,
-            ip_address=_get_client_ip(request),
-            changes={'escalation_type': 'external', 'escalated_to': escalated_to, 'notes': notes},
-        )
+        self._audit_ticket(request, ticket, AuditLog.ACTION_ESCALATE,
+                           f"{user.email} escalated ticket {ticket.stf_no} externally to {escalated_to}",
+                           changes={'escalation_type': 'external', 'escalated_to': escalated_to, 'notes': notes})
 
         return Response(self.get_serializer(ticket).data)
 
@@ -496,15 +473,8 @@ class TicketViewSet(viewsets.ModelViewSet):
                 )
                 self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
 
-        # Audit log
-        AuditLog.log(
-            entity=AuditLog.ENTITY_TICKET,
-            entity_id=ticket.id,
-            action=AuditLog.ACTION_CLOSE,
-            activity=f"{request.user.email} closed ticket {ticket.stf_no}",
-            actor=request.user,
-            ip_address=_get_client_ip(request),
-        )
+        self._audit_ticket(request, ticket, AuditLog.ACTION_CLOSE,
+                           f"{request.user.email} closed ticket {ticket.stf_no}")
 
         return Response(self.get_serializer(ticket).data)
 
