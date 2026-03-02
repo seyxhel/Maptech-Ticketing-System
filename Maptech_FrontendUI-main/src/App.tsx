@@ -2,6 +2,7 @@ import React from 'react';
 import { Toaster } from 'sonner';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { ForgotPassword } from './pages/ForgotPassword';
@@ -57,6 +58,7 @@ export function App() {
     <>
       <Toaster position="top-right" richColors />
       <BrowserRouter>
+        <ThemeProvider>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -137,6 +139,7 @@ export function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
+        </ThemeProvider>
       </BrowserRouter>
     </>
   );

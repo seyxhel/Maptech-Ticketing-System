@@ -157,6 +157,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         if provided and '@' in str(provided) and password:
             try:
                 user = User.objects.get(email=provided)
+                if not user.is_active:
+                    return Response({'detail': 'Your account has been deactivated. Please contact an administrator.'}, status=status.HTTP_401_UNAUTHORIZED)
                 if user.check_password(password):
                     user.last_login = timezone.now()
                     user.save(update_fields=['last_login'])
@@ -186,7 +188,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 pass
 
         # otherwise return 401
-        return Response({'detail': 'No active account found with the given credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 class UserViewSet(viewsets.GenericViewSet):
     serializer_class = UserSerializer

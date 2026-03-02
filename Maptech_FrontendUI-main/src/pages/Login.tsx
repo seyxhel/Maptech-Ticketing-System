@@ -33,6 +33,14 @@ export function Login() {
     e.preventDefault();
     setError('');
     if (!canSubmit) return;
+
+    // Custom email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError('Invalid email.');
+      return;
+    }
+
     setLoading(true);
     try {
       const redirectPath = await loginWithCredentials(email.trim(), password, rememberMe);
@@ -73,7 +81,7 @@ export function Login() {
             <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
               <Mail className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
               <input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.com"

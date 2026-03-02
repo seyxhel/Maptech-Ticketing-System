@@ -1,29 +1,17 @@
 import React, { useState } from 'react';
 import { Card } from '../components/ui/Card';
-import { GreenButton } from '../components/ui/GreenButton';
-import { Settings as SettingsIcon, Moon, Sun, Bell, BellOff, Save } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun, Bell, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTheme } from '../context/ThemeContext';
 
 export function Settings() {
-  const [isDark, setIsDark] = useState(() => document.documentElement.classList.contains('dark'));
+  const { isDark, toggleDark } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     return localStorage.getItem('maptech_notifications') !== 'false';
   });
   const [emailAlerts, setEmailAlerts] = useState(() => {
     return localStorage.getItem('maptech_email_alerts') !== 'false';
   });
-
-  const toggleDark = () => {
-    const next = !isDark;
-    setIsDark(next);
-    document.documentElement.classList.toggle('dark', next);
-  };
-
-  const handleSave = () => {
-    localStorage.setItem('maptech_notifications', String(notificationsEnabled));
-    localStorage.setItem('maptech_email_alerts', String(emailAlerts));
-    toast.success('Settings saved successfully.');
-  };
 
   const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
     <button
@@ -69,7 +57,7 @@ export function Settings() {
                 <p className="text-xs text-gray-400 dark:text-gray-500">{notificationsEnabled ? 'Notifications enabled' : 'Notifications disabled'}</p>
               </div>
             </div>
-            <Toggle on={notificationsEnabled} onToggle={() => setNotificationsEnabled((n) => !n)} />
+            <Toggle on={notificationsEnabled} onToggle={() => setNotificationsEnabled((n) => { const next = !n; localStorage.setItem('maptech_notifications', String(next)); return next; })} />
           </div>
           <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
@@ -79,14 +67,10 @@ export function Settings() {
                 <p className="text-xs text-gray-400 dark:text-gray-500">{emailAlerts ? 'Critical alerts sent via email' : 'Email alerts disabled'}</p>
               </div>
             </div>
-            <Toggle on={emailAlerts} onToggle={() => setEmailAlerts((n) => !n)} />
+            <Toggle on={emailAlerts} onToggle={() => setEmailAlerts((n) => { const next = !n; localStorage.setItem('maptech_email_alerts', String(next)); return next; })} />
           </div>
         </div>
-        <div className="mt-6">
-          <GreenButton onClick={handleSave} className="flex items-center gap-2">
-            <Save className="w-4 h-4" /> Save Changes
-          </GreenButton>
-        </div>
+
       </Card>
     </div>
   );

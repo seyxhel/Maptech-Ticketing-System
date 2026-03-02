@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
 import { LayoutDashboard, FileText, Ticket } from 'lucide-react';
@@ -14,13 +15,9 @@ const NAV_ITEMS: NavItem[] = [
 
 export function ClientLayout() {
   const { user, logout } = useAuth();
+  const { isDark, toggleDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark);
-  }, [isDark]);
 
   const handleNavigate = (path: string) => {
     if (path === 'logout') {
@@ -41,7 +38,7 @@ export function ClientLayout() {
       currentPage={location.pathname}
       onNavigate={handleNavigate}
       isDark={isDark}
-      onToggleDark={() => setIsDark((d) => !d)}
+      onToggleDark={toggleDark}
       navItems={NAV_ITEMS}
     >
       <NetworkErrorModal isOpen={isOffline} onRetry={retry} onDismiss={dismiss} retrying={retrying} />

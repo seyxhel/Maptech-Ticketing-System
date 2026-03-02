@@ -336,13 +336,13 @@ export async function fetchEmployees(): Promise<{ id: number; username: string; 
 
 /** Fetch all users (superadmin). */
 export async function fetchUsers(): Promise<BackendUser[]> {
-  const res = await fetch(`${API_BASE}/users/`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/users/list_users/`, { headers: authHeaders() });
   return handleResponse<BackendUser[]>(res);
 }
 
 /** Create a new user (superadmin). */
 export async function createUser(data: Partial<BackendUser> & { password?: string }): Promise<BackendUser> {
-  const res = await fetch(`${API_BASE}/users/`, {
+  const res = await fetch(`${API_BASE}/users/create_user/`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(data),
@@ -352,7 +352,7 @@ export async function createUser(data: Partial<BackendUser> & { password?: strin
 
 /** Update a user (superadmin). */
 export async function updateUser(userId: number, data: Partial<BackendUser>): Promise<BackendUser> {
-  const res = await fetch(`${API_BASE}/users/${userId}/`, {
+  const res = await fetch(`${API_BASE}/users/${userId}/update_user/`, {
     method: 'PATCH',
     headers: authHeaders(),
     body: JSON.stringify(data),
