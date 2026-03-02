@@ -162,9 +162,16 @@ class TicketAttachment(models.Model):
     """File attachments for tickets (images, videos, documents)."""
     ticket = models.ForeignKey(Ticket, related_name='attachments', on_delete=models.CASCADE)
     file = models.FileField(upload_to='ticket_attachments/%Y/%m/%d/')
-    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='uploaded_attachments')
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_resolution_proof = models.BooleanField(default=False)
+
+    # ── Knowledge Hub publish fields ──
+    is_published = models.BooleanField(default=False)
+    published_title = models.CharField(max_length=300, blank=True, default='')
+    published_description = models.TextField(blank=True, default='')
+    published_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='published_attachments')
+    published_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Attachment for {self.ticket.stf_no}: {self.file.name}"

@@ -9,7 +9,7 @@ import { NetworkErrorModal, useNetworkStatus } from '../shared';
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/employee/dashboard' },
   { id: 'assigned-tickets', label: 'Assigned Tickets', icon: Ticket, path: '/employee/my-tickets' },
-  { id: 'knowledge-base', label: 'Knowledge Base', icon: BookOpen, path: '/employee/knowledge-base' },
+  { id: 'knowledge-hub', label: 'Knowledge Hub', icon: BookOpen, path: '/employee/knowledge-hub' },
 ];
 
 export function EmployeeLayout() {

@@ -503,3 +503,120 @@ export async function exportAuditLogs(params?: {
   a.remove();
   window.URL.revokeObjectURL(url);
 }
+
+// ── Knowledge Hub types & endpoints ──
+
+export interface KnowledgeHubAttachment {
+  id: number;
+  file: string;
+  uploaded_by: { id: number; username: string; email: string; role: string; first_name: string; last_name: string } | null;
+  uploaded_at: string;
+  is_resolution_proof: boolean;
+  ticket_id: number;
+  stf_no: string;
+  ticket_status: string;
+  client: string;
+  description_of_problem: string;
+  type_of_service_name: string;
+  assigned_to_name: string;
+  // publish fields
+  is_published: boolean;
+  published_title: string;
+  published_description: string;
+  published_by_detail: { id: number; username: string; email: string; role: string; first_name: string; last_name: string } | null;
+  published_at: string | null;
+}
+
+export interface KnowledgeHubSummary {
+  total_proofs: number;
+  published: number;
+  unpublished: number;
+  by_ticket_status: Record<string, number>;
+}
+
+export interface PublishedArticle {
+  id: number;
+  published_title: string;
+  published_description: string;
+  file_url: string;
+  stf_no: string;
+  uploaded_by_name: string;
+  published_by_name: string;
+  published_at: string;
+  uploaded_at: string;
+}
+
+/** Fetch proof attachments with optional filters (admin). */
+export async function fetchKnowledgeHubAttachments(params?: {
+  search?: string;
+  stf_no?: string;
+  ticket_status?: string;
+  published?: string;
+  all?: boolean;
+}): Promise<KnowledgeHubAttachment[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.stf_no) query.set('stf_no', params.stf_no);
+  if (params?.ticket_status) query.set('ticket_status', params.ticket_status);
+  if (params?.published) query.set('published', params.published);
+  if (params?.all) query.set('all', 'true');
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${API_BASE}/knowledge-hub/${qs}`, { headers: authHeaders() });
+  return handleResponse<KnowledgeHubAttachment[]>(res);
+}
+
+/** Publish an attachment to the employee Knowledge Hub. */
+export async function publishAttachment(id: number, data: { published_title: string; published_description: string }): Promise<KnowledgeHubAttachment> {
+  const res = await fetch(`${API_BASE}/knowledge-hub/${id}/publish/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<KnowledgeHubAttachment>(res);
+}
+
+/** Unpublish an attachment from the employee Knowledge Hub. */
+export async function unpublishAttachment(id: number): Promise<KnowledgeHubAttachment> {
+  const res = await fetch(`${API_BASE}/knowledge-hub/${id}/unpublish/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<KnowledgeHubAttachment>(res);
+}
+
+/** Update published title/description on an attachment. */
+export async function updateKnowledgeHubAttachment(id: number, data: { published_title?: string; published_description?: string }): Promise<KnowledgeHubAttachment> {
+  const res = await fetch(`${API_BASE}/knowledge-hub/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<KnowledgeHubAttachment>(res);
+}
+
+/** Delete a proof attachment. */
+export async function deleteKnowledgeHubAttachment(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/knowledge-hub/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+  }
+}
+
+/** Fetch Knowledge Hub summary stats. */
+export async function fetchKnowledgeHubSummary(): Promise<KnowledgeHubSummary> {
+  const res = await fetch(`${API_BASE}/knowledge-hub/summary/`, { headers: authHeaders() });
+  return handleResponse<KnowledgeHubSummary>(res);
+}
+
+/** Fetch published articles (employee-facing, any authenticated user). */
+export async function fetchPublishedArticles(params?: { search?: string }): Promise<PublishedArticle[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${API_BASE}/published-articles/${qs}`, { headers: authHeaders() });
+  return handleResponse<PublishedArticle[]>(res);
+}
