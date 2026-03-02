@@ -353,6 +353,10 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
+        self._audit_ticket(request, ticket, AuditLog.ACTION_PASS,
+                           f"{user.email} passed ticket {ticket.stf_no} to {to_emp.email}",
+                           changes={'from_employee': user.id, 'to_employee': to_emp.id, 'notes': notes})
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['post'])
@@ -365,6 +369,11 @@ class TicketViewSet(viewsets.ModelViewSet):
         if priority and priority in dict(Ticket.PRIORITY_CHOICES):
             ticket.priority = priority
         ticket.save()
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_REVIEW,
+                           f"{request.user.email} reviewed ticket {ticket.stf_no}",
+                           changes={'priority': ticket.priority, 'time_in': str(ticket.time_in)})
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['patch'])
@@ -381,11 +390,18 @@ class TicketViewSet(viewsets.ModelViewSet):
             if field in request.data:
                 setattr(ticket, field, request.data[field])
         # Set status to in_progress if still open, or pending_closure (Resolved) when employee saves
+        old_status = ticket.status
         if ticket.status == Ticket.STATUS_OPEN:
             ticket.status = Ticket.STATUS_IN_PROGRESS
         elif ticket.status == Ticket.STATUS_IN_PROGRESS:
             ticket.status = Ticket.STATUS_PENDING_CLOSURE
         ticket.save()
+
+        action_type = AuditLog.ACTION_RESOLVE if ticket.status == Ticket.STATUS_PENDING_CLOSURE else AuditLog.ACTION_UPDATE
+        self._audit_ticket(request, ticket, action_type,
+                           f"{request.user.email} updated fields on ticket {ticket.stf_no} (status: {old_status} → {ticket.status})",
+                           changes={f: request.data[f] for f in allowed if f in request.data})
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['post'])
@@ -395,7 +411,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.confirmed_by_admin = True
         ticket.save()
 
-        self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
+        self._audit_ticket(request, ticket, AuditLog.ACTION_CONFIRM,
                            f"{request.user.email} confirmed ticket {ticket.stf_no}")
 
         return Response(self.get_serializer(ticket).data)
@@ -505,6 +521,9 @@ class TicketViewSet(viewsets.ModelViewSet):
             )
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
+        self._audit_ticket(request, ticket, AuditLog.ACTION_RESOLVE,
+                           f"{user.email} requested closure for ticket {ticket.stf_no}")
+
         return Response(self.get_serializer(ticket).data)
 
     @action(detail=True, methods=['post'], url_path='upload_resolution_proof')
@@ -519,6 +538,11 @@ class TicketViewSet(viewsets.ModelViewSet):
         for f in files:
             att = TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=user, is_resolution_proof=True)
             attachments.append(att)
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UPLOAD,
+                           f"{user.email} uploaded {len(files)} resolution proof file(s) on ticket {ticket.stf_no}",
+                           changes={'file_count': len(files), 'file_names': [f.name for f in files]})
+
         return Response(TicketAttachmentSerializer(attachments, many=True, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], url_path='update_task/(?P<task_id>[0-9]+)')
@@ -546,8 +570,14 @@ class TicketViewSet(viewsets.ModelViewSet):
         # Only the uploader or an admin can delete
         if not request.user.is_admin_level and att.uploaded_by != request.user:
             return Response({'detail': 'You can only delete your own attachments.'}, status=status.HTTP_403_FORBIDDEN)
+        file_name = att.file.name if att.file else 'unknown'
         att.file.delete(save=False)
         att.delete()
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_DELETE,
+                           f"{request.user.email} deleted attachment '{file_name}' from ticket {ticket.stf_no}",
+                           changes={'attachment_id': int(att_id), 'file_name': file_name})
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ── Dashboard stats ───────────────────────────────────────────────────
