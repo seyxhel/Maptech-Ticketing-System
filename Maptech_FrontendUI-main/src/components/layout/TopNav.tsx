@@ -21,6 +21,7 @@ interface TopNavProps {
   onMenuClick?: () => void;
   onNavigate?: (path: string) => void;
   user?: TopNavUser | null;
+  isSidebarExpanded?: boolean;
 }
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'Super Administrator',
@@ -72,7 +73,8 @@ export function TopNav({
   onToggleDark,
   onMenuClick,
   onNavigate,
-  user: authUser
+  user: authUser,
+  isSidebarExpanded = false
 }: TopNavProps) {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
@@ -81,7 +83,7 @@ export function TopNav({
 
   return (
     <>
-    <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 lg:left-64 z-40 px-6 flex items-center justify-between shadow-sm transition-colors duration-200">
+    <header className={`h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 ${isSidebarExpanded ? 'lg:left-64' : 'lg:left-20'} z-40 px-6 flex items-center justify-between shadow-sm transition-all duration-300`}>
       {/* Left: hamburger */}
       <div className="flex items-center gap-4">
         <button

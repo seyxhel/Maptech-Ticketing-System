@@ -31,6 +31,8 @@ interface AuthContextValue {
   getRedirectPath: (role: Role) => string;
   /** Current access token (for API calls elsewhere). */
   accessToken: string | null;
+  /** Update the in-memory user after a profile edit. */
+  updateUser: (partial: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -199,6 +201,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const updateUser = useCallback((partial: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...partial, name: [partial.first_name ?? prev.first_name, partial.last_name ?? prev.last_name].filter(Boolean).join(' ') || prev.username || '' };
+      const persist = !!localStorage.getItem(TOKEN_KEY);
+      writeStorage(STORAGE_KEY, JSON.stringify(next), persist);
+      return next;
+    });
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
     setAccessToken(null);
@@ -218,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         getRedirectPath,
         accessToken,
+        updateUser,
       }}
     >
       {children}

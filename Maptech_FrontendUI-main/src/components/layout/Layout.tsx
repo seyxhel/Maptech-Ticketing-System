@@ -57,7 +57,8 @@ export function Layout({
           onToggleDark={onToggleDark}
           onMenuClick={() => setIsSidebarOpen(true)}
           onNavigate={onNavigate}
-          user={authUser} />
+          user={authUser}
+          isSidebarExpanded={isSidebarExpanded} />
 
         <main className="flex-1 p-6 mt-16 overflow-x-hidden">
           <div className="max-w-7xl mx-auto space-y-6">{children}</div>
