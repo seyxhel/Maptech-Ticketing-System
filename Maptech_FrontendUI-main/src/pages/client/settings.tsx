@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
 import { User, Lock, Mail, Phone, Building, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { changePassword } from '../../services/authService';
 import {
   validateName,
   validateEmail,
@@ -68,7 +69,9 @@ export default function ClientSettingsPage() {
     toast.success('Personal details saved successfully.');
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const [pwLoading, setPwLoading] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError('');
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -79,12 +82,19 @@ export default function ClientSettingsPage() {
     if (error) { setPwError(error); return; }
     const confirmErr = validateConfirmPassword(newPassword, confirmPassword);
     if (confirmErr) { setPwError(confirmErr); return; }
-    // TODO: API call
-    toast.success('Password changed successfully.');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPwRules(null);
+    setPwLoading(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      toast.success('Password changed successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPwRules(null);
+    } catch (err: any) {
+      setPwError(err?.message || 'Failed to change password.');
+    } finally {
+      setPwLoading(false);
+    }
   };
 
   return (

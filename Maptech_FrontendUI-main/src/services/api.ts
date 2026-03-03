@@ -259,6 +259,16 @@ export async function requestClosure(ticketId: number): Promise<BackendTicket> {
   return handleResponse<BackendTicket>(res);
 }
 
+/** Save product detail fields without resolving the ticket. */
+export async function saveProductDetails(ticketId: number, data: Record<string, unknown>): Promise<BackendTicket> {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/save_product_details/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<BackendTicket>(res);
+}
+
 /** Update employee fields on a ticket. */
 export async function updateEmployeeFields(ticketId: number, data: Record<string, unknown>): Promise<BackendTicket> {
   const res = await fetch(`${API_BASE}/tickets/${ticketId}/update_employee_fields/`, {

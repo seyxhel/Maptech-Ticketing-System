@@ -89,6 +89,11 @@ export default function EmployeeSettings() {
   const [pwLoading, setPwLoading] = useState(false);
   const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
 
+<<<<<<< HEAD
+=======
+  const [pwLoading, setPwLoading] = useState(false);
+
+>>>>>>> origin/test/v2
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwError('');

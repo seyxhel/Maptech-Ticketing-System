@@ -65,8 +65,9 @@ Write-Host "[4/6] Creating and applying migrations..."
 Write-Host "[5/6] Seeding default users (if available)..."
 try {
     & $pythonExe manage.py seed_users
+    & $pythonExe manage.py seed_services
 } catch {
-    Write-Warning "seed_users command failed or is not present. Continuing..."
+    Write-Warning "seed_users or seed_services command failed or is not present. Continuing..."
 }
 
 if (-not $NoRunServer) {

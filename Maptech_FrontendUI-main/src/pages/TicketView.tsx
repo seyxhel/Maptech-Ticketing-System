@@ -14,7 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName } from '../services/ticketMapper';
@@ -98,7 +98,7 @@ export function TicketView() {
           issue: btData.description_of_problem || btData.type_of_service_detail?.name || 'No description',
           department: btData.department_organization || 'N/A',
           typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
-          productDetails: (btData.device_equipment || btData.brand || btData.product) ? {
+          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty) ? {
             deviceEquipment: btData.device_equipment || '',
             versionNo: btData.version_no || '',
             datePurchased: btData.date_purchased || '',
@@ -454,13 +454,65 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
 
-  // Fields are only editable if:
-  // - Employee: must be the assigned employee AND ticket is not Resolved/Closed
-  // - Admin: ticket is not Resolved/Closed
-  const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
-  const canEdit = (isAssignedEmployee || isAdmin) && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
+  // ── Product Detail form state (employee-editable) ──
+  const [pdDeviceEquipment, setPdDeviceEquipment] = useState('');
+  const [pdProduct, setPdProduct] = useState('');
+  const [pdBrand, setPdBrand] = useState('');
+  const [pdModel, setPdModel] = useState('');
+  const [pdVersionNo, setPdVersionNo] = useState('');
+  const [pdSerialNo, setPdSerialNo] = useState('');
+  const [pdDatePurchased, setPdDatePurchased] = useState('');
+  const [pdHasWarranty, setPdHasWarranty] = useState(false);
 
-  /** Employee saves action taken, remarks, job status */
+  // Sync form state when backend data loads or updates
+  useEffect(() => {
+    if (btData) {
+      setJobStatus(btData.job_status || '');
+      setActionTaken(btData.action_taken || '');
+      setRemarksText(btData.remarks || '');
+      setPdDeviceEquipment(btData.device_equipment || '');
+      setPdProduct(btData.product || '');
+      setPdBrand(btData.brand || '');
+      setPdModel(btData.model_name || '');
+      setPdVersionNo(btData.version_no || '');
+      setPdSerialNo(btData.serial_no || '');
+      setPdDatePurchased(btData.date_purchased || '');
+      setPdHasWarranty(btData.has_warranty ?? false);
+    }
+  }, [btData]);
+
+  // Fields are only editable by the assigned employee AND ticket is not Resolved/Closed
+  // Admins can view but not edit these fields
+  const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
+  const canEdit = isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
+
+  const [savingProductDetails, setSavingProductDetails] = useState(false);
+
+  /** Employee saves product details only (no status change) */
+  const handleSaveProductDetails = async () => {
+    if (!backendTicketId) return;
+    setSavingProductDetails(true);
+    try {
+      const updated = await saveProductDetails(backendTicketId, {
+        device_equipment: pdDeviceEquipment,
+        product: pdProduct,
+        brand: pdBrand,
+        model_name: pdModel,
+        version_no: pdVersionNo,
+        serial_no: pdSerialNo,
+        date_purchased: pdDatePurchased || null,
+        has_warranty: pdHasWarranty,
+      });
+      setBtData(updated);
+      toast.success('Product details saved successfully.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save product details.');
+    } finally {
+      setSavingProductDetails(false);
+    }
+  };
+
+  /** Employee saves action taken, remarks, job status and resolves */
   const handleSaveFields = async () => {
     if (!backendTicketId) return;
     setSavingFields(true);
@@ -660,60 +712,125 @@ export function TicketView() {
               </div>
             </div>
 
-            {/* Product Details Section */}
-            {ticket.productDetails && (
-              <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-4 flex items-center gap-2">
-                  <Package className="w-4 h-4" /> Product Details
-                </h3>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Device / Equipment</div>
-                    <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.deviceEquipment}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Version No.</div>
-                    <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.versionNo}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Date Purchased</div>
-                    <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.datePurchased}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Serial No.</div>
-                    <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.serialNo}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Warranty</div>
-                    <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.warranty}</div>
-                  </div>
-                  {ticket.productDetails.product && (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Product</div>
-                      <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.product}</div>
-                    </div>
+            {/* Product Details Section — editable by assigned employee, read-only for others */}
+            <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-4 flex items-center gap-2">
+                <Package className="w-4 h-4" /> Product Details
+                {canEdit && <span className="text-[10px] font-normal normal-case text-gray-400">(fill in after assignment)</span>}
+              </h3>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                {/* Device / Equipment */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Device / Equipment</div>
+                  {canEdit ? (
+                    <input value={pdDeviceEquipment} onChange={(e) => setPdDeviceEquipment(e.target.value)} placeholder="e.g. Laptop, Printer" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdDeviceEquipment || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                   )}
-                  {ticket.productDetails.brand && (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Brand</div>
-                      <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.brand}</div>
-                    </div>
+                </div>
+                {/* Product */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Product</div>
+                  {canEdit ? (
+                    <input value={pdProduct} onChange={(e) => setPdProduct(e.target.value)} placeholder="Product name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdProduct || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                   )}
-                  {ticket.productDetails.model && (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Model</div>
-                      <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.model}</div>
-                    </div>
+                </div>
+                {/* Brand */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Brand</div>
+                  {canEdit ? (
+                    <input value={pdBrand} onChange={(e) => setPdBrand(e.target.value)} placeholder="Brand name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdBrand || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                   )}
-                  {ticket.productDetails.salesNo && (
-                    <div>
-                      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Sales No.</div>
-                      <div className="text-gray-900 dark:text-gray-100">{ticket.productDetails.salesNo}</div>
+                </div>
+                {/* Model */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Model</div>
+                  {canEdit ? (
+                    <input value={pdModel} onChange={(e) => setPdModel(e.target.value)} placeholder="Model name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdModel || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Version No. */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Version No.</div>
+                  {canEdit ? (
+                    <input value={pdVersionNo} onChange={(e) => setPdVersionNo(e.target.value)} placeholder="Version number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdVersionNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Serial No. */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Serial No.</div>
+                  {canEdit ? (
+                    <input value={pdSerialNo} onChange={(e) => setPdSerialNo(e.target.value)} placeholder="Serial number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSerialNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Date Purchased */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Date Purchased</div>
+                  {canEdit ? (
+                    <input type="date" value={pdDatePurchased} onChange={(e) => setPdDatePurchased(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdDatePurchased || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Warranty */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Warranty</div>
+                  {canEdit ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPdHasWarranty(true)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          pdHasWarranty
+                            ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-sm'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#0E8F79]/50'
+                        }`}
+                      >
+                        With Warranty
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPdHasWarranty(false)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                          !pdHasWarranty
+                            ? 'bg-gray-500 text-white border-gray-500 shadow-sm'
+                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        Without Warranty
+                      </button>
                     </div>
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdHasWarranty ? 'With Warranty' : 'Without Warranty'}</div>
                   )}
                 </div>
               </div>
-            )}
+              {/* Save Product Details button (employee only) */}
+              {canEdit && (
+                <button
+                  type="button"
+                  disabled={savingProductDetails}
+                  onClick={handleSaveProductDetails}
+                  className="mt-4 w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#63D44A] to-[#0E8F79] hover:shadow-lg hover:shadow-[#3BC25B]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {savingProductDetails ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                  ) : (
+                    <><CheckCircle className="w-4 h-4" /> Save Product Details</>
+                  )}
+                </button>
+              )}
+            </div>
 
             {/* SLA Section */}
             <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
