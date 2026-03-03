@@ -37,6 +37,7 @@ import EmployeeMyTickets from './pages/employee/my-tickets';
 import EmployeeTicketDetails from './pages/employee/ticket-details';
 import EmployeeKnowledgeHub from './pages/employee/knowledge-base';
 import EmployeeSettings from './pages/employee/settings';
+import EmployeeEscalation from './pages/employee/escalation';
 
 import ClientDashboard from './pages/client/dashboard';
 import ClientMyTickets from './pages/client/my-tickets';
@@ -118,6 +119,7 @@ export function App() {
               <Route path="dashboard" element={<EmployeeDashboard />} />
               <Route path="my-tickets" element={<EmployeeMyTickets />} />
               <Route path="ticket-details" element={<EmployeeTicketDetails />} />
+              <Route path="escalation" element={<EmployeeEscalation />} />
               <Route path="knowledge-hub" element={<EmployeeKnowledgeHub />} />
               <Route path="settings" element={<EmployeeSettings />} />
             </Route>
