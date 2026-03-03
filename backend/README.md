@@ -30,6 +30,7 @@ python manage.py runserver
 
 ```bash
 python manage.py seed_users
+python manage.py seed_services
 ```
 
 API

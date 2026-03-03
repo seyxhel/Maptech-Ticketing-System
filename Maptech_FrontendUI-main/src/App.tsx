@@ -30,6 +30,7 @@ import AdminTicketDetails from './pages/admin/ticket-details';
 import AdminSettings from './pages/admin/settings';
 import AdminAuditLogs from './pages/admin/audit-logs';
 import AdminKnowledgeHub from './pages/admin/knowledge-hub';
+import AdminTypesOfService from './pages/admin/types-of-service';
 
 import EmployeeDashboard from './pages/employee/dashboard';
 import EmployeeMyTickets from './pages/employee/my-tickets';
@@ -101,6 +102,7 @@ export function App() {
               <Route path="ticket-details" element={<AdminTicketDetails />} />
               <Route path="audit-logs" element={<AdminAuditLogs />} />
               <Route path="knowledge-hub" element={<AdminKnowledgeHub />} />
+              <Route path="types-of-service" element={<AdminTypesOfService />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>
 
