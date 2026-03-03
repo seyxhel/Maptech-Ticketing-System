@@ -153,6 +153,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             'escalate':                 [IsAuthenticated(), IsAssignedEmployee()],
             'pass_ticket':              [IsAuthenticated(), IsAssignedEmployee()],
             'update_employee_fields':   [IsAuthenticated(), IsAssignedEmployee()],
+            'save_product_details':     [IsAuthenticated(), IsAssignedEmployee()],
             'request_closure':          [IsAuthenticated(), IsAssignedEmployee()],
             # Admin or assigned employee
             'escalate_external':        [IsAuthenticated(), IsAdminOrAssignedEmployee()],
@@ -375,6 +376,28 @@ class TicketViewSet(viewsets.ModelViewSet):
         self._audit_ticket(request, ticket, AuditLog.ACTION_REVIEW,
                            f"{request.user.email} reviewed ticket {ticket.stf_no}",
                            changes={'priority': ticket.priority, 'time_in': str(ticket.time_in)})
+
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['patch'])
+    def save_product_details(self, request, pk=None):
+        """Employee saves product detail fields without changing ticket status."""
+        ticket = self.get_object()
+        allowed = [
+            'has_warranty', 'product', 'brand', 'model_name',
+            'device_equipment', 'version_no',
+            'date_purchased', 'serial_no',
+        ]
+        changes = {}
+        for field in allowed:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+                changes[field] = request.data[field]
+        ticket.save()
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
+                           f"{request.user.email} updated product details on ticket {ticket.stf_no}",
+                           changes=changes)
 
         return Response(self.get_serializer(ticket).data)
 
