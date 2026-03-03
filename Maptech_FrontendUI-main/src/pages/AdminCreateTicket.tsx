@@ -29,6 +29,14 @@ import {
   UserCheck,
   CheckCircle2,
   X,
+  Cpu,
+  HardDrive,
+  Settings,
+  Wifi,
+  Shield,
+  Package,
+  Cog,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   createTicket,
@@ -36,6 +44,24 @@ import {
   fetchTypesOfService,
 } from '../services/api';
 import type { TypeOfService as ServiceType } from '../services/api';
+
+/** Pick an icon for a service type based on keyword matching in its name. */
+function getServiceIcon(name: string): LucideIcon {
+  const lower = name.toLowerCase();
+  if (lower.includes('demo') || lower.includes('poc'))        return Monitor;
+  if (lower.includes('ocular') || lower.includes('inspect'))  return Search;
+  if (lower.includes('install'))                               return Wrench;
+  if (lower.includes('repair') || lower.includes('service'))  return Wrench;
+  if (lower.includes('migration') || lower.includes('hci'))   return Server;
+  if (lower.includes('network') || lower.includes('wifi'))    return Wifi;
+  if (lower.includes('security') || lower.includes('shield')) return Shield;
+  if (lower.includes('hardware') || lower.includes('device')) return HardDrive;
+  if (lower.includes('software') || lower.includes('app'))    return Cpu;
+  if (lower.includes('maintenance'))                           return Settings;
+  if (lower.includes('deploy') || lower.includes('package'))  return Package;
+  if (lower.includes('config'))                                return Cog;
+  return Wrench;
+}
 
 const CONTACT_FIELDS = [
   { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
@@ -284,19 +310,25 @@ export function AdminCreateTicket() {
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>2. Type of Service <span className="text-red-500 ml-1">*</span></h3>
           {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
+          {serviceTypes.length === 0 && (
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { label: 'Demo / POC', icon: Monitor },
-              { label: 'Ocular Inspection', icon: Search },
-              { label: 'Installation', icon: Wrench },
-              { label: 'Repair / Service', icon: Wrench },
-              { label: 'Migration to HCI', icon: Server },
-            ].map(({ label, icon: Icon }) => (
-              <div key={label} onClick={() => { setServiceType((prev) => prev === label ? '' : label); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${serviceType === label ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                <div className={`p-2 rounded-full ${serviceType === label ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
-                <span className={`text-sm font-medium ${serviceType === label ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{label}</span>
-              </div>
-            ))}
+            {serviceTypes.filter((s) => s.is_active).map((svc) => {
+              const Icon = getServiceIcon(svc.name);
+              const isSelected = serviceType === svc.name;
+              return (
+                <div key={svc.id} onClick={() => { setServiceType((prev) => prev === svc.name ? '' : svc.name); setErrors((p) => ({ ...p, serviceType: false })); }} className={`group cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                  <div className={`p-2 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-sm font-medium block ${isSelected ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{svc.name}</span>
+                    {svc.description && (
+                      <span className="text-xs text-gray-400 dark:text-gray-500 block overflow-hidden transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mt-1 opacity-0 group-hover:opacity-100">{svc.description}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             <div onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
               <div className="flex items-center gap-3">
                 <div className={`p-2 rounded-full ${serviceType === 'Others' ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><FileText className="w-4 h-4" /></div>

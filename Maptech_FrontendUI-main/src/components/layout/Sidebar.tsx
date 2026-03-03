@@ -9,6 +9,7 @@ import {
   Ticket,
   ShieldAlert,
 } from 'lucide-react';
+import { SignOutModal } from '../ui/SignOutModal';
 
 export interface NavItem {
   id: string;
@@ -28,6 +29,7 @@ interface SidebarProps {
 
 export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp, onExpandChange }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   const handleMouseEnter = () => {
     setIsExpanded(true);
@@ -128,7 +130,7 @@ export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp,
       {/* Bottom Actions */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-800">
         <button
-          onClick={() => onNavigate('logout')}
+          onClick={() => setShowSignOutModal(true)}
           className={`w-full flex items-center px-4 py-3 text-sm font-medium text-gray-500 dark:text-gray-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 dark:hover:text-red-400 transition-colors ${isExpanded ? '' : 'justify-center'}`}
           title={!isExpanded ? 'Sign Out' : undefined}
         >
@@ -136,6 +138,16 @@ export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp,
           {isExpanded && 'Sign Out'}
         </button>
       </div>
+
+      {/* Sign Out Confirmation Modal */}
+      <SignOutModal
+        isOpen={showSignOutModal}
+        onConfirm={() => {
+          setShowSignOutModal(false);
+          onNavigate('logout');
+        }}
+        onCancel={() => setShowSignOutModal(false)}
+      />
     </aside>
   );
 }
