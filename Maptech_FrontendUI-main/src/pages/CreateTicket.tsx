@@ -13,6 +13,11 @@ import {
   Search,
   
 } from 'lucide-react';
+import {
+  validateEmail, validatePhone, validateLandline, validateRequired,
+  validateAddress, validateDescription, sanitize,
+  MAX_FIELD, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_DESCRIPTION,
+} from '../utils/validation';
 
 const CONTACT_FIELDS = [
   { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
@@ -50,6 +55,7 @@ export function CreateTicket() {
 
   // Validation
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [errorMsgs, setErrorMsgs] = useState<Record<string, string>>({});
 
   const setContactField = (name: string, value: string) => {
     setContactValues((prev) => ({ ...prev, [name]: value }));
@@ -60,22 +66,36 @@ export function CreateTicket() {
     e.preventDefault();
 
     const newErrors: Record<string, boolean> = {};
+    const msgs: Record<string, string> = {};
 
     // Validate contact fields
     CONTACT_FIELDS.forEach((f) => {
-      if (f.required && !contactValues[f.name]?.trim()) newErrors[f.name] = true;
+      if (f.name === 'mobile') {
+        const err = validatePhone(contactValues[f.name], 'Mobile number');
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      } else if (f.name === 'landline') {
+        const err = validateLandline(contactValues[f.name]);
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      } else if (f.required) {
+        const err = validateRequired(contactValues[f.name], f.label);
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      }
     });
-    if (!email.trim()) newErrors['email'] = true;
-    if (!address.trim()) newErrors['address'] = true;
-    if (!serviceType) newErrors['serviceType'] = true;
-    if (serviceType === 'Others' && !serviceOthersText.trim()) newErrors['serviceOthersText'] = true;
-    if (!supportType) newErrors['supportType'] = true;
-    if (!description.trim()) newErrors['description'] = true;
+    const emailErr = validateEmail(email);
+    if (emailErr) { newErrors['email'] = true; msgs['email'] = emailErr; }
+    const addrErr = validateAddress(address);
+    if (addrErr) { newErrors['address'] = true; msgs['address'] = addrErr; }
+    if (!serviceType) { newErrors['serviceType'] = true; msgs['serviceType'] = 'Please select a type of service'; }
+    if (serviceType === 'Others' && !serviceOthersText.trim()) { newErrors['serviceOthersText'] = true; msgs['serviceOthersText'] = 'Please specify the service'; }
+    if (!supportType) { newErrors['supportType'] = true; msgs['supportType'] = 'Please select a support type'; }
+    const descErr = validateDescription(description, 'Description of problem');
+    if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
 
     setErrors(newErrors);
+    setErrorMsgs(msgs);
 
     if (Object.keys(newErrors).length > 0) {
-      toast.error('Please fill up all required fields.');
+      toast.error('Please fix the highlighted fields.');
       return;
     }
 
@@ -147,9 +167,10 @@ export function CreateTicket() {
                   placeholder={f.placeholder}
                   value={contactValues[f.name]}
                   onChange={(e) => setContactField(f.name, e.target.value)}
+                  maxLength={f.name === 'mobile' || f.name === 'landline' ? MAX_PHONE : MAX_FIELD}
                   className={`${inputCls} ${errors[f.name] ? errorRing : ''}`}
                 />
-                {errors[f.name] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                {errors[f.name] && <p className="text-red-500 text-xs mt-1">{errorMsgs[f.name] || 'This field is required'}</p>}
               </div>
             )}
             <div>
@@ -159,9 +180,10 @@ export function CreateTicket() {
                 placeholder="e.g. juandelacruz@email.com"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, email: false })); }}
+                maxLength={MAX_EMAIL}
                 className={`${inputCls} ${errors['email'] ? errorRing : ''}`}
               />
-              {errors['email'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {errors['email'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['email'] || 'This field is required'}</p>}
             </div>
             <div className="md:col-span-2">
                 <label className={labelCls}>Full Address <span className="text-red-500 ml-1">*</span></label>
@@ -170,9 +192,10 @@ export function CreateTicket() {
                 placeholder="e.g. 123 Main Street, Quezon City, Metro Manila"
                 value={address}
                 onChange={(e) => { setAddress(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, address: false })); }}
+                maxLength={MAX_ADDRESS}
                 className={`${inputCls} resize-none ${errors['address'] ? errorRing : ''}`}
               />
-              {errors['address'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              {errors['address'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['address'] || 'This field is required'}</p>}
             </div>
           </div>
         </Card>
@@ -278,9 +301,11 @@ export function CreateTicket() {
             rows={8}
             value={description}
             onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, description: false })); }}
+            maxLength={MAX_DESCRIPTION}
             className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`}
             placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
-          {errors['description'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+          {errors['description'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['description'] || 'This field is required'}</p>}
+          <p className="text-xs text-gray-400 mt-1 text-right">{description.length} / {MAX_DESCRIPTION}</p>
         </Card>
 
         <div className="pt-4">

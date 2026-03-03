@@ -4,6 +4,19 @@ import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { toast } from 'sonner';
 import {
+  validateEmail,
+  validatePhone,
+  validateLandline,
+  validateAddress,
+  validateDescription,
+  validateName,
+  MAX_EMAIL,
+  MAX_PHONE,
+  MAX_ADDRESS,
+  MAX_DESCRIPTION,
+  MAX_FIELD,
+} from '../utils/validation';
+import {
   Calendar,
   Clock,
   FileText,
@@ -21,7 +34,6 @@ import {
   createTicket,
   fetchEmployees,
   fetchTypesOfService,
-  assignTicket,
 } from '../services/api';
 import type { TypeOfService as ServiceType } from '../services/api';
 
@@ -58,6 +70,7 @@ export function AdminCreateTicket() {
   const [supportType, setSupportType] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
+  const [errorMsgs, setErrorMsgs] = useState<Record<string, string>>({});
 
   // Modal state
   const [modalStep, setModalStep] = useState<ModalStep>('none');
@@ -97,18 +110,41 @@ export function AdminCreateTicket() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, boolean> = {};
+    const msgs: Record<string, string> = {};
+
     CONTACT_FIELDS.forEach((f) => {
-      if (f.required && !contactValues[f.name]?.trim()) newErrors[f.name] = true;
+      if (f.name === 'mobile') {
+        const err = validatePhone(contactValues[f.name] || '', 'Mobile No.');
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      } else if (f.name === 'landline') {
+        const err = validateLandline(contactValues[f.name] || '');
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      } else if (f.name === 'contactPerson') {
+        const err = validateName(contactValues[f.name] || '', 'Contact Person');
+        if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+      } else if (f.required && !contactValues[f.name]?.trim()) {
+        newErrors[f.name] = true;
+        msgs[f.name] = `${f.label} is required.`;
+      }
     });
-    if (!email.trim()) newErrors['email'] = true;
-    if (!address.trim()) newErrors['address'] = true;
+
+    const emailErr = validateEmail(email);
+    if (emailErr) { newErrors['email'] = true; msgs['email'] = emailErr; }
+
+    const addrErr = validateAddress(address);
+    if (addrErr) { newErrors['address'] = true; msgs['address'] = addrErr; }
+
     if (!serviceType) newErrors['serviceType'] = true;
     if (serviceType === 'Others' && !serviceOthersText.trim()) newErrors['serviceOthersText'] = true;
     if (!supportType) newErrors['supportType'] = true;
-    if (!description.trim()) newErrors['description'] = true;
+
+    const descErr = validateDescription(description, 'Description of problem');
+    if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
+
     setErrors(newErrors);
+    setErrorMsgs(msgs);
     if (Object.keys(newErrors).length > 0) {
-      toast.error('Please fill up all required fields.');
+      toast.error('Please fix the highlighted errors.');
       return;
     }
     // Start call flow
@@ -227,19 +263,19 @@ export function AdminCreateTicket() {
             {CONTACT_FIELDS.map((f) => (
               <div key={f.name}>
                 <label className={labelCls}>{f.label} {f.required && <span className="text-red-500 ml-1">*</span>}</label>
-                <input type="text" placeholder={f.placeholder} value={contactValues[f.name]} onChange={(e) => setContactField(f.name, e.target.value)} className={`${inputCls} ${errors[f.name] ? errorRing : ''}`} />
-                {errors[f.name] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+                <input type="text" placeholder={f.placeholder} value={contactValues[f.name]} onChange={(e) => setContactField(f.name, e.target.value)} maxLength={f.name === 'mobile' ? MAX_PHONE : f.name === 'landline' ? MAX_PHONE : MAX_FIELD} className={`${inputCls} ${errors[f.name] ? errorRing : ''}`} />
+                {errors[f.name] && <p className="text-red-500 text-xs mt-1">{errorMsgs[f.name] || 'This field is required'}</p>}
               </div>
             ))}
             <div>
               <label className={labelCls}>Email Address <span className="text-red-500 ml-1">*</span></label>
-              <input type="email" placeholder="e.g. juandelacruz@email.com" value={email} onChange={(e) => { setEmail(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, email: false })); }} className={`${inputCls} ${errors['email'] ? errorRing : ''}`} />
-              {errors['email'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              <input type="email" placeholder="e.g. juandelacruz@email.com" value={email} maxLength={MAX_EMAIL} onChange={(e) => { setEmail(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, email: false })); setErrorMsgs((p) => ({ ...p, email: '' })); } }} className={`${inputCls} ${errors['email'] ? errorRing : ''}`} />
+              {errors['email'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['email'] || 'This field is required'}</p>}
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>Full Address <span className="text-red-500 ml-1">*</span></label>
-              <textarea rows={2} placeholder="e.g. 123 Main Street, Quezon City, Metro Manila" value={address} onChange={(e) => { setAddress(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, address: false })); }} className={`${inputCls} resize-none ${errors['address'] ? errorRing : ''}`} />
-              {errors['address'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+              <textarea rows={2} placeholder="e.g. 123 Main Street, Quezon City, Metro Manila" value={address} maxLength={MAX_ADDRESS} onChange={(e) => { setAddress(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, address: false })); setErrorMsgs((p) => ({ ...p, address: '' })); } }} className={`${inputCls} resize-none ${errors['address'] ? errorRing : ''}`} />
+              {errors['address'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['address'] || 'This field is required'}</p>}
             </div>
           </div>
         </Card>
@@ -290,8 +326,11 @@ export function AdminCreateTicket() {
         {/* Section 4: Description */}
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
-          <textarea rows={8} value={description} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, description: false })); }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
-          {errors['description'] && <p className="text-red-500 text-xs mt-1">This field is required</p>}
+          <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
+          <div className="flex justify-between mt-1">
+            {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
+            <span className="text-xs text-gray-400">{description.length}/{MAX_DESCRIPTION}</span>
+          </div>
         </Card>
 
         <div className="pt-4">

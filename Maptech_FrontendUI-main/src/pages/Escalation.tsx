@@ -13,6 +13,7 @@ import {
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { validateReason, MAX_REASON } from '../utils/validation';
 
 function makeSTF(n: number) {
   // Fixed date for stable demo IDs — replace with real backend IDs when connected
@@ -44,6 +45,7 @@ export function Escalation() {
   const [selectedTicket, setSelectedTicket] = useState(AVAILABLE_TICKETS[0].value);
   const [currentPage, setCurrentPage] = useState(1);
   const [escalations, setEscalations] = useState(() => INITIAL_ESCALATIONS);
+  const [reasonError, setReasonError] = useState('');
 
   const totalPages = Math.max(1, Math.ceil(escalations.length / ITEMS_PER_PAGE));
   const paged = escalations.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
@@ -55,7 +57,9 @@ export function Escalation() {
   };
 
   const handleEscalate = () => {
-    if (!escalationReason.trim()) { toast.error('Please provide a reason for escalation'); return; }
+    const err = validateReason(escalationReason, 'Escalation reason');
+    if (err) { setReasonError(err); toast.error(err); return; }
+    setReasonError('');
     const newEntry = {
       id: Date.now(),
       ticketId: selectedTicket,
@@ -116,7 +120,9 @@ export function Escalation() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason <span className="text-red-500">*</span></label>
-              <textarea value={escalationReason} onChange={(e) => setEscalationReason(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none resize-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Explain why this ticket needs escalation..." />
+              <textarea value={escalationReason} onChange={(e) => { setEscalationReason(e.target.value); if (e.target.value.trim()) setReasonError(''); }} rows={3} maxLength={MAX_REASON} className={`w-full px-3 py-2 border ${reasonError ? 'border-red-400 ring-2 ring-red-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none resize-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500`} placeholder="Explain why this ticket needs escalation..." />
+              {reasonError && <p className="text-red-500 text-xs mt-1">{reasonError}</p>}
+              <p className="text-xs text-gray-400 text-right mt-0.5">{escalationReason.length}/{MAX_REASON}</p>
             </div>
             <GreenButton onClick={handleEscalate} fullWidth>Submit Escalation</GreenButton>
           </div>

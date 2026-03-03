@@ -2,6 +2,12 @@ import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, Phone, AtSign, ChevronDown, Loader2, Eye, EyeOff, X } from 'lucide-react';
+import {
+  validateEmail, validatePhone, validateName, validateUsername,
+  validatePassword, validateConfirmPassword,
+  MAX_NAME, MAX_EMAIL, MAX_PHONE, MAX_USERNAME, MAX_PASSWORD,
+  type PasswordRules,
+} from '../utils/validation';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 
@@ -243,6 +249,7 @@ export function Signup() {
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<'privacy' | 'terms'>('privacy');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   if (user) {
     return <Navigate to={getRedirectPath(user.role)} replace />;
@@ -264,12 +271,33 @@ export function Signup() {
     e.preventDefault();
     setError('');
     if (!canSubmit) return;
-    if (!acceptTerms) {
-      setError('You must agree to the Privacy Policy and Terms of Service.');
+
+    // Per-field validation
+    const errs: Record<string, string> = {};
+    const fnErr = validateName(firstName, 'First name');
+    if (fnErr) errs.firstName = fnErr;
+    const lnErr = validateName(lastName, 'Last name');
+    if (lnErr) errs.lastName = lnErr;
+    const unErr = validateUsername(username);
+    if (unErr) errs.username = unErr;
+    const emErr = validateEmail(email);
+    if (emErr) errs.email = emErr;
+    const phErr = validatePhone(phone, 'Phone number');
+    if (phErr) errs.phone = phErr;
+    const pwResult = validatePassword(password);
+    if (pwResult.error) errs.password = pwResult.error;
+    const cpErr = validateConfirmPassword(password, confirmPassword);
+    if (cpErr) errs.confirmPassword = cpErr;
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      setError('Please fix the highlighted fields.');
       return;
     }
-    if (!passwordsMatch) {
-      setError('Passwords do not match.');
+    setFieldErrors({});
+
+    if (!acceptTerms) {
+      setError('You must agree to the Privacy Policy and Terms of Service.');
       return;
     }
     setLoading(true);
@@ -312,22 +340,24 @@ export function Signup() {
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">First Name <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
                 <User className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Juan" className={inputClass} autoComplete="given-name" />
+                <input type="text" value={firstName} onChange={(e) => { setFirstName(e.target.value); setFieldErrors((p) => ({ ...p, firstName: '' })); }} placeholder="Juan" maxLength={MAX_NAME} className={inputClass} autoComplete="given-name" />
               </div>
+              {fieldErrors.firstName && <p className="text-xs text-red-400 mt-1">{fieldErrors.firstName}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Middle Name</label>
               <div className={wrapperClass}>
                 <User className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="text" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" className={inputClass} autoComplete="additional-name" />
+                <input type="text" value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Santos" maxLength={MAX_NAME} className={inputClass} autoComplete="additional-name" />
               </div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Last Name <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
                 <User className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Dela Cruz" className={inputClass} autoComplete="family-name" />
+                <input type="text" value={lastName} onChange={(e) => { setLastName(e.target.value); setFieldErrors((p) => ({ ...p, lastName: '' })); }} placeholder="Dela Cruz" maxLength={MAX_NAME} className={inputClass} autoComplete="family-name" />
               </div>
+              {fieldErrors.lastName && <p className="text-xs text-red-400 mt-1">{fieldErrors.lastName}</p>}
             </div>
           </div>
 
@@ -353,8 +383,9 @@ export function Signup() {
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Phone Number <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
                 <Phone className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+63 912 345 6789" className={inputClass} autoComplete="tel" />
+                <input type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setFieldErrors((p) => ({ ...p, phone: '' })); }} placeholder="+63 912 345 6789" maxLength={MAX_PHONE} className={inputClass} autoComplete="tel" />
               </div>
+              {fieldErrors.phone && <p className="text-xs text-red-400 mt-1">{fieldErrors.phone}</p>}
             </div>
           </div>
 
@@ -364,15 +395,17 @@ export function Signup() {
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Username <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
                 <AtSign className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="juandelacruz" className={inputClass} autoComplete="username" />
+                <input type="text" value={username} onChange={(e) => { setUsername(e.target.value); setFieldErrors((p) => ({ ...p, username: '' })); }} placeholder="juandelacruz" maxLength={MAX_USERNAME} className={inputClass} autoComplete="username" />
               </div>
+              {fieldErrors.username && <p className="text-xs text-red-400 mt-1">{fieldErrors.username}</p>}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Email <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
                 <Mail className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@company.com" className={inputClass} autoComplete="email" />
+                <input type="email" value={email} onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: '' })); }} placeholder="name@company.com" maxLength={MAX_EMAIL} className={inputClass} autoComplete="email" />
               </div>
+              {fieldErrors.email && <p className="text-xs text-red-400 mt-1">{fieldErrors.email}</p>}
             </div>
           </div>
 
@@ -385,8 +418,9 @@ export function Signup() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: '' })); }}
                   placeholder="••••••••"
+                  maxLength={MAX_PASSWORD}
                   className="w-full bg-transparent border-none py-2.5 pl-3 pr-12 text-white placeholder-gray-500 focus:outline-none text-sm"
                   autoComplete="new-password"
                 />
@@ -394,6 +428,25 @@ export function Signup() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {fieldErrors.password && <p className="text-xs text-red-400 mt-1">{fieldErrors.password}</p>}
+              {password.length > 0 && (() => {
+                const { rules } = validatePassword(password);
+                return (
+                  <div className="mt-1.5 space-y-0.5">
+                    {[
+                      { ok: rules.minLength, label: '8+ characters' },
+                      { ok: rules.hasUppercase, label: 'Uppercase letter' },
+                      { ok: rules.hasLowercase, label: 'Lowercase letter' },
+                      { ok: rules.hasNumber, label: 'Number' },
+                      { ok: rules.hasSpecial, label: 'Special character' },
+                    ].map((r) => (
+                      <p key={r.label} className={`text-xs ${r.ok ? 'text-green-400' : 'text-gray-500'}`}>
+                        {r.ok ? '✓' : '○'} {r.label}
+                      </p>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Confirm Password <span className="text-red-400">*</span></label>
@@ -402,8 +455,9 @@ export function Signup() {
                 <input
                   type={showConfirm ? 'text' : 'password'}
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors((p) => ({ ...p, confirmPassword: '' })); }}
                   placeholder="••••••••"
+                  maxLength={MAX_PASSWORD}
                   className="w-full bg-transparent border-none py-2.5 pl-3 pr-12 text-white placeholder-gray-500 focus:outline-none text-sm"
                   autoComplete="new-password"
                 />

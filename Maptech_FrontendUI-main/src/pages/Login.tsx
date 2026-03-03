@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { validateEmail, MAX_EMAIL, MAX_PASSWORD } from '../utils/validation';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 
@@ -14,6 +15,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string }>({});
 
   if (authLoading) {
     return (
@@ -32,12 +34,12 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     if (!canSubmit) return;
 
-    // Custom email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError('Invalid email.');
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setFieldErrors({ email: emailErr });
       return;
     }
 
@@ -81,14 +83,16 @@ export function Login() {
             <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
               <Mail className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
               <input
-                type="text"
+                type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setFieldErrors({}); }}
                 placeholder="name@company.com"
-                className="w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm"
+                maxLength={MAX_EMAIL}
+                className={`w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm${fieldErrors.email ? ' ring-1 ring-red-500' : ''}`}
                 autoComplete="email"
               />
             </div>
+            {fieldErrors.email && <p className="text-xs text-red-400 mt-1">{fieldErrors.email}</p>}
           </div>
 
           <div>
@@ -102,6 +106,7 @@ export function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                maxLength={MAX_PASSWORD}
                 className="w-full bg-transparent border-none py-3 pl-3 pr-12 text-white placeholder-gray-500 focus:outline-none text-sm"
                 autoComplete="current-password"
               />

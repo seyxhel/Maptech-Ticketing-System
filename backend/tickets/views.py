@@ -391,12 +391,9 @@ class TicketViewSet(viewsets.ModelViewSet):
         for field in allowed:
             if field in request.data:
                 setattr(ticket, field, request.data[field])
-        # Set status to in_progress if still open, or pending_closure (Resolved) when employee saves
+        # Set status to pending_closure (Resolved) when employee clicks Resolve
         old_status = ticket.status
-        if ticket.status == Ticket.STATUS_OPEN:
-            ticket.status = Ticket.STATUS_IN_PROGRESS
-        elif ticket.status == Ticket.STATUS_IN_PROGRESS:
-            ticket.status = Ticket.STATUS_PENDING_CLOSURE
+        ticket.status = Ticket.STATUS_PENDING_CLOSURE
         ticket.save()
 
         action_type = AuditLog.ACTION_RESOLVE if ticket.status == Ticket.STATUS_PENDING_CLOSURE else AuditLog.ACTION_UPDATE
@@ -801,23 +798,34 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['get'])
     def export(self, request):
         """Export audit logs as CSV."""
-        import csv
+        import csv, json
         from django.http import HttpResponse as DjangoHttpResponse
 
-        qs = self.get_queryset()
+        qs = self.get_queryset().select_related('actor')
         response = DjangoHttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="audit_logs_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
 
         writer = csv.writer(response)
-        writer.writerow(['Timestamp', 'Entity', 'Action', 'Activity', 'Actor', 'IP Address'])
+        writer.writerow(['Timestamp', 'Entity', 'Entity ID', 'Activity', 'Action', 'Actor Name', 'Actor Email', 'IP Address', 'Changes'])
         for log in qs[:5000]:  # Limit export to 5000 rows
+            # Resolve actor name the same way the serializer does
+            actor_name = ''
+            if log.actor:
+                full = log.actor.get_full_name()
+                actor_name = full if full.strip() else log.actor.username
+            else:
+                actor_name = log.actor_email or 'System'
+
             writer.writerow([
                 log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 log.entity,
-                log.action,
+                log.entity_id or '',
                 log.activity,
+                log.action,
+                actor_name,
                 log.actor_email,
                 log.ip_address or '',
+                json.dumps(log.changes) if log.changes else '',
             ])
 
         return response

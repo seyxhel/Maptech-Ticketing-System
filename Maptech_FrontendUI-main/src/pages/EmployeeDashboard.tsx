@@ -206,7 +206,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
               escalate complex issues.
             </p>
             <button
-              onClick={() => onNavigate?.('knowledge-base')}
+              onClick={() => onNavigate?.('knowledge-hub')}
               className="w-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium py-2 rounded-lg transition-colors"
             >
               Open Knowledge Base

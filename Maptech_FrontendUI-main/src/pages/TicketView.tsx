@@ -61,8 +61,8 @@ function getInitials(name: string): string {
 export function TicketView() {
   const { user } = useAuth();
   const isEmployee = user?.role === 'employee';
-  const isAdmin = user?.role === 'admin';
-  const canEdit = isEmployee || isAdmin;
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isRoleEditable = isEmployee || isAdmin;
   const { search, pathname } = useLocation();
   const params = new URLSearchParams(search);
   const stfFromUrl = params.get('stf') || undefined;
@@ -454,6 +454,12 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
 
+  // Fields are only editable if:
+  // - Employee: must be the assigned employee AND ticket is not Resolved/Closed
+  // - Admin: ticket is not Resolved/Closed
+  const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
+  const canEdit = (isAssignedEmployee || isAdmin) && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
+
   /** Employee saves action taken, remarks, job status */
   const handleSaveFields = async () => {
     if (!backendTicketId) return;
@@ -465,9 +471,9 @@ export function TicketView() {
         job_status: jobStatus,
       });
       setBtData(updated);
-      toast.success('Fields saved successfully.');
+      toast.success('Ticket resolved successfully.');
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to save fields.');
+      toast.error(err?.message || 'Failed to resolve ticket.');
     } finally {
       setSavingFields(false);
     }
@@ -499,11 +505,11 @@ export function TicketView() {
     const files = Array.from(e.target.files || []);
     const valid = files.filter((f) => {
       if (!IMAGE_TYPES.includes(f.type)) {
-        alert(`"${f.name}" is not a supported image format. Use PNG or JPG.`);
+        toast.error(`"${f.name}" is not a supported image format. Use PNG or JPG.`);
         return false;
       }
       if (f.size > MAX_IMAGE_SIZE) {
-        alert(`"${f.name}" exceeds the 10 MB limit.`);
+        toast.error(`"${f.name}" exceeds the 10 MB limit.`);
         return false;
       }
       return true;
@@ -516,11 +522,11 @@ export function TicketView() {
     const files = Array.from(e.target.files || []);
     const valid = files.filter((f) => {
       if (!VIDEO_TYPES.includes(f.type)) {
-        alert(`"${f.name}" is not a supported video format. Use MP4 or WebM.`);
+        toast.error(`"${f.name}" is not a supported video format. Use MP4 or WebM.`);
         return false;
       }
       if (f.size > MAX_VIDEO_SIZE) {
-        alert(`"${f.name}" exceeds the 50 MB limit.`);
+        toast.error(`"${f.name}" exceeds the 50 MB limit.`);
         return false;
       }
       return true;
@@ -549,7 +555,7 @@ export function TicketView() {
       setScreenshotFiles([]);
       setRecordingFiles([]);
     } catch (err: any) {
-      alert(err?.message || 'Upload failed. Please try again.');
+      toast.error(err?.message || 'Upload failed. Please try again.');
     } finally {
       setUploadingAttachments(false);
     }
@@ -562,7 +568,7 @@ export function TicketView() {
       await deleteAttachment(backendTicketId, att.id);
       setUploadedAttachments((prev) => prev.filter((a) => a.id !== att.id));
     } catch (err: any) {
-      alert(err?.message || 'Failed to remove attachment.');
+      toast.error(err?.message || 'Failed to remove attachment.');
     }
   };
 
@@ -736,12 +742,13 @@ export function TicketView() {
               {JOB_STATUSES.map((s) => (
                 <button
                   key={s}
+                  disabled={!canEdit}
                   onClick={() => { if (canEdit) setJobStatus(s === jobStatus ? '' : s); }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                     jobStatus === s
                       ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-sm'
                       : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#0E8F79]/50'
-                  } ${!canEdit ? 'cursor-default' : 'cursor-pointer'}`}
+                  } ${!canEdit ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                 >
                   {s}
                 </button>
@@ -757,9 +764,13 @@ export function TicketView() {
             <textarea
               value={actionTaken}
               onChange={(e) => canEdit && setActionTaken(e.target.value)}
-              readOnly={!canEdit}
+              disabled={!canEdit}
               placeholder="Describe the actions taken to resolve the issue..."
-              className="w-full min-h-[100px] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 resize-y outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] transition-colors"
+              className={`w-full min-h-[100px] p-3 rounded-lg border text-sm resize-y outline-none transition-colors ${
+                canEdit
+                  ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]'
+                  : 'border-gray-100 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60'
+              }`}
             />
           </Card>
 
@@ -771,9 +782,13 @@ export function TicketView() {
             <textarea
               value={remarksText}
               onChange={(e) => canEdit && setRemarksText(e.target.value)}
-              readOnly={!canEdit}
+              disabled={!canEdit}
               placeholder="Additional remarks or notes..."
-              className="w-full min-h-[80px] p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 resize-y outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] transition-colors"
+              className={`w-full min-h-[80px] p-3 rounded-lg border text-sm resize-y outline-none transition-colors ${
+                canEdit
+                  ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]'
+                  : 'border-gray-100 dark:border-gray-700 bg-gray-100 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60'
+              }`}
             />
           </Card>
 
@@ -928,10 +943,10 @@ export function TicketView() {
           </Card>
 
           {/* ── Action Buttons ── */}
-          {ticket.status !== 'Closed' && ticket.status !== 'Resolved' && (
+          {ticket.status !== 'Closed' && (
             <div className="space-y-3">
-              {/* Employee: Save work fields */}
-              {isEmployee && (
+              {/* Employee: Resolve Ticket (only if assigned to this ticket and not yet Resolved) */}
+              {isAssignedEmployee && ticket.status !== 'Resolved' && (
                 <button
                   type="button"
                   disabled={savingFields}
@@ -939,14 +954,14 @@ export function TicketView() {
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0E8F79] to-[#0b7a67] hover:shadow-lg hover:shadow-[#0E8F79]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
                 >
                   {savingFields ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Resolving...</>
                   ) : (
-                    <><CheckCircle className="w-4 h-4" /> Save Changes</>
+                    <><CheckCircle className="w-4 h-4" /> Resolve</>
                   )}
                 </button>
               )}
-              {/* Admin: Close Ticket */}
-              {isAdmin && (
+              {/* Admin: Close Ticket (only after employee has Resolved it) */}
+              {isAdmin && ticket.status === 'Resolved' && (
                 <button
                   type="button"
                   disabled={closingTicket}
@@ -1051,17 +1066,26 @@ export function TicketView() {
           )}
 
           {/* ── Messages Area ── */}
-          <div
-            ref={chatScrollRef}
-            onScroll={handleChatScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-3 space-y-1 scroll-smooth"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
-          >
+          <div className="flex-1 relative overflow-hidden">
+            {/* Persistent watermark logo */}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
+              <img
+                src="/Maptech Official Logo version2 (1).png"
+                alt=""
+                className="w-40 h-auto opacity-40 dark:opacity-40 dark:brightness-150 dark:contrast-125 select-none"
+                draggable={false}
+              />
+            </div>
+
+            <div
+              ref={chatScrollRef}
+              onScroll={handleChatScroll}
+              className="h-full overflow-y-auto overflow-x-hidden px-4 py-3 space-y-1 scroll-smooth relative z-[1]"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
+            >
             {chatMessages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <div className="w-16 h-16 rounded-full bg-[#0E8F79]/10 flex items-center justify-center mb-4">
-                  <MessageSquare className="w-7 h-7 text-[#0E8F79]" />
-                </div>
+                <img src="/Maptech Official Logo version2 (1).png" alt="Maptech" className="w-28 h-auto opacity-50 mb-4" />
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between admin and employee here.</p>
               </div>
@@ -1332,6 +1356,7 @@ export function TicketView() {
               </button>
             </div>
           )}
+          </div>
 
           {/* ── Reply Preview Bar ── */}
           {replyTo && (

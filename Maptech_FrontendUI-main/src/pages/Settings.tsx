@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
 import { Card } from '../components/ui/Card';
-import { Settings as SettingsIcon, Moon, Sun, Bell, BellOff } from 'lucide-react';
+import { Settings as SettingsIcon, Moon, Sun } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from '../context/ThemeContext';
 
 export function Settings() {
   const { isDark, toggleDark } = useTheme();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
-    return localStorage.getItem('maptech_notifications') !== 'false';
-  });
-  const [emailAlerts, setEmailAlerts] = useState(() => {
-    return localStorage.getItem('maptech_email_alerts') !== 'false';
-  });
-
   const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
     <button
       onClick={onToggle}
@@ -39,7 +32,7 @@ export function Settings() {
           </div>
         </div>
         <div className="space-y-1">
-          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
+          <div className="flex items-center justify-between py-3">
             <div className="flex items-center gap-3">
               {isDark ? <Moon className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <Sun className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
               <div>
@@ -49,26 +42,7 @@ export function Settings() {
             </div>
             <Toggle on={isDark} onToggle={toggleDark} />
           </div>
-          <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-3">
-              {notificationsEnabled ? <Bell className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <BellOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">In-App Notifications</span>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{notificationsEnabled ? 'Notifications enabled' : 'Notifications disabled'}</p>
-              </div>
-            </div>
-            <Toggle on={notificationsEnabled} onToggle={() => setNotificationsEnabled((n) => { const next = !n; localStorage.setItem('maptech_notifications', String(next)); return next; })} />
-          </div>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <Bell className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Alerts</span>
-                <p className="text-xs text-gray-400 dark:text-gray-500">{emailAlerts ? 'Critical alerts sent via email' : 'Email alerts disabled'}</p>
-              </div>
-            </div>
-            <Toggle on={emailAlerts} onToggle={() => setEmailAlerts((n) => { const next = !n; localStorage.setItem('maptech_email_alerts', String(next)); return next; })} />
-          </div>
+
         </div>
 
       </Card>

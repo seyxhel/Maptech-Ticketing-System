@@ -95,16 +95,16 @@ function entityBadge(entity: string) {
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
+  return `${d.toLocaleDateString('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }) + ' ' + d.toLocaleTimeString('en-US', {
+  })} ${d.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
-  });
+  })}`;
 }
 
 // ── Component ──

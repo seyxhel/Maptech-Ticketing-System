@@ -2,6 +2,23 @@ import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
 import { User, Lock, Mail, Phone, Building, MapPin } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  validateName,
+  validateEmail,
+  validatePhone,
+  validateAddress,
+  validateRequired,
+  validatePassword,
+  validateConfirmPassword,
+  MAX_NAME,
+  MAX_EMAIL,
+  MAX_PHONE,
+  MAX_ADDRESS,
+  MAX_FIELD,
+  MAX_PASSWORD,
+  type PasswordRules,
+} from '../../utils/validation';
 
 const inputCls =
   'w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-all text-sm';
@@ -22,31 +39,52 @@ export default function ClientSettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Validation state
+  const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  const [pwError, setPwError] = useState('');
+  const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
+
   const handleSaveDetails = (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    const fnErr = validateName(firstName, 'First Name');
+    if (fnErr) errs.firstName = fnErr;
+    const lnErr = validateName(lastName, 'Last Name');
+    if (lnErr) errs.lastName = lnErr;
+    const emErr = validateEmail(email);
+    if (emErr) errs.email = emErr;
+    const phErr = validatePhone(phone, 'Phone Number');
+    if (phErr) errs.phone = phErr;
+    const coErr = validateRequired(company, 'Company');
+    if (coErr) errs.company = coErr;
+    const adErr = validateAddress(address);
+    if (adErr) errs.address = adErr;
+    setDetailErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error('Please fix the highlighted errors.');
+      return;
+    }
     // TODO: API call
-    alert('Personal details saved successfully.');
+    toast.success('Personal details saved successfully.');
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
     e.preventDefault();
+    setPwError('');
     if (!currentPassword || !newPassword || !confirmPassword) {
-      alert('Please fill in all password fields.');
+      setPwError('All password fields are required.');
       return;
     }
-    if (newPassword !== confirmPassword) {
-      alert('New password and confirmation do not match.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      alert('Password must be at least 8 characters.');
-      return;
-    }
+    const { error } = validatePassword(newPassword);
+    if (error) { setPwError(error); return; }
+    const confirmErr = validateConfirmPassword(newPassword, confirmPassword);
+    if (confirmErr) { setPwError(confirmErr); return; }
     // TODO: API call
-    alert('Password changed successfully.');
+    toast.success('Password changed successfully.');
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setPwRules(null);
   };
 
   return (
@@ -77,11 +115,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="text"
                   value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  maxLength={MAX_NAME}
+                  onChange={(e) => { setFirstName(e.target.value); setDetailErrors((p) => ({ ...p, firstName: '' })); }}
                   placeholder="e.g. John"
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.firstName && <p className="text-red-500 text-xs mt-1">{detailErrors.firstName}</p>}
             </div>
             <div>
               <label className={labelCls}>Last Name</label>
@@ -90,11 +130,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="text"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
+                  maxLength={MAX_NAME}
+                  onChange={(e) => { setLastName(e.target.value); setDetailErrors((p) => ({ ...p, lastName: '' })); }}
                   placeholder="e.g. Doe"
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.lastName && <p className="text-red-500 text-xs mt-1">{detailErrors.lastName}</p>}
             </div>
             <div>
               <label className={labelCls}>Email Address</label>
@@ -103,11 +145,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  maxLength={MAX_EMAIL}
+                  onChange={(e) => { setEmail(e.target.value); setDetailErrors((p) => ({ ...p, email: '' })); }}
                   placeholder="e.g. john@example.com"
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.email && <p className="text-red-500 text-xs mt-1">{detailErrors.email}</p>}
             </div>
             <div>
               <label className={labelCls}>Phone Number</label>
@@ -116,11 +160,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="text"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  maxLength={MAX_PHONE}
+                  onChange={(e) => { setPhone(e.target.value); setDetailErrors((p) => ({ ...p, phone: '' })); }}
                   placeholder="e.g. 09171234567"
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.phone && <p className="text-red-500 text-xs mt-1">{detailErrors.phone}</p>}
             </div>
             <div>
               <label className={labelCls}>Company / Organization</label>
@@ -129,11 +175,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="text"
                   value={company}
-                  onChange={(e) => setCompany(e.target.value)}
+                  maxLength={MAX_FIELD}
+                  onChange={(e) => { setCompany(e.target.value); setDetailErrors((p) => ({ ...p, company: '' })); }}
                   placeholder="e.g. Maptech Inc."
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.company && <p className="text-red-500 text-xs mt-1">{detailErrors.company}</p>}
             </div>
             <div>
               <label className={labelCls}>Address</label>
@@ -142,11 +190,13 @@ export default function ClientSettingsPage() {
                 <input
                   type="text"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  maxLength={MAX_ADDRESS}
+                  onChange={(e) => { setAddress(e.target.value); setDetailErrors((p) => ({ ...p, address: '' })); }}
                   placeholder="e.g. 123 Main Street, Quezon City"
                   className={inputCls + ' pl-10'}
                 />
               </div>
+              {detailErrors.address && <p className="text-red-500 text-xs mt-1">{detailErrors.address}</p>}
             </div>
           </div>
           <div className="pt-2">
@@ -169,6 +219,7 @@ export default function ClientSettingsPage() {
 
         <form onSubmit={handleChangePassword} className="space-y-5">
           <div className="max-w-md space-y-4">
+            {pwError && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">{pwError}</div>}
             <div>
               <label className={labelCls}>Current Password</label>
               <div className="relative">
@@ -176,6 +227,7 @@ export default function ClientSettingsPage() {
                 <input
                   type="password"
                   value={currentPassword}
+                  maxLength={MAX_PASSWORD}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="Enter current password"
                   className={inputCls + ' pl-10'}
@@ -189,12 +241,26 @@ export default function ClientSettingsPage() {
                 <input
                   type="password"
                   value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
+                  maxLength={MAX_PASSWORD}
+                  onChange={(e) => { setNewPassword(e.target.value); const { rules } = validatePassword(e.target.value); setPwRules(rules); }}
                   placeholder="Enter new password"
                   className={inputCls + ' pl-10'}
                 />
               </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Must be at least 8 characters</p>
+              {/* Password strength rules */}
+              {newPassword && pwRules && (
+                <ul className="text-xs space-y-0.5 mt-1">
+                  {[
+                    { ok: pwRules.minLength, text: 'At least 8 characters' },
+                    { ok: pwRules.hasUppercase, text: 'An uppercase letter' },
+                    { ok: pwRules.hasLowercase, text: 'A lowercase letter' },
+                    { ok: pwRules.hasNumber, text: 'A number' },
+                    { ok: pwRules.hasSpecial, text: 'A special character' },
+                  ].map((r) => (
+                    <li key={r.text} className={r.ok ? 'text-green-600' : 'text-gray-400'}>{r.ok ? '\u2713' : '\u2022'} {r.text}</li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div>
               <label className={labelCls}>Confirm New Password</label>
@@ -203,6 +269,7 @@ export default function ClientSettingsPage() {
                 <input
                   type="password"
                   value={confirmPassword}
+                  maxLength={MAX_PASSWORD}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter new password"
                   className={inputCls + ' pl-10'}
