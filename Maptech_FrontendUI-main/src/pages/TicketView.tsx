@@ -1130,16 +1130,6 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Employee: Escalate Ticket */}
-              {isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && (
-                <button
-                  type="button"
-                  onClick={() => setShowEscalateModal(true)}
-                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 flex items-center justify-center gap-2 transition-all text-sm"
-                >
-                  <ArrowUpRight className="w-4 h-4" /> Escalate Ticket
-                </button>
-              )}
               {/* Admin: Close Ticket (only after employee has Resolved it) */}
               {isAdmin && ticket.status === 'Resolved' && (
                 <button
@@ -1264,7 +1254,7 @@ export function TicketView() {
               style={{ scrollbarWidth: 'thin', scrollbarColor: '#d1d5db transparent' }}
             >
             {chatMessages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+              <div className="flex flex-col items-center text-center pt-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between admin and employee here.</p>
               </div>
