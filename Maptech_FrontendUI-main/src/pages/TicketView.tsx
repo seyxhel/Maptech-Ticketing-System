@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { PriorityBadge } from '../components/ui/PriorityBadge';
@@ -9,12 +10,12 @@ import {
   MessageSquare, ArrowLeft, Camera, Video, Upload, FileText, ClipboardList, Package,
   Paperclip, CheckCircle, Wifi, WifiOff, Send, X, Smile, Reply, ChevronDown,
   Search as SearchIcon, Check, CheckCheck, CornerDownRight, Maximize2, Minimize2,
-  User as UserIcon, Shield, Image, Film, File, Download, Play
+  User as UserIcon, Shield, Image, Film, File, Download, Play, ArrowUpRight, Share2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName } from '../services/ticketMapper';
@@ -454,6 +455,15 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
 
+  // ── Escalation modal state ──
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateType, setEscalateType] = useState<'internal' | 'external'>('internal');
+  const [escalateNotes, setEscalateNotes] = useState('');
+  const [escalateTo, setEscalateTo] = useState('');
+  const [escalateNotesErr, setEscalateNotesErr] = useState('');
+  const [escalateToErr, setEscalateToErr] = useState('');
+  const [submittingEscalation, setSubmittingEscalation] = useState(false);
+
   // ── Product Detail form state (employee-editable) ──
   const [pdDeviceEquipment, setPdDeviceEquipment] = useState('');
   const [pdProduct, setPdProduct] = useState('');
@@ -528,6 +538,38 @@ export function TicketView() {
       toast.error(err?.message || 'Failed to resolve ticket.');
     } finally {
       setSavingFields(false);
+    }
+  };
+
+  /** Employee escalates the ticket */
+  const handleEscalateTicket = async () => {
+    let hasErr = false;
+    if (!escalateNotes.trim()) { setEscalateNotesErr('Notes / reason is required.'); hasErr = true; }
+    if (escalateType === 'external' && !escalateTo.trim()) { setEscalateToErr('Distributor / vendor name is required.'); hasErr = true; }
+    if (hasErr || !backendTicketId) return;
+    setSubmittingEscalation(true);
+    try {
+      if (escalateType === 'internal') {
+        const updated = await escalateTicket(backendTicketId, { notes: escalateNotes });
+        setBtData(updated);
+        toast.success('Ticket escalated to admin. It will be reassigned.');
+      } else {
+        const updated = await escalateExternal(backendTicketId, {
+          external_escalated_to: escalateTo.trim(),
+          external_escalation_notes: escalateNotes,
+        });
+        setBtData(updated);
+        toast.success(`Ticket escalated externally to "${escalateTo.trim()}".`);
+      }
+      setShowEscalateModal(false);
+      setEscalateNotes('');
+      setEscalateTo('');
+      setEscalateNotesErr('');
+      setEscalateToErr('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to escalate ticket.');
+    } finally {
+      setSubmittingEscalation(false);
     }
   };
 
@@ -633,14 +675,25 @@ export function TicketView() {
       ) : (
       <>
       {/* Back + Messages */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between sticky top-0 z-30 bg-gray-50 dark:bg-gray-950 py-2 -mx-1 px-1">
         <div>
           <GreenButton variant="ghost" className="px-2 py-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </GreenButton>
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          {isAssignedEmployee && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && ticket.status !== 'Resolved' && (
+            <button
+              onClick={() => setShowEscalateModal(true)}
+              title="Escalate Ticket"
+              aria-label="Escalate ticket"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors"
+            >
+              <ArrowUpRight className="w-4 h-4" />
+              Escalate
+            </button>
+          )}
           <button
             onClick={() => setShowChat(true)}
             title="Messages"
@@ -1077,6 +1130,16 @@ export function TicketView() {
                   )}
                 </button>
               )}
+              {/* Employee: Escalate Ticket */}
+              {isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && (
+                <button
+                  type="button"
+                  onClick={() => setShowEscalateModal(true)}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  <ArrowUpRight className="w-4 h-4" /> Escalate Ticket
+                </button>
+              )}
               {/* Admin: Close Ticket (only after employee has Resolved it) */}
               {isAdmin && ticket.status === 'Resolved' && (
                 <button
@@ -1202,7 +1265,6 @@ export function TicketView() {
             >
             {chatMessages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                <img src="/Maptech Official Logo version2 (1).png" alt="Maptech" className="w-28 h-auto opacity-50 mb-4" />
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between admin and employee here.</p>
               </div>
@@ -1639,6 +1701,137 @@ export function TicketView() {
             <Download className="w-4 h-4" /> Download
           </a>
         </div>
+      )}
+
+      {/* ── Escalate Ticket Modal ── */}
+      {showEscalateModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                  <ArrowUpRight className="w-4 h-4 text-orange-400" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Escalate Ticket</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">Route this ticket for higher-level support</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEscalateModal(false)}
+                className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              {/* Escalation Type */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-2 uppercase tracking-wider">Escalation Type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setEscalateType('internal'); setEscalateToErr(''); }}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      escalateType === 'internal'
+                        ? 'border-orange-500 bg-orange-500/10 text-orange-500 dark:text-orange-400'
+                        : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white/60 hover:bg-gray-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    Internal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEscalateType('external')}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                      escalateType === 'external'
+                        ? 'border-orange-500 bg-orange-500/10 text-orange-500 dark:text-orange-400'
+                        : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 text-gray-500 dark:text-white/60 hover:bg-gray-100 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <Share2 className="w-4 h-4" />
+                    External
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-gray-400 dark:text-white/30">
+                  {escalateType === 'internal'
+                    ? 'Escalate to a supervisor or admin for reassignment.'
+                    : 'Escalate to an external distributor or vendor.'}
+                </p>
+              </div>
+
+              {/* External: Distributor/Vendor field */}
+              {escalateType === 'external' && (
+                <div>
+                  <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-1.5 uppercase tracking-wider">
+                    Distributor / Vendor Name <span className="text-orange-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={escalateTo}
+                    onChange={e => { setEscalateTo(e.target.value); if (escalateToErr) setEscalateToErr(''); }}
+                    placeholder="e.g. Acme Distributors"
+                    className={`w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border text-gray-900 dark:text-white text-sm placeholder-gray-300 dark:placeholder-white/20 focus:outline-none transition-colors ${
+                      escalateToErr ? 'border-red-500/60 focus:border-red-500' : 'border-gray-200 dark:border-white/10 focus:border-orange-500/60'
+                    }`}
+                  />
+                  {escalateToErr && <p className="mt-1 text-xs text-red-400">{escalateToErr}</p>}
+                </div>
+              )}
+
+              {/* Notes / Reason */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-1.5 uppercase tracking-wider">
+                  Notes / Reason <span className="text-orange-400">*</span>
+                </label>
+                <textarea
+                  value={escalateNotes}
+                  onChange={e => { setEscalateNotes(e.target.value); if (escalateNotesErr) setEscalateNotesErr(''); }}
+                  rows={3}
+                  placeholder="Describe why this ticket cannot be resolved at your level…"
+                  className={`w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border text-gray-900 dark:text-white text-sm placeholder-gray-300 dark:placeholder-white/20 focus:outline-none resize-none transition-colors ${
+                    escalateNotesErr ? 'border-red-500/60 focus:border-red-500' : 'border-gray-200 dark:border-white/10 focus:border-orange-500/60'
+                  }`}
+                />
+                {escalateNotesErr && <p className="mt-1 text-xs text-red-400">{escalateNotesErr}</p>}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEscalateModal(false);
+                  setEscalateNotes('');
+                  setEscalateTo('');
+                  setEscalateNotesErr('');
+                  setEscalateToErr('');
+                }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submittingEscalation}
+                onClick={handleEscalateTicket}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {submittingEscalation ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Escalating…</>
+                ) : (
+                  <><ArrowUpRight className="w-3.5 h-3.5" /> Submit Escalation</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
       </>
       )}
