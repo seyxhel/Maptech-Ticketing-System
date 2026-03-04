@@ -1,18 +1,21 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Eraser, Check } from 'lucide-react';
+import { Eraser, Check, Save } from 'lucide-react';
 
 interface SignaturePadProps {
   onSave: (dataUrl: string) => void;
   initialValue?: string;
-  width?: number;
+  /** Fixed height in CSS pixels (default 200). Width auto-fills the container. */
   height?: number;
   disabled?: boolean;
 }
 
-export function SignaturePad({ onSave, initialValue, width = 400, height = 200, disabled = false }: SignaturePadProps) {
+export function SignaturePad({ onSave, initialValue, height = 200, disabled = false }: SignaturePadProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasContent, setHasContent] = useState(!!initialValue);
+  const [isSaved, setIsSaved] = useState(!!initialValue);
+  const [canvasWidth, setCanvasWidth] = useState(0);
 
   const getCtx = useCallback(() => {
     const canvas = canvasRef.current;
@@ -20,24 +23,44 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
     return canvas.getContext('2d');
   }, []);
 
-  // Setup canvas
+  // Observe wrapper width so canvas always fills its container
   useEffect(() => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.floor(entry.contentRect.width);
+        if (w > 0) setCanvasWidth(w);
+      }
+    });
+    observer.observe(wrapper);
+
+    // Initial measurement
+    const w = Math.floor(wrapper.getBoundingClientRect().width);
+    if (w > 0) setCanvasWidth(w);
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Setup / resize canvas whenever measured width or height changes
+  useEffect(() => {
+    if (canvasWidth === 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas resolution
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
+    canvas.width = canvasWidth * dpr;
     canvas.height = height * dpr;
-    canvas.style.width = `${width}px`;
+    canvas.style.width = `${canvasWidth}px`;
     canvas.style.height = `${height}px`;
     ctx.scale(dpr, dpr);
 
     // Fill white background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, canvasWidth, height);
 
     // Drawing settings
     ctx.strokeStyle = '#1a1a1a';
@@ -49,11 +72,11 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
     if (initialValue) {
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, 0, 0, canvasWidth, height);
       };
       img.src = initialValue;
     }
-  }, [width, height, initialValue, getCtx]);
+  }, [canvasWidth, height, initialValue, getCtx]);
 
   const getPosition = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
@@ -81,6 +104,7 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
     ctx.moveTo(pos.x, pos.y);
     setIsDrawing(true);
     setHasContent(true);
+    if (isSaved) setIsSaved(false);
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -96,9 +120,13 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
   const endDraw = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
+  };
+
+  const saveSignature = () => {
     const canvas = canvasRef.current;
-    if (canvas) {
+    if (canvas && hasContent) {
       onSave(canvas.toDataURL('image/png'));
+      setIsSaved(true);
     }
   };
 
@@ -112,15 +140,20 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
     setHasContent(false);
+    setIsSaved(false);
     onSave('');
   };
 
   return (
     <div className="space-y-2">
-      <div className={`relative border-2 rounded-lg overflow-hidden ${disabled ? 'opacity-60 pointer-events-none' : 'border-gray-200 dark:border-gray-600'} ${hasContent ? 'border-[#3BC25B]' : ''}`}>
+      <div
+        ref={wrapperRef}
+        className={`relative border-2 rounded-lg overflow-hidden w-full ${disabled ? 'opacity-60 pointer-events-none' : 'border-gray-200 dark:border-gray-600'} ${hasContent ? 'border-[#3BC25B]' : ''}`}
+      >
         <canvas
           ref={canvasRef}
-          className="cursor-crosshair touch-none bg-white"
+          className="cursor-crosshair touch-none bg-white block w-full"
+          style={{ height: `${height}px` }}
           onMouseDown={startDraw}
           onMouseMove={draw}
           onMouseUp={endDraw}
@@ -144,11 +177,22 @@ export function SignaturePad({ onSave, initialValue, width = 400, height = 200, 
           >
             <Eraser className="w-3 h-3" /> Clear
           </button>
-          {hasContent && (
-            <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-              <Check className="w-3 h-3" /> Signature captured
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {hasContent && !isSaved && (
+              <button
+                type="button"
+                onClick={saveSignature}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white bg-[#0E8F79] hover:bg-[#0b7a67] rounded-lg transition-colors"
+              >
+                <Save className="w-3 h-3" /> Save Signature
+              </button>
+            )}
+            {isSaved && (
+              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                <Check className="w-3 h-3" /> Signature saved
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>

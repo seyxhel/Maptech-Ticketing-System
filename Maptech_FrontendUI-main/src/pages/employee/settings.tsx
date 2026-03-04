@@ -139,15 +139,6 @@ export default function EmployeeSettings() {
       <Card accent>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Details</h2>
-          {!editing ? (
-            <button onClick={startEdit} className="inline-flex items-center gap-1.5 text-sm font-medium text-[#3BC25B] hover:text-[#63D44A] transition-colors">
-              <Pencil className="w-4 h-4" /> Edit
-            </button>
-          ) : (
-            <button onClick={cancelEdit} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-400 hover:text-gray-300 transition-colors">
-              <X className="w-4 h-4" /> Cancel
-            </button>
-          )}
         </div>
 
         {!editing ? (

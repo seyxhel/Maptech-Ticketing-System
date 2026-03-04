@@ -3,6 +3,7 @@ from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, MessageReaction, MessageReadReceipt,
     EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback,
+    Notification,
 )
 from users.serializers import UserSerializer
 
@@ -414,3 +415,22 @@ class AuditLogSerializer(serializers.ModelSerializer):
             name = obj.actor.get_full_name()
             return name if name.strip() else obj.actor.username
         return obj.actor_email or 'System'
+
+
+# ────────────────────────────────────────────
+# Notification serializer
+# ────────────────────────────────────────────
+
+class NotificationSerializer(serializers.ModelSerializer):
+    ticket_stf_no = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'notification_type', 'title', 'message',
+            'ticket', 'ticket_stf_no', 'is_read', 'created_at',
+        ]
+        read_only_fields = ['id', 'notification_type', 'title', 'message', 'ticket', 'ticket_stf_no', 'created_at']
+
+    def get_ticket_stf_no(self, obj):
+        return obj.ticket.stf_no if obj.ticket else None

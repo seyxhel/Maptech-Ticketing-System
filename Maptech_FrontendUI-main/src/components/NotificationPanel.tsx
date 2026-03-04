@@ -9,40 +9,70 @@ import {
   AlertTriangle,
   FileText,
   Trash2,
-  Mail,
   MailOpen,
   BellOff,
+  MessageSquare,
+  Info,
 } from 'lucide-react';
 
-type Role = 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
+type Role = 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Technical Staff' | 'Client';
+
+export type NotificationType =
+  | 'assignment'
+  | 'escalation'
+  | 'status_change'
+  | 'new_ticket'
+  | 'sla_warning'
+  | 'closure'
+  | 'message'
+  | 'general';
 
 export interface NotificationItem {
-  id: string;
-  type: 'assignment' | 'escalation' | 'approval' | 'resolution' | 'sla_warning' | 'new_client_ticket';
+  id: number;
+  notification_type: NotificationType;
   title: string;
-  ticketId?: string;
-  time: string;
-  read: boolean;
+  message: string;
+  ticket_id: number | null;
+  ticket_stf_no: string | null;
+  is_read: boolean;
+  created_at: string;
 }
 
-export const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  { id: '1', type: 'assignment',        title: 'Ticket Assignment',       ticketId: 'STF-MT-20260223000012', time: '2m ago',  read: false },
-  { id: '2', type: 'escalation',        title: 'Ticket Escalation',       ticketId: 'STF-MT-20260223000015', time: '15m ago', read: false },
-  { id: '3', type: 'approval',          title: 'Ticket Approval',         ticketId: 'STF-MT-20260223000018', time: '1h ago',  read: false },
-  { id: '4', type: 'resolution',        title: 'Resolution Confirmation', ticketId: 'STF-MT-20260223000012', time: '2h ago',  read: true  },
-  { id: '5', type: 'sla_warning',       title: 'SLA Warning',             ticketId: 'STF-MT-20260223000015', time: '30m ago', read: true  },
-  { id: '6', type: 'new_client_ticket', title: 'New Client Ticket',       ticketId: 'STF-MT-20260223000020', time: '5m ago',  read: false },
-];
+/** Convert backend notification shape to our panel shape. */
+export function backendToNotificationItem(raw: {
+  id: number;
+  notification_type: string;
+  title: string;
+  message: string;
+  ticket?: number | null;
+  ticket_id?: number | null;
+  ticket_stf_no?: string | null;
+  is_read: boolean;
+  created_at: string;
+}): NotificationItem {
+  return {
+    id: raw.id,
+    notification_type: raw.notification_type as NotificationType,
+    title: raw.title,
+    message: raw.message,
+    ticket_id: raw.ticket_id ?? raw.ticket ?? null,
+    ticket_stf_no: raw.ticket_stf_no ?? null,
+    is_read: raw.is_read,
+    created_at: raw.created_at,
+  };
+}
 
-function getNotificationPath(role: Role, type: NotificationItem['type']): string {
+function getNotificationPath(role: Role, type: NotificationType): string {
   switch (role) {
     case 'Admin':
       switch (type) {
-        case 'escalation':        return '/admin/escalation';
-        case 'new_client_ticket': return '/admin/tickets';
-        default:                  return '/admin/ticket-details';
+        case 'escalation':  return '/admin/escalation';
+        case 'new_ticket':  return '/admin/tickets';
+        default:            return '/admin/ticket-details';
       }
     case 'Employee':
+    case 'Technical':
+    case 'Technical Staff':
       return '/employee/ticket-details';
     case 'Client':
       return '/client/ticket-details';
@@ -56,16 +86,33 @@ function getNotificationPath(role: Role, type: NotificationItem['type']): string
   }
 }
 
-function getIcon(type: NotificationItem['type']) {
+function getIcon(type: NotificationType) {
   switch (type) {
-    case 'assignment':        return Ticket;
-    case 'escalation':        return ArrowUpRight;
-    case 'approval':          return Check;
-    case 'resolution':        return CheckCircle;
-    case 'sla_warning':       return AlertTriangle;
-    case 'new_client_ticket': return FileText;
-    default:                  return Bell;
+    case 'assignment':     return Ticket;
+    case 'escalation':     return ArrowUpRight;
+    case 'status_change':  return CheckCircle;
+    case 'new_ticket':     return FileText;
+    case 'sla_warning':    return AlertTriangle;
+    case 'closure':        return Check;
+    case 'message':        return MessageSquare;
+    case 'general':        return Info;
+    default:               return Bell;
   }
+}
+
+function formatTimeAgo(isoDate: string): string {
+  const now = Date.now();
+  const then = new Date(isoDate).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(isoDate).toLocaleDateString();
 }
 
 type FilterTab = 'all' | 'unread';
@@ -75,44 +122,50 @@ interface NotificationPanelProps {
   onClose: () => void;
   role: Role;
   notifications: NotificationItem[];
-  onNotificationsChange: (notifications: NotificationItem[]) => void;
+  onMarkRead: (ids: number[]) => void;
+  onMarkAllRead: () => void;
+  onDelete: (id: number) => void;
+  onClearAll: () => void;
 }
 
-export function NotificationPanel({ isOpen, onClose, role, notifications, onNotificationsChange }: NotificationPanelProps) {
+export function NotificationPanel({
+  isOpen, onClose, role, notifications,
+  onMarkRead, onMarkAllRead, onDelete, onClearAll,
+}: NotificationPanelProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const displayedNotifications = activeTab === 'unread'
-    ? notifications.filter((n) => !n.read)
+    ? notifications.filter((n) => !n.is_read)
     : notifications;
 
   const handleClick = (item: NotificationItem) => {
-    onNotificationsChange(notifications.map((n) => n.id === item.id ? { ...n, read: true } : n));
+    if (!item.is_read) onMarkRead([item.id]);
     onClose();
-    const path = getNotificationPath(role, item.type);
-    navigate(path, item.ticketId ? { state: { ticketId: item.ticketId } } : undefined);
+    const path = getNotificationPath(role, item.notification_type);
+    navigate(path, item.ticket_stf_no ? { state: { ticketId: item.ticket_stf_no } } : undefined);
   };
 
-  const markAllRead = (e: React.MouseEvent) => {
+  const handleMarkAllRead = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onNotificationsChange(notifications.map((n) => ({ ...n, read: true })));
+    onMarkAllRead();
   };
 
   const toggleRead = (e: React.MouseEvent, item: NotificationItem) => {
     e.stopPropagation();
-    onNotificationsChange(notifications.map((n) => n.id === item.id ? { ...n, read: !n.read } : n));
+    onMarkRead([item.id]);
   };
 
-  const deleteNotification = (e: React.MouseEvent, itemId: string) => {
+  const handleDeleteNotification = (e: React.MouseEvent, itemId: number) => {
     e.stopPropagation();
-    onNotificationsChange(notifications.filter((n) => n.id !== itemId));
+    onDelete(itemId);
   };
 
-  const clearAll = (e: React.MouseEvent) => {
+  const handleClearAll = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onNotificationsChange([]);
+    onClearAll();
   };
 
   if (!isOpen) return null;
@@ -147,7 +200,7 @@ export function NotificationPanel({ isOpen, onClose, role, notifications, onNoti
             <div className="flex items-center gap-2">
               {unreadCount > 0 && (
                 <button
-                  onClick={markAllRead}
+                  onClick={handleMarkAllRead}
                   className="text-xs text-[#0E8F79] hover:underline font-medium"
                   title="Mark all as read"
                 >
@@ -156,7 +209,7 @@ export function NotificationPanel({ isOpen, onClose, role, notifications, onNoti
               )}
               {notifications.length > 0 && (
                 <button
-                  onClick={clearAll}
+                  onClick={handleClearAll}
                   className="text-xs text-red-500 hover:underline font-medium"
                   title="Clear all notifications"
                 >
@@ -205,12 +258,12 @@ export function NotificationPanel({ isOpen, onClose, role, notifications, onNoti
             </div>
           ) : (
             displayedNotifications.map((item) => {
-              const Icon = getIcon(item.type);
+              const Icon = getIcon(item.notification_type);
               return (
                 <div
                   key={item.id}
                   className={`group relative flex items-start gap-3 px-4 py-3 text-left transition-colors border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer ${
-                    item.read
+                    item.is_read
                       ? 'hover:bg-gray-50 dark:hover:bg-gray-800'
                       : 'bg-red-50/40 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20'
                   }`}
@@ -226,32 +279,34 @@ export function NotificationPanel({ isOpen, onClose, role, notifications, onNoti
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm leading-tight ${item.read ? 'font-normal text-gray-600 dark:text-gray-300' : 'font-semibold text-gray-900 dark:text-white'}`}>
+                    <p className={`text-sm leading-tight ${item.is_read ? 'font-normal text-gray-600 dark:text-gray-300' : 'font-semibold text-gray-900 dark:text-white'}`}>
                       {item.title}
                     </p>
-                    {item.ticketId && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono truncate">{item.ticketId}</p>
+                    {item.message && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">{item.message}</p>
                     )}
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{item.time}</p>
+                    {item.ticket_stf_no && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 font-mono truncate">{item.ticket_stf_no}</p>
+                    )}
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{formatTimeAgo(item.created_at)}</p>
                   </div>
 
                   {/* Action buttons — visible on hover */}
                   <div className="flex-shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* Toggle read/unread */}
-                    <button
-                      onClick={(e) => toggleRead(e, item)}
-                      className="p-1.5 rounded-md text-gray-400 hover:text-[#0E8F79] hover:bg-[#0E8F79]/10 transition-colors"
-                      title={item.read ? 'Mark as unread' : 'Mark as read'}
-                    >
-                      {item.read
-                        ? <Mail className="w-3.5 h-3.5" />
-                        : <MailOpen className="w-3.5 h-3.5" />
-                      }
-                    </button>
+                    {/* Toggle read */}
+                    {!item.is_read && (
+                      <button
+                        onClick={(e) => toggleRead(e, item)}
+                        className="p-1.5 rounded-md text-gray-400 hover:text-[#0E8F79] hover:bg-[#0E8F79]/10 transition-colors"
+                        title="Mark as read"
+                      >
+                        <MailOpen className="w-3.5 h-3.5" />
+                      </button>
+                    )}
 
                     {/* Delete */}
                     <button
-                      onClick={(e) => deleteNotification(e, item.id)}
+                      onClick={(e) => handleDeleteNotification(e, item.id)}
                       className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title="Delete notification"
                     >
@@ -261,7 +316,7 @@ export function NotificationPanel({ isOpen, onClose, role, notifications, onNoti
 
                   {/* Read/Unread dot (visible when actions are hidden) */}
                   <div className="flex-shrink-0 mt-2 group-hover:hidden">
-                    {item.read
+                    {item.is_read
                       ? <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600 inline-block" title="Read" />
                       : <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse" title="Unread" />
                     }

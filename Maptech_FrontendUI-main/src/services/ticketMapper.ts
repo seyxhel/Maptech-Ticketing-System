@@ -70,6 +70,7 @@ export interface UITicket {
   sla: number;
   totalSla: number;
   assignee: string | null;
+  assigneeId: number | null;
   created: string;
 }
 
@@ -100,6 +101,7 @@ export function mapBackendTicketToUI(bt: BackendTicket): UITicket {
     sla,
     totalSla,
     assignee: getAssigneeName(bt),
+    assigneeId: bt.assigned_to?.id ?? null,
     created: new Date(bt.created_at).toLocaleDateString(),
   };
 }

@@ -5,6 +5,77 @@ from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 
 
+class NotificationConsumer(AsyncJsonWebsocketConsumer):
+    """WebSocket consumer for real-time notifications.
+
+    URL: ws/notifications/?token=<jwt>
+
+    Each authenticated user joins a personal group: notifications_<user_id>
+    The backend pushes notifications into this group whenever Notification.notify() is called.
+    """
+
+    async def connect(self):
+        self.user = self.scope.get('user', AnonymousUser())
+        if self.user.is_anonymous:
+            await self.close()
+            return
+
+        self.group_name = f'notifications_{self.user.id}'
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        await self.accept()
+
+        # Send unread count on connect
+        unread_count = await self._get_unread_count()
+        await self.send_json({'type': 'unread_count', 'count': unread_count})
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+
+    async def receive_json(self, content):
+        action = content.get('action')
+
+        if action == 'mark_read':
+            notification_ids = content.get('notification_ids', [])
+            count = await self._mark_read(notification_ids)
+            unread_count = await self._get_unread_count()
+            await self.send_json({'type': 'unread_count', 'count': unread_count})
+
+        elif action == 'mark_all_read':
+            await self._mark_all_read()
+            await self.send_json({'type': 'unread_count', 'count': 0})
+
+    # ── Group-send handler (called by Notification.notify) ──
+
+    async def send_notification(self, event):
+        """Called when the channel layer dispatches a notification to this group."""
+        await self.send_json({
+            'type': 'new_notification',
+            'notification': event['notification'],
+        })
+
+    # ── DB helpers ──
+
+    @database_sync_to_async
+    def _get_unread_count(self):
+        from .models import Notification
+        return Notification.objects.filter(recipient=self.user, is_read=False).count()
+
+    @database_sync_to_async
+    def _mark_read(self, notification_ids):
+        from .models import Notification
+        if not notification_ids:
+            return 0
+        return Notification.objects.filter(
+            recipient=self.user, id__in=notification_ids, is_read=False
+        ).update(is_read=True)
+
+    @database_sync_to_async
+    def _mark_all_read(self):
+        from .models import Notification
+        return Notification.objects.filter(recipient=self.user, is_read=False).update(is_read=True)
+
+
 class TicketChatConsumer(AsyncJsonWebsocketConsumer):
     """WebSocket consumer for ticket chat.
 

@@ -19,7 +19,7 @@ export interface NavItem {
 }
 
 interface SidebarProps {
-  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Client';
+  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Technical Staff' | 'Client';
   onNavigate: (page: string) => void;
   currentPage: string;
   /** When provided, use these items (path = route path). Otherwise derive from role (legacy). */
@@ -63,6 +63,7 @@ export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp,
           ...common,
         ];
       case 'Employee':
+      case 'Technical Staff':
         return [
           { id: 'dashboard', label: 'My Dashboard', icon: LayoutDashboard, path: 'employee-dashboard' },
           { id: 'my-tickets', label: 'My Tickets', icon: Ticket, path: 'employee-my-tickets' },

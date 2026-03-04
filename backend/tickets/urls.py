@@ -6,6 +6,7 @@ from .views import (
     AuditLogViewSet, KnowledgeHubViewSet, PublishedArticleViewSet,
     list_employees,
     ProductViewSet, ClientViewSet, CallLogViewSet, CSATFeedbackViewSet,
+    NotificationViewSet,
 )
 from users.views import AuthViewSet, CustomTokenObtainPairView, UserViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -33,6 +34,7 @@ router.register(r'products', ProductViewSet, basename='product')
 router.register(r'clients', ClientViewSet, basename='client')
 router.register(r'call-logs', CallLogViewSet, basename='calllog')
 router.register(r'csat-feedback', CSATFeedbackViewSet, basename='csatfeedback')
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('', include(router.urls)),

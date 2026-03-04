@@ -25,7 +25,21 @@ async function handleResponse<T>(res: Response): Promise<T> {
   const data: T = await res.json().catch(() => ({}) as T);
   if (!res.ok) {
     const errData = data as Record<string, unknown>;
-    const msg = (errData.detail as string) || (errData.message as string) || `API error ${res.status}`;
+    // Try `detail` or `message` first (standard DRF error keys)
+    let msg = (errData.detail as string) || (errData.message as string);
+    // If not found, extract DRF field-level validation errors
+    if (!msg) {
+      const fieldErrors: string[] = [];
+      for (const [key, val] of Object.entries(errData)) {
+        if (Array.isArray(val)) {
+          const label = key.replace(/_/g, ' ');
+          fieldErrors.push(`${label}: ${val.join(', ')}`);
+        } else if (typeof val === 'string') {
+          fieldErrors.push(val);
+        }
+      }
+      msg = fieldErrors.length > 0 ? fieldErrors.join('; ') : `API error ${res.status}`;
+    }
     throw new Error(msg);
   }
   return data;
@@ -846,4 +860,72 @@ export async function createCSATFeedback(data: { ticket: number; employee: numbe
 export async function fetchCSATFeedbacks(): Promise<CSATFeedback[]> {
   const res = await fetch(`${API_BASE}/csat-feedback/`, { headers: authHeaders() });
   return handleResponse<CSATFeedback[]>(res);
+}
+
+// ── Notification types & endpoints ──
+
+export interface BackendNotification {
+  id: number;
+  notification_type: string;
+  title: string;
+  message: string;
+  ticket: number | null;
+  ticket_stf_no: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+/** Fetch all notifications for the current user (most recent 100). */
+export async function fetchNotifications(params?: { is_read?: boolean }): Promise<BackendNotification[]> {
+  const query = new URLSearchParams();
+  if (params?.is_read !== undefined) query.set('is_read', String(params.is_read));
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${API_BASE}/notifications/${qs}`, { headers: authHeaders() });
+  return handleResponse<BackendNotification[]>(res);
+}
+
+/** Get unread notification count. */
+export async function fetchUnreadNotificationCount(): Promise<{ count: number }> {
+  const res = await fetch(`${API_BASE}/notifications/unread_count/`, { headers: authHeaders() });
+  return handleResponse<{ count: number }>(res);
+}
+
+/** Mark specific notifications as read. */
+export async function markNotificationsRead(notificationIds: number[]): Promise<{ updated: number }> {
+  const res = await fetch(`${API_BASE}/notifications/mark_read/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ notification_ids: notificationIds }),
+  });
+  return handleResponse<{ updated: number }>(res);
+}
+
+/** Mark all notifications as read. */
+export async function markAllNotificationsRead(): Promise<{ updated: number }> {
+  const res = await fetch(`${API_BASE}/notifications/mark_all_read/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<{ updated: number }>(res);
+}
+
+/** Delete a single notification. */
+export async function deleteNotification(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/notifications/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+  }
+}
+
+/** Clear all notifications. */
+export async function clearAllNotifications(): Promise<{ deleted: number }> {
+  const res = await fetch(`${API_BASE}/notifications/clear_all/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<{ deleted: number }>(res);
 }

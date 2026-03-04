@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback, Notification
 
 User = get_user_model()
 
@@ -76,3 +76,11 @@ class CSATFeedbackAdmin(admin.ModelAdmin):
     list_display = ('ticket', 'employee', 'admin', 'rating', 'created_at')
     list_filter = ('rating',)
     search_fields = ('comments',)
+
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('recipient', 'notification_type', 'title', 'ticket', 'is_read', 'created_at')
+    list_filter = ('notification_type', 'is_read')
+    search_fields = ('title', 'message', 'recipient__username', 'recipient__email')
+    readonly_fields = ('created_at',)

@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Sun, Moon, Menu, Settings } from 'lucide-react';
-import { NotificationPanel, INITIAL_NOTIFICATIONS } from '../NotificationPanel';
+import { NotificationPanel, backendToNotificationItem } from '../NotificationPanel';
 import type { NotificationItem } from '../NotificationPanel';
+import { NotificationSocket } from '../../services/notificationService';
+import type { NotificationEvent } from '../../services/notificationService';
+import {
+  fetchNotifications,
+  markNotificationsRead,
+  markAllNotificationsRead,
+  deleteNotification as apiDeleteNotification,
+  clearAllNotifications,
+} from '../../services/api';
 
 interface TopNavUser {
   first_name?: string;
@@ -15,7 +24,7 @@ interface TopNavUser {
 }
 
 interface TopNavProps {
-  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Client';
+  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Technical Staff' | 'Client';
   isDark: boolean;
   onToggleDark: () => void;
   onMenuClick?: () => void;
@@ -77,8 +86,59 @@ export function TopNav({
   isSidebarExpanded = false
 }: TopNavProps) {
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const socketRef = useRef<NotificationSocket | null>(null);
+
+  // ── Load notifications from REST on mount ──
+  useEffect(() => {
+    let cancelled = false;
+    fetchNotifications()
+      .then((data) => {
+        if (!cancelled) {
+          setNotifications(data.map(backendToNotificationItem));
+        }
+      })
+      .catch(() => { /* silently ignore if backend not reachable */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── WebSocket for real-time push ──
+  useEffect(() => {
+    const sock = new NotificationSocket({
+      onEvent: (event: NotificationEvent) => {
+        if (event.type === 'new_notification') {
+          const item = backendToNotificationItem(event.notification);
+          setNotifications((prev) => [item, ...prev]);
+        }
+        // unread_count events are informational; we derive count from local state
+      },
+    });
+    socketRef.current = sock;
+    return () => { sock.disconnect(); };
+  }, []);
+
+  // ── Handlers that call the backend API ──
+  const handleMarkRead = useCallback(async (ids: number[]) => {
+    setNotifications((prev) => prev.map((n) => ids.includes(n.id) ? { ...n, is_read: true } : n));
+    try { await markNotificationsRead(ids); } catch { /* revert on error if desired */ }
+  }, []);
+
+  const handleMarkAllRead = useCallback(async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    try { await markAllNotificationsRead(); } catch { /* ignore */ }
+  }, []);
+
+  const handleDelete = useCallback(async (id: number) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try { await apiDeleteNotification(id); } catch { /* ignore */ }
+  }, []);
+
+  const handleClearAll = useCallback(async () => {
+    setNotifications([]);
+    try { await clearAllNotifications(); } catch { /* ignore */ }
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
   const badgeLabel = unreadCount > 99 ? '99+' : unreadCount > 0 ? String(unreadCount) : null;
 
   return (
@@ -128,7 +188,10 @@ export function TopNav({
             onClose={() => setNotificationOpen(false)}
             role={role}
             notifications={notifications}
-            onNotificationsChange={setNotifications}
+            onMarkRead={handleMarkRead}
+            onMarkAllRead={handleMarkAllRead}
+            onDelete={handleDelete}
+            onClearAll={handleClearAll}
           />
         </div>
 
@@ -147,7 +210,11 @@ export function TopNav({
               {getInitials(authUser, role)}
             </div>
             <button
-              onClick={() => onNavigate?.(`/${role.toLowerCase()}/settings`)}
+              onClick={() => {
+                const rolePathMap: Record<string, string> = { 'Technical Staff': 'employee', SuperAdmin: 'superadmin', Admin: 'admin', Employee: 'employee', Client: 'client' };
+                const segment = rolePathMap[role] || role.toLowerCase();
+                onNavigate?.(`/${segment}/settings`);
+              }}
               className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Settings"
             >

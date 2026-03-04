@@ -18,8 +18,10 @@ import {
 import { toast } from 'sonner';
 import {
   fetchTickets,
+  fetchEmployees,
   deleteTicket as apiDeleteTicket,
   updateTicket as apiUpdateTicket,
+  assignTicket,
 } from '../services/api';
 import type { BackendTicket } from '../services/api';
 import { mapBackendTicketToUI, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
@@ -40,7 +42,8 @@ export function AdminTickets() {
   const [tickets, setTickets] = useState<UITicket[]>([]);
   const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
   const [editTicket, setEditTicket] = useState<UITicket | null>(null);
-  const [editFields, setEditFields] = useState({ status: '', priority: '', assignee: '' });
+  const [editFields, setEditFields] = useState({ status: '', priority: '', assigneeId: '' });
+  const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch tickets from backend
@@ -48,10 +51,14 @@ export function AdminTickets() {
     let cancelled = false;
     (async () => {
       try {
-        const raw = await fetchTickets();
+        const [raw, emps] = await Promise.all([
+          fetchTickets(),
+          fetchEmployees().catch(() => []),
+        ]);
         if (cancelled) return;
         setBackendTickets(raw);
         setTickets(raw.map(mapBackendTicketToUI));
+        if (emps) setEmployees(emps);
       } catch (err) {
         if (!cancelled) toast.error('Failed to load tickets.');
       } finally {
@@ -70,21 +77,32 @@ export function AdminTickets() {
 
   const openEdit = (ticket: UITicket) => {
     setEditTicket(ticket);
-    setEditFields({ status: ticket.status, priority: ticket.priority, assignee: ticket.assignee || '' });
+    setEditFields({ status: ticket.status, priority: ticket.priority, assigneeId: ticket.assigneeId != null ? String(ticket.assigneeId) : '' });
     setOpenMenuId(null);
   };
 
   const saveEdit = async () => {
     if (!editTicket) return;
     try {
+      const assignedToId = editFields.assigneeId ? Number(editFields.assigneeId) : null;
+
+      // Update status & priority via PATCH
       await apiUpdateTicket(editTicket.backendId, {
         status: reverseMapStatus(editFields.status),
         priority: reverseMapPriority(editFields.priority),
       } as any);
+
+      // Assign employee via dedicated endpoint (if changed)
+      if (assignedToId && assignedToId !== editTicket.assigneeId) {
+        await assignTicket(editTicket.backendId, assignedToId);
+      }
+
+      const emp = employees.find((e) => e.id === assignedToId);
+      const assigneeName = emp ? `${emp.first_name} ${emp.last_name}`.trim() : null;
       setTickets((prev) =>
         prev.map((t) =>
           t.id === editTicket.id
-            ? { ...t, status: editFields.status, priority: editFields.priority as UITicket['priority'], assignee: editFields.assignee || null }
+            ? { ...t, status: editFields.status, priority: editFields.priority as UITicket['priority'], assignee: assigneeName, assigneeId: assignedToId }
             : t
         )
       );
@@ -240,7 +258,19 @@ export function AdminTickets() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Assignee</label>
-                <input value={editFields.assignee} onChange={(e) => setEditFields((p) => ({ ...p, assignee: e.target.value }))} placeholder="e.g. John D." className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#3BC25B] outline-none" />
+                {editTicket && !['New', 'Assigned'].includes(editTicket.status) ? (
+                  <>
+                    <select disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed outline-none">
+                      <option>{editTicket.assignee || 'Unassigned'}</option>
+                    </select>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Cannot reassign after the employee has started working.</p>
+                  </>
+                ) : (
+                  <select value={editFields.assigneeId} onChange={(e) => setEditFields((p) => ({ ...p, assigneeId: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#3BC25B] outline-none">
+                    <option value="">Unassigned</option>
+                    {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.first_name} {emp.last_name}</option>)}
+                  </select>
+                )}
               </div>
             </div>
             <div className="flex gap-3 mt-5">
