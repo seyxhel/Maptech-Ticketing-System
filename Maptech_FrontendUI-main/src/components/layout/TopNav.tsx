@@ -15,7 +15,7 @@ interface TopNavUser {
 }
 
 interface TopNavProps {
-  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
+  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Client';
   isDark: boolean;
   onToggleDark: () => void;
   onMenuClick?: () => void;
@@ -25,13 +25,13 @@ interface TopNavProps {
 }
 const ROLE_LABELS: Record<string, string> = {
   SuperAdmin: 'Super Administrator',
-  Admin: 'Administrator',
-  Employee: 'Employee',
+  Admin: 'Supervisor',
+  Employee: 'Technical',
   Client: 'Client Portal',
   // Also support lowercase backend role values
   superadmin: 'Super Administrator',
-  admin: 'Administrator',
-  employee: 'Employee',
+  admin: 'Supervisor',
+  employee: 'Technical',
 };
 
 function getRoleLabel(user?: TopNavUser | null, layoutRole?: string): string {

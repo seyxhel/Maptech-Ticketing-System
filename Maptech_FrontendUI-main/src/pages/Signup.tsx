@@ -81,7 +81,7 @@ const TERMS_CONDITIONS = (
     <p className="text-gray-300 text-sm mb-3">Use of the System indicates that you have read, understood, and agreed to these Terms. If you do not agree, you must refrain from using the System.</p>
 
     <h3 className="text-sm font-semibold text-white mt-4 mb-2">2. Purpose</h3>
-    <p className="text-gray-300 text-sm mb-3">The System is designed to help employees and authorized personnel submit, track, and resolve technical or administrative issues within the organization.</p>
+    <p className="text-gray-300 text-sm mb-3">The System is designed to help technicals and authorized personnel submit, track, and resolve technical or administrative issues within the organization.</p>
 
     <h3 className="text-sm font-semibold text-white mt-4 mb-2">3. User Responsibilities</h3>
     <ul className="list-disc list-inside text-gray-300 text-sm space-y-1 ml-2 mb-3">
@@ -306,7 +306,7 @@ export function Signup() {
       const _fullName = [firstName, middleName, lastName].filter(Boolean).join(' ');
       // TODO: Replace with actual API call when client registration endpoint is available
       // For now, show a message that registration requires admin approval
-      throw new Error('Client registration is not yet available. Please contact your administrator to create an account.');
+      throw new Error('Client registration is not yet available. Please contact your supervisor to create an account.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     } finally {

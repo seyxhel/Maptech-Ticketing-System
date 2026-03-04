@@ -122,7 +122,7 @@ export function SuperAdminDashboard() {
           title="Active Users"
           value="842"
           icon={Users}
-          subtext="Clients & Employees"
+          subtext="Clients & Technicals"
           color="purple" />
 
       </div>

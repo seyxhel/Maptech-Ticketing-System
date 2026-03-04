@@ -39,7 +39,7 @@ interface UserAccount {
   suffix: string;
   email: string;
   phone: string;
-  role: 'Admin' | 'Employee' | 'Superadmin';
+  role: 'Supervisor' | 'Technical' | 'Superadmin';
   status: 'Active' | 'Blocked';
 }
 
@@ -49,9 +49,9 @@ function toUserAccount(u: BackendUser): UserAccount {
     .map((s) => (s || '').trim())
     .filter(Boolean)
     .join(' ');
-  const roleMap: Record<string, 'Admin' | 'Employee' | 'Superadmin'> = {
-    admin: 'Admin',
-    employee: 'Employee',
+  const roleMap: Record<string, 'Supervisor' | 'Technical' | 'Superadmin'> = {
+    admin: 'Supervisor',
+    employee: 'Technical',
     superadmin: 'Superadmin',
   };
   return {
@@ -63,7 +63,7 @@ function toUserAccount(u: BackendUser): UserAccount {
     suffix: u.suffix || '',
     email: u.email,
     phone: u.phone || '',
-    role: roleMap[u.role] || 'Employee',
+    role: roleMap[u.role] || 'Technical',
     status: u.is_active ? 'Active' : 'Blocked',
   };
 }
@@ -91,7 +91,7 @@ export function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [roleFilter, setRoleFilter] = useState<
-    'All' | 'Admin' | 'Employee' | 'Superadmin'>(
+    'All' | 'Supervisor' | 'Technical' | 'Superadmin'>(
     'All');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -141,7 +141,7 @@ export function UserManagement() {
       suffix: user.suffix || '',
       email: user.email,
       contactNumber: user.phone || '',
-      role: (user.role === 'Employee' ? 'employee' : 'admin') as 'admin' | 'employee',
+      role: (user.role === 'Technical' ? 'employee' : 'admin') as 'admin' | 'employee',
     });
     setIsModalOpen(true);
   };
@@ -221,9 +221,9 @@ export function UserManagement() {
     }
   };
   const roleBadge = (role: string) => {
-    if (role === 'Admin')
+    if (role === 'Supervisor')
     return 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700';
-    if (role === 'Employee')
+    if (role === 'Technical')
     return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
     if (role === 'Superadmin')
     return 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
@@ -231,8 +231,8 @@ export function UserManagement() {
   };
   const roleCounts = {
     All: users.length,
-    Admin: users.filter((u) => u.role === 'Admin').length,
-    Employee: users.filter((u) => u.role === 'Employee').length,
+    Supervisor: users.filter((u) => u.role === 'Supervisor').length,
+    Technical: users.filter((u) => u.role === 'Technical').length,
     Superadmin: users.filter((u) => u.role === 'Superadmin').length
   };
   return (
@@ -271,13 +271,13 @@ export function UserManagement() {
           cls: 'bg-gray-900 dark:bg-gray-700 text-white'
         },
         {
-          label: 'Admins',
-          count: roleCounts.Admin,
+          label: 'Supervisors',
+          count: roleCounts.Supervisor,
           cls: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700'
         },
         {
-          label: 'Employees',
-          count: roleCounts.Employee,
+          label: 'Technicals',
+          count: roleCounts.Technical,
           cls: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
         },
         {
@@ -297,7 +297,7 @@ export function UserManagement() {
       <Card accent>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg gap-1">
-            {(['All', 'Admin', 'Employee', 'Superadmin'] as const).map((tab) =>
+            {(['All', 'Supervisor', 'Technical', 'Superadmin'] as const).map((tab) =>
             <button
               key={tab}
               onClick={() => setRoleFilter(tab)}
@@ -452,7 +452,7 @@ export function UserManagement() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {editingUser
                     ? `Editing: ${displayName(editingUser)}`
-                    : 'Create a new Admin or Employee account'}
+                    : 'Create a new Supervisor or Technical account'}
                 </p>
               </div>
               <button
@@ -551,8 +551,8 @@ export function UserManagement() {
                   }
                   className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#3BC25B] outline-none"
                 >
-                  <option value="admin">Admin</option>
-                  <option value="employee">Employee</option>
+                  <option value="admin">Supervisor</option>
+                  <option value="employee">Technical</option>
                 </select>
               </div>
 

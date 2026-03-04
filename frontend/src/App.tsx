@@ -10,6 +10,8 @@ import ForgotPassword from './authentication/pages/ForgotPassword'
 import EmployeeDashboard from './employee/pages/EmployeeDashboard'
 import AdminDashboard from './admin/pages/dashboard/AdminDashboard'
 import AdminCreateTicket from './admin/pages/create-ticket/AdminCreateTicket'
+import ProductsPage from './admin/pages/products/ProductsPage'
+import ClientsPage from './admin/pages/clients/ClientsPage'
 import UserManagement from './admin/pages/user-management/UserManagement.tsx/UserManagement'
 import SettingsPage from './shared/pages/SettingsPage'
 import ProtectedRoute from './shared/components/ProtectedRoute'
@@ -46,6 +48,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute role={['admin', 'superadmin']}>
             <AdminCreateTicket />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/products"
+        element={
+          <ProtectedRoute role={['admin', 'superadmin']}>
+            <ProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/clients"
+        element={
+          <ProtectedRoute role={['admin', 'superadmin']}>
+            <ClientsPage />
           </ProtectedRoute>
         }
       />

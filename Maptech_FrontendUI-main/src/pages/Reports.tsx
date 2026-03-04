@@ -64,7 +64,7 @@ export function Reports() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Admin Reports - Maptech Ticketing System</title>
+        <title>Supervisor Reports - Maptech Ticketing System</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1f2937; }
@@ -86,7 +86,7 @@ export function Reports() {
       </head>
       <body>
         <div class="header">
-          <h1><span class="logo">Maptech</span> — Admin Reports</h1>
+          <h1><span class="logo">Maptech</span> — Supervisor Reports</h1>
           <p class="subtitle">Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString()}</p>
         </div>
         <div class="stat-grid">

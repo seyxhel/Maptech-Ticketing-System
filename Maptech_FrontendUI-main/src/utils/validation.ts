@@ -38,7 +38,7 @@ export function validateEmail(val: string): string {
   const v = val.trim();
   if (!v) return 'Email is required.';
   if (v.length > MAX_EMAIL) return `Email must be under ${MAX_EMAIL} characters.`;
-  if (!EMAIL_REGEX.test(v)) return 'Please enter a valid email address.';
+  if (!EMAIL_REGEX.test(v)) return 'Invalid email.';
   return '';
 }
 

@@ -35,7 +35,7 @@ export function EmployeeLayout() {
 
   return (
     <Layout
-      role="Employee"
+      role="Technical"
       currentPage={location.pathname}
       onNavigate={handleNavigate}
       isDark={isDark}

@@ -8,6 +8,10 @@ class TypeOfService(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    estimated_resolution_days = models.PositiveIntegerField(
+        default=0,
+        help_text='Estimated number of days to resolve tickets of this service type (SLA basis)',
+    )
 
     class Meta:
         verbose_name = 'Type of Service'
@@ -15,6 +19,58 @@ class TypeOfService(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# ────────────────────────────────────────────
+# Product model (global catalog)
+# ────────────────────────────────────────────
+
+class Product(models.Model):
+    """Global product/equipment catalog."""
+    device_equipment = models.CharField(max_length=300, blank=True)
+    version_no = models.CharField(max_length=100, blank=True)
+    date_purchased = models.DateField(null=True, blank=True)
+    serial_no = models.CharField(max_length=200, blank=True)
+    has_warranty = models.BooleanField(default=False)
+    product_name = models.CharField(max_length=300, blank=True, help_text='Product name (optional)')
+    brand = models.CharField(max_length=300, blank=True, help_text='Brand (optional)')
+    model_name = models.CharField(max_length=300, blank=True, help_text='Model (optional)')
+    sales_no = models.CharField(max_length=200, blank=True, help_text='Sales/invoice number')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        parts = [self.product_name, self.brand, self.model_name, self.serial_no]
+        return ' / '.join(p for p in parts if p) or f'Product #{self.id}'
+
+
+# ────────────────────────────────────────────
+# Client model (master data)
+# ────────────────────────────────────────────
+
+class Client(models.Model):
+    """Client master data record."""
+    client_name = models.CharField(max_length=200)
+    contact_person = models.CharField(max_length=200, blank=True)
+    landline = models.CharField(max_length=30, blank=True)
+    mobile_no = models.CharField(max_length=20, blank=True)
+    designation = models.CharField(max_length=200, blank=True)
+    department_organization = models.CharField(max_length=200, blank=True)
+    email_address = models.EmailField(blank=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['client_name']
+
+    def __str__(self):
+        return self.client_name
 
 
 class Ticket(models.Model):
@@ -74,6 +130,14 @@ class Ticket(models.Model):
         (JOB_UNDER_CONTRACT, 'Under Contract'),
     ]
 
+    # --- Cascade type choices (employee sets after resolving) ---
+    CASCADE_INTERNAL = 'internal'
+    CASCADE_EXTERNAL = 'external'
+    CASCADE_TYPE_CHOICES = [
+        (CASCADE_INTERNAL, 'Internal'),
+        (CASCADE_EXTERNAL, 'External'),
+    ]
+
     # ---- Original fields ----
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='created_tickets', on_delete=models.CASCADE)
@@ -84,8 +148,8 @@ class Ticket(models.Model):
     # ---- New client-side fields ----
     stf_no = models.CharField(max_length=30, unique=True, blank=True)
     date = models.DateField(default=timezone.now)  # coerced in save()
-    time_in = models.DateTimeField(null=True, blank=True)       # populated when admin reviews
-    time_out = models.DateTimeField(null=True, blank=True)      # placeholder for later dev
+    time_in = models.DateTimeField(null=True, blank=True)       # when employee starts working
+    time_out = models.DateTimeField(null=True, blank=True)      # when employee clicks resolve
     client = models.CharField(max_length=200, blank=True)
     contact_person = models.CharField(max_length=200, blank=True)
     address = models.TextField(blank=True)
@@ -96,6 +160,12 @@ class Ticket(models.Model):
     email_address = models.EmailField(blank=True)
     type_of_service = models.ForeignKey(TypeOfService, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets')
     type_of_service_others = models.CharField(max_length=200, blank=True)
+
+    # ---- FK to Client and Product (optional, for existing clients) ----
+    client_record = models.ForeignKey(Client, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets',
+                                      help_text='Link to existing client record')
+    product_record = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets',
+                                       help_text='Link to product from global catalog')
 
     # ---- Admin-set field ----
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
@@ -121,6 +191,26 @@ class Ticket(models.Model):
 
     job_status = models.CharField(max_length=20, choices=JOB_STATUS_CHOICES, blank=True, default='')
 
+    # ---- Cascade type (employee sets after resolving) ----
+    cascade_type = models.CharField(max_length=20, choices=CASCADE_TYPE_CHOICES, blank=True, default='',
+                                    help_text='Cascading type selected by employee when resolving')
+
+    # ---- Observation (employee fills before resolving) ----
+    observation = models.TextField(blank=True, default='',
+                                   help_text='Employee observation before closing the ticket')
+
+    # ---- Digital signature (base64 encoded image) ----
+    signature = models.TextField(blank=True, default='',
+                                 help_text='Base64 encoded signature image')
+    signed_by_name = models.CharField(max_length=200, blank=True, default='',
+                                      help_text='Name of person who signed')
+
+    # ---- Estimated resolution days override (for "Others" type of service) ----
+    estimated_resolution_days_override = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Override estimated resolution days when type of service is Others',
+    )
+
     # ---- External escalation fields ----
     external_escalated_to = models.CharField(max_length=300, blank=True, default='')
     external_escalation_notes = models.TextField(blank=True, default='')
@@ -137,6 +227,30 @@ class Ticket(models.Model):
         if not self.stf_no:
             self.stf_no = self._generate_stf_no()
         super().save(*args, **kwargs)
+
+    @property
+    def sla_estimated_days(self):
+        """Return the effective estimated resolution days (from TypeOfService or override for Others)."""
+        if self.estimated_resolution_days_override:
+            return self.estimated_resolution_days_override
+        if self.type_of_service and self.type_of_service.estimated_resolution_days:
+            return self.type_of_service.estimated_resolution_days
+        return 0
+
+    @property
+    def progress_percentage(self):
+        """Auto-calculate progress based on time elapsed vs SLA estimated resolution days."""
+        est_days = self.sla_estimated_days
+        if est_days <= 0:
+            return 0
+        start = self.time_in
+        if not start:
+            return 0
+        end = self.time_out or timezone.now()
+        elapsed = (end - start).total_seconds()
+        total_seconds = est_days * 24 * 3600
+        pct = (elapsed / total_seconds) * 100
+        return min(round(pct, 1), 100.0)
 
     @staticmethod
     def _generate_stf_no():
@@ -385,3 +499,61 @@ class AuditLog(models.Model):
             ip_address=ip_address,
             changes=changes,
         )
+
+
+# ────────────────────────────────────────────
+# Call Log model
+# ────────────────────────────────────────────
+
+class CallLog(models.Model):
+    """Records each call made by admin to a client during ticket creation."""
+    ticket = models.ForeignKey(Ticket, null=True, blank=True, on_delete=models.SET_NULL, related_name='call_logs')
+    admin = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='call_logs', on_delete=models.CASCADE)
+    client_name = models.CharField(max_length=200, blank=True)
+    phone_number = models.CharField(max_length=30, blank=True)
+    call_start = models.DateTimeField(help_text='When the call started')
+    call_end = models.DateTimeField(null=True, blank=True, help_text='When the call ended')
+    notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-call_start']
+
+    @property
+    def duration_seconds(self):
+        if self.call_start and self.call_end:
+            return (self.call_end - self.call_start).total_seconds()
+        return None
+
+    def __str__(self):
+        return f"Call #{self.id} by {self.admin.username} at {self.call_start}"
+
+
+# ────────────────────────────────────────────
+# CSAT Feedback model (admin rates employee)
+# ────────────────────────────────────────────
+
+class CSATFeedback(models.Model):
+    """Admin feedback on employee performance before closing a ticket."""
+    RATING_CHOICES = [
+        (1, 'Very Poor'),
+        (2, 'Poor'),
+        (3, 'Average'),
+        (4, 'Good'),
+        (5, 'Excellent'),
+    ]
+
+    ticket = models.OneToOneField(Ticket, on_delete=models.CASCADE, related_name='csat_feedback')
+    employee = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='csat_received', on_delete=models.CASCADE)
+    admin = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='csat_given', on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
+    comments = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'CSAT Feedback'
+        verbose_name_plural = 'CSAT Feedbacks'
+
+    def __str__(self):
+        return f"CSAT for {self.ticket.stf_no}: {self.rating}/5 by {self.admin.username}"

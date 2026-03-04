@@ -195,7 +195,7 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Console</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Supervisor Console</h1>
           <p className="text-gray-500 dark:text-gray-400">Manage tickets, assignments, and team performance</p>
         </div>
         <GreenButton onClick={() => navigate('/admin/create-ticket')}>+ Create Ticket</GreenButton>
@@ -287,36 +287,6 @@ export function AdminDashboard() {
         </Card>
 
         <div className="space-y-6">
-          <Card className="border-t-4 border-t-orange-500">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Escalation Module</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Ticket</label>
-                <select value={selectedEscalationTicket} onChange={(e) => setSelectedEscalationTicket(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
-                  {tickets.filter(t => t.status !== 'Resolved' && t.status !== 'Closed').map(t => (
-                    <option key={t.id} value={t.id}>{t.id} — {t.subject.slice(0, 28)}{t.subject.length > 28 ? '…' : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Escalation Type</label>
-                <div className="flex flex-col gap-2">
-                  {[
-                    { key: 'Higher' as const, label: 'Escalate to Higher Position', icon: ArrowUpRight, active: 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300' },
-                    { key: 'Distributor' as const, label: 'Cascade to Distributor', icon: Share2, active: 'bg-teal-50 dark:bg-teal-900/30 border-teal-200 dark:border-teal-700 text-teal-700 dark:text-teal-300' },
-                    { key: 'Principal' as const, label: 'Cascade to Principal', icon: Building2, active: 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700 text-[#0E8F79] dark:text-green-400' },
-                  ].map(({ key, label, icon: Icon, active }) => (
-                    <button key={key} onClick={() => setEscalationType(key)} className={`flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${escalationType === key ? active : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'}`}><Icon className="w-4 h-4 mr-2" />{label}</button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason <span className="text-red-500">*</span></label>
-                <textarea value={escalationReason} onChange={(e) => setEscalationReason(e.target.value)} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none resize-none text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500" placeholder="Explain why this ticket needs escalation..." />
-              </div>
-              <GreenButton onClick={handleEscalate} fullWidth>Submit Escalation</GreenButton>
-            </div>
-          </Card>
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />

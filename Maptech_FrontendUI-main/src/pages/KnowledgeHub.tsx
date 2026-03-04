@@ -425,7 +425,7 @@ export default function KnowledgeHub() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Submitted Required Proofs</h2>
               <p className="text-white/70 text-sm max-w-md mb-8">
-                View all submitted required proof attachments from STF Ticket forms. These include resolution proofs, documentation, photos, and other evidence uploaded by employees during ticket resolution.
+                View all submitted required proof attachments from STF Ticket forms. These include resolution proofs, documentation, photos, and other evidence uploaded by technicals during ticket resolution.
               </p>
               <button
                 onClick={() => setShowProofs(true)}

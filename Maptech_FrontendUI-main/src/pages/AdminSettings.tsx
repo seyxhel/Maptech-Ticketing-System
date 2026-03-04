@@ -125,7 +125,7 @@ export function AdminSettings() {
     <div className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
-        <p className="text-gray-500 dark:text-gray-400">Manage your admin account settings</p>
+        <p className="text-gray-500 dark:text-gray-400">Manage your supervisor account settings</p>
       </div>
 
       {/* ── Personal Details ── */}
@@ -153,7 +153,7 @@ export function AdminSettings() {
               { label: 'Email', value: user?.email || '—', icon: Mail },
               { label: 'Phone', value: user?.phone || '—', icon: Phone },
               { label: 'Department', value: 'Administration', icon: Building },
-              { label: 'Role', value: 'Administrator', icon: Shield },
+              { label: 'Role', value: 'Supervisor', icon: Shield },
             ].map((f) => (
               <div key={f.label}>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">{f.label}</label>
@@ -216,7 +216,7 @@ export function AdminSettings() {
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role</label>
                 <div className={boxReadonly}>
                   <Shield className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Administrator</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Supervisor</span>
                 </div>
               </div>
             </div>

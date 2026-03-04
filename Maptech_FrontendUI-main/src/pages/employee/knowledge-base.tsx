@@ -307,10 +307,10 @@ export default function EmployeeKnowledgeBase() {
           <div>
             <h3 className="text-lg font-bold mb-1">Can't find what you need?</h3>
             <p className="text-white/70 text-sm mb-3">
-              If the troubleshooting guides above don't resolve the issue, escalate the ticket to a senior engineer or contact the admin team directly.
+              If the troubleshooting guides above don't resolve the issue, escalate the ticket to a senior engineer or contact the supervisor team directly.
             </p>
             <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
-              Contact Admin Team <ArrowUpRight className="w-4 h-4" />
+              Contact Supervisor Team <ArrowUpRight className="w-4 h-4" />
             </button>
           </div>
         </div>

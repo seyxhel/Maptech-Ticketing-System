@@ -6,7 +6,11 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from django.utils import timezone
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, EscalationLog, AuditLog
+from .models import (
+    Ticket, TicketTask, TypeOfService, TicketAttachment,
+    AssignmentSession, Message, EscalationLog, AuditLog,
+    Product, Client, CallLog, CSATFeedback,
+)
 from .serializers import (
     TicketSerializer, TypeOfServiceSerializer,
     TicketAttachmentSerializer, EscalationLogSerializer,
@@ -16,6 +20,8 @@ from .serializers import (
     AuditLogSerializer,
     KnowledgeHubAttachmentSerializer,
     PublishedArticleSerializer,
+    ProductSerializer, ClientSerializer,
+    CallLogSerializer, CSATFeedbackSerializer,
 )
 from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant, IsSuperAdmin
 from users.serializers import UserSerializer
@@ -81,8 +87,21 @@ class TicketViewSet(viewsets.ModelViewSet):
         if user.is_admin_level:
             priority = serializer.validated_data.pop('priority', '') or request.data.get('priority', '')
             assign_to_id = serializer.validated_data.pop('assign_to', None) or request.data.get('assign_to')
+            is_existing = serializer.validated_data.pop('is_existing_client', False)
 
             ticket = serializer.save(created_by=user)
+
+            # If existing client, pre-fill client info from the Client record
+            if is_existing and ticket.client_record:
+                cr = ticket.client_record
+                ticket.client = cr.client_name
+                ticket.contact_person = cr.contact_person
+                ticket.landline = cr.landline
+                ticket.mobile_no = cr.mobile_no
+                ticket.designation = cr.designation
+                ticket.department_organization = cr.department_organization
+                ticket.email_address = cr.email_address
+                ticket.address = cr.address
 
             if priority and priority in dict(Ticket.PRIORITY_CHOICES):
                 ticket.priority = priority
@@ -156,9 +175,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             'save_product_details':     [IsAuthenticated(), IsAssignedEmployee()],
             'request_closure':          [IsAuthenticated(), IsAssignedEmployee()],
             # Admin or assigned employee
-            'escalate_external':        [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            'escalate_external':        [IsAuthenticated(), IsAssignedEmployee()],
             'upload_resolution_proof':  [IsAuthenticated(), IsAdminOrAssignedEmployee()],
             'update_task':              [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            # Employee starts working
+            'start_work':               [IsAuthenticated(), IsAssignedEmployee()],
             # Delete attachment (resolution proofs)
             'delete_attachment':        [IsAuthenticated(), IsTicketParticipant()],
         }
@@ -393,6 +414,17 @@ class TicketViewSet(viewsets.ModelViewSet):
             if field in request.data:
                 setattr(ticket, field, request.data[field])
                 changes[field] = request.data[field]
+
+        # Time In: set when employee first starts working on the ticket
+        if not ticket.time_in:
+            ticket.time_in = timezone.now()
+            changes['time_in'] = str(ticket.time_in)
+
+        # Set status to in_progress when employee starts working
+        if ticket.status == Ticket.STATUS_OPEN:
+            ticket.status = Ticket.STATUS_IN_PROGRESS
+            changes['status'] = ticket.status
+
         ticket.save()
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
@@ -410,13 +442,24 @@ class TicketViewSet(viewsets.ModelViewSet):
             'device_equipment', 'version_no',
             'date_purchased', 'serial_no',
             'action_taken', 'remarks', 'job_status',
+            'cascade_type', 'observation', 'signature', 'signed_by_name',
         ]
         for field in allowed:
             if field in request.data:
                 setattr(ticket, field, request.data[field])
+
+        # Time In: set when employee first starts working on the ticket
+        if not ticket.time_in:
+            ticket.time_in = timezone.now()
+
         # Set status to pending_closure (Resolved) when employee clicks Resolve
         old_status = ticket.status
+
+        # Time Out: set when employee resolves the ticket
         ticket.status = Ticket.STATUS_PENDING_CLOSURE
+        if not ticket.time_out:
+            ticket.time_out = timezone.now()
+
         ticket.save()
 
         action_type = AuditLog.ACTION_RESOLVE if ticket.status == Ticket.STATUS_PENDING_CLOSURE else AuditLog.ACTION_UPDATE
@@ -489,6 +532,15 @@ class TicketViewSet(viewsets.ModelViewSet):
         """Admin/Superadmin closes the ticket immediately."""
         ticket = self.get_object()
 
+        # Require CSAT feedback before closing
+        if not hasattr(ticket, 'csat_feedback') or not ticket.csat_feedback:
+            # Allow closing without CSAT if no employee is assigned
+            if ticket.assigned_to:
+                return Response(
+                    {'detail': 'Please submit CSAT feedback for the employee before closing this ticket.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # End current session
         if ticket.current_session:
             ticket.current_session.is_active = False
@@ -496,7 +548,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.current_session.save()
 
         ticket.status = Ticket.STATUS_CLOSED
-        ticket.time_out = timezone.now()
+        if not ticket.time_out:
+            ticket.time_out = timezone.now()
         ticket.save()
 
         # System message
@@ -603,6 +656,23 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ── Dashboard stats ───────────────────────────────────────────────────
+    @action(detail=True, methods=['post'])
+    def start_work(self, request, pk=None):
+        """Employee marks they are starting work on a ticket.
+        Sets time_in and status to in_progress."""
+        ticket = self.get_object()
+        if not ticket.time_in:
+            ticket.time_in = timezone.now()
+        if ticket.status == Ticket.STATUS_OPEN:
+            ticket.status = Ticket.STATUS_IN_PROGRESS
+        ticket.save()
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
+                           f"{request.user.email} started working on ticket {ticket.stf_no}",
+                           changes={'time_in': str(ticket.time_in), 'status': ticket.status})
+
+        return Response(self.get_serializer(ticket).data)
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Dashboard statistics scoped to user role."""
@@ -728,11 +798,23 @@ from drf_yasg.utils import swagger_auto_schema
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_employees(request):
-    """Return list of employees (for assignment/pass pickers)."""
+    """Return list of employees with their active ticket counts (for SLA-based assignment)."""
     if not (request.user.is_admin_level or request.user.role == User.ROLE_EMPLOYEE):
         return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
-    employees = User.objects.filter(role=User.ROLE_EMPLOYEE).order_by('first_name', 'last_name')
-    return Response(UserSerializer(employees, many=True).data)
+    employees = User.objects.filter(role=User.ROLE_EMPLOYEE).annotate(
+        active_ticket_count=Count(
+            'assigned_tickets',
+            filter=Q(assigned_tickets__status__in=[
+                Ticket.STATUS_OPEN, Ticket.STATUS_IN_PROGRESS, Ticket.STATUS_ESCALATED,
+            ])
+        )
+    ).order_by('active_ticket_count', 'first_name', 'last_name')
+    data = UserSerializer(employees, many=True).data
+    # Attach ticket counts
+    emp_counts = {e.id: e.active_ticket_count for e in employees}
+    for d in data:
+        d['active_ticket_count'] = emp_counts.get(d['id'], 0)
+    return Response(data)
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -1003,3 +1085,158 @@ class PublishedArticleViewSet(viewsets.ReadOnlyModelViewSet):
             )
 
         return qs
+
+
+# ────────────────────────────────────────────
+# Product CRUD ViewSet
+# ────────────────────────────────────────────
+
+class ProductViewSet(viewsets.ModelViewSet):
+    """CRUD for global Product catalog. Admin manages, all authenticated can list."""
+    queryset = Product.objects.all().order_by('-created_at')
+    serializer_class = ProductSerializer
+    swagger_tags = ['Products']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminLevel()]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Product.objects.none()
+        qs = Product.objects.all().order_by('-created_at')
+        if not self.request.user.is_admin_level:
+            qs = qs.filter(is_active=True)
+
+        # Search
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(product_name__icontains=search) |
+                Q(brand__icontains=search) |
+                Q(model_name__icontains=search) |
+                Q(serial_no__icontains=search) |
+                Q(device_equipment__icontains=search) |
+                Q(sales_no__icontains=search)
+            )
+        return qs
+
+
+# ────────────────────────────────────────────
+# Client CRUD ViewSet
+# ────────────────────────────────────────────
+
+class ClientViewSet(viewsets.ModelViewSet):
+    """CRUD for Client master data. Admin manages, all authenticated can list."""
+    queryset = Client.objects.all().order_by('client_name')
+    serializer_class = ClientSerializer
+    swagger_tags = ['Clients']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminLevel()]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Client.objects.none()
+        qs = Client.objects.all().order_by('client_name')
+        if not self.request.user.is_admin_level:
+            qs = qs.filter(is_active=True)
+
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(client_name__icontains=search) |
+                Q(contact_person__icontains=search) |
+                Q(email_address__icontains=search) |
+                Q(department_organization__icontains=search)
+            )
+        return qs
+
+    @action(detail=True, methods=['get'])
+    def tickets(self, request, pk=None):
+        """Return all tickets linked to this client."""
+        client = self.get_object()
+        tickets = Ticket.objects.filter(
+            Q(client_record=client) | Q(client__iexact=client.client_name)
+        ).order_by('-created_at')
+        return Response(TicketSerializer(tickets, many=True, context={'request': request}).data)
+
+
+# ────────────────────────────────────────────
+# Call Log ViewSet
+# ────────────────────────────────────────────
+
+class CallLogViewSet(viewsets.ModelViewSet):
+    """CRUD for call logs. Admin creates, all admin-level can list."""
+    queryset = CallLog.objects.all().order_by('-call_start')
+    serializer_class = CallLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminLevel]
+    swagger_tags = ['Call Logs']
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return CallLog.objects.none()
+        qs = CallLog.objects.all().order_by('-call_start')
+
+        # Filter by ticket
+        ticket_id = self.request.query_params.get('ticket')
+        if ticket_id:
+            qs = qs.filter(ticket_id=ticket_id)
+
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(client_name__icontains=search) |
+                Q(phone_number__icontains=search) |
+                Q(notes__icontains=search)
+            )
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(admin=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def end_call(self, request, pk=None):
+        """End an active call (sets call_end to now)."""
+        call_log = self.get_object()
+        if call_log.call_end:
+            return Response({'detail': 'Call already ended.'}, status=status.HTTP_400_BAD_REQUEST)
+        call_log.call_end = timezone.now()
+        notes = request.data.get('notes')
+        if notes:
+            call_log.notes = notes
+        call_log.save()
+        return Response(CallLogSerializer(call_log).data)
+
+
+# ────────────────────────────────────────────
+# CSAT Feedback ViewSet
+# ────────────────────────────────────────────
+
+class CSATFeedbackViewSet(viewsets.ModelViewSet):
+    """Admin submits CSAT feedback on employee performance before closing a ticket."""
+    queryset = CSATFeedback.objects.all().order_by('-created_at')
+    serializer_class = CSATFeedbackSerializer
+    permission_classes = [IsAuthenticated, IsAdminLevel]
+    swagger_tags = ['CSAT Feedback']
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return CSATFeedback.objects.none()
+        qs = CSATFeedback.objects.all().order_by('-created_at')
+
+        ticket_id = self.request.query_params.get('ticket')
+        if ticket_id:
+            qs = qs.filter(ticket_id=ticket_id)
+
+        employee_id = self.request.query_params.get('employee')
+        if employee_id:
+            qs = qs.filter(employee_id=employee_id)
+
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(admin=self.request.user)

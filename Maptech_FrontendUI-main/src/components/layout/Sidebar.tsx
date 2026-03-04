@@ -19,7 +19,7 @@ export interface NavItem {
 }
 
 interface SidebarProps {
-  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Client';
+  role: 'SuperAdmin' | 'Admin' | 'Employee' | 'Technical' | 'Client';
   onNavigate: (page: string) => void;
   currentPage: string;
   /** When provided, use these items (path = route path). Otherwise derive from role (legacy). */

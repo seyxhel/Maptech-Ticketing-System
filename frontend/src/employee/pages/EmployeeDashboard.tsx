@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { fetchTickets, updateEmployeeFields, deleteAttachment, uploadResolutionProof, updateTaskStatus } from '../../services/ticketService'
+import { fetchTickets, updateEmployeeFields, deleteAttachment, uploadResolutionProof, updateTaskStatus, escalateExternal } from '../../services/ticketService'
 import { getCurrentUser } from '../../services/authService'
+import { startWork } from '../../services/csatService'
 import TicketChat from '../../shared/components/TicketChat'
+import SignaturePad from '../../shared/components/SignaturePad'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
 const labelStyle: React.CSSProperties = { display: 'block', fontWeight: 600, fontSize: 13, marginBottom: 4, color: '#374151' }
@@ -25,6 +27,12 @@ export default function EmployeeDashboard() {
   const [actionTaken, setActionTaken] = useState('')
   const [remarks, setRemarks] = useState('')
   const [jobStatus, setJobStatus] = useState('')
+
+  // New fields: cascade, observation, signature
+  const [cascadeType, setCascadeType] = useState('')
+  const [observation, setObservation] = useState('')
+  const [signature, setSignature] = useState('')
+  const [signedByName, setSignedByName] = useState('')
 
   // Resolution proof
   const [proofFiles, setProofFiles] = useState<File[]>([])
@@ -56,6 +64,10 @@ export default function EmployeeDashboard() {
     setActionTaken(t.action_taken || '')
     setRemarks(t.remarks || '')
     setJobStatus(t.job_status || '')
+    setCascadeType(t.cascade_type || '')
+    setObservation(t.observation || '')
+    setSignature(t.signature || '')
+    setSignedByName(t.signed_by_name || '')
     setProofFiles([])
   }
   const closeDetail = () => { setViewTicket(null); setProofFiles([]) }
@@ -74,6 +86,10 @@ export default function EmployeeDashboard() {
       action_taken: actionTaken,
       remarks,
       job_status: jobStatus,
+      cascade_type: cascadeType || null,
+      observation,
+      signature: signature || null,
+      signed_by_name: signedByName,
     }
     await updateEmployeeFields(viewTicket.id, payload)
     // Upload resolution proof files
@@ -157,7 +173,7 @@ export default function EmployeeDashboard() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-                {['STF No.', 'Date', 'Client', 'Status', 'Priority', 'Job Status', ''].map(h => (
+                {['STF No.', 'Date', 'Client', 'Status', 'Priority', 'Progress', 'Job Status', ''].map(h => (
                   <th key={h} style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>{h}</th>
                 ))}
               </tr>
@@ -171,6 +187,12 @@ export default function EmployeeDashboard() {
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.client || '—'}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}><span style={statusBadge(t.status)}>{t.status?.replace(/_/g, ' ')}</span></td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '—'}</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                    <div style={{ background: '#e5e7eb', borderRadius: 4, overflow: 'hidden', height: 14, width: 80 }}>
+                      <div style={{ height: '100%', borderRadius: 4, background: (t.progress_percentage ?? 0) >= 100 ? '#ef4444' : '#22c55e', width: `${Math.min(t.progress_percentage ?? 0, 100)}%` }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: '#6b7280' }}>{t.progress_percentage ?? 0}%</span>
+                  </td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.job_status?.replace(/_/g, ' ') || '—'}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                     <button style={{ ...btnPrimary, padding: '5px 14px', fontSize: 12 }} onClick={() => openDetail(t)}>View</button>
@@ -223,6 +245,33 @@ export default function EmployeeDashboard() {
             )}
 
             {ticketEditable && (<>
+
+            {/* Start Work / Progress */}
+            <div style={{ marginBottom: 16, padding: 16, background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <strong style={{ fontSize: 14 }}>Work Progress</strong>
+                {!viewTicket.time_in && (
+                  <button style={{ ...btnPrimary, padding: '6px 16px', fontSize: 12, background: '#22c55e' }} onClick={async () => {
+                    try { await startWork(viewTicket.id); const refreshed = await fetchTickets(); setTickets(refreshed); const fresh = refreshed.find((t: any) => t.id === viewTicket.id); if (fresh) { setViewTicket(fresh) }; } catch { /* */ }
+                  }}>▶ Start Work</button>
+                )}
+              </div>
+              {viewTicket.time_in && (
+                <>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 13, marginBottom: 8 }}>
+                    <span><strong>Time In:</strong> {new Date(viewTicket.time_in).toLocaleString()}</span>
+                    {viewTicket.time_out && <span><strong>Time Out:</strong> {new Date(viewTicket.time_out).toLocaleString()}</span>}
+                  </div>
+                  <div style={{ background: '#e5e7eb', borderRadius: 6, overflow: 'hidden', height: 20 }}>
+                    <div style={{ height: '100%', borderRadius: 6, background: (viewTicket.progress_percentage ?? 0) >= 100 ? '#ef4444' : '#22c55e', width: `${Math.min(viewTicket.progress_percentage ?? 0, 100)}%`, transition: 'width 0.4s', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>
+                      {viewTicket.progress_percentage ?? 0}%
+                    </div>
+                  </div>
+                  {viewTicket.sla_estimated_days && <p style={{ fontSize: 12, color: '#6b7280', margin: '4px 0 0' }}>SLA Target: {viewTicket.sla_estimated_days} day(s)</p>}
+                </>
+              )}
+            </div>
+
             {/* Product Details */}
             <fieldset style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, marginBottom: 16 }}>
               <legend style={{ fontWeight: 700, fontSize: 14, padding: '0 8px' }}>Product Details</legend>
@@ -351,6 +400,41 @@ export default function EmployeeDashboard() {
                   >{js.label}</button>
                 ))}
               </div>
+            </div>
+
+            {/* Cascade Type */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Cascade Type</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[{ value: 'internal', label: 'Internal' }, { value: 'external', label: 'External' }].map(ct => (
+                  <button key={ct.value} type="button" onClick={() => setCascadeType(ct.value)}
+                    style={{ padding: '6px 18px', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 13, border: cascadeType === ct.value ? '2px solid #2563eb' : '2px solid #e5e7eb', background: cascadeType === ct.value ? '#dbeafe' : '#fff', color: cascadeType === ct.value ? '#1d4ed8' : '#374151' }}>
+                    {ct.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Observation */}
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Observation</label>
+              <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Enter your observations before resolving..." />
+            </div>
+
+            {/* Signature */}
+            <div style={{ marginBottom: 20, padding: 16, border: '1px solid #e5e7eb', borderRadius: 8 }}>
+              <label style={{ ...labelStyle, marginBottom: 8 }}>Client Signature</label>
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ ...labelStyle, fontWeight: 400, fontSize: 13 }}>Signed By (Name)</label>
+                <input style={{ ...inputStyle, maxWidth: 300 }} value={signedByName} onChange={e => setSignedByName(e.target.value)} placeholder="Name of the person signing" />
+              </div>
+              <SignaturePad onSave={(dataUrl) => setSignature(dataUrl)} />
+              {signature && (
+                <div style={{ marginTop: 8 }}>
+                  <p style={{ fontSize: 12, color: '#15803d', margin: 0 }}>✓ Signature captured</p>
+                  <img src={signature} alt="Signature" style={{ maxWidth: 250, border: '1px solid #e5e7eb', borderRadius: 4, marginTop: 4 }} />
+                </div>
+              )}
             </div>
 
             {/* Action buttons */}

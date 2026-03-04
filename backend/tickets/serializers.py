@@ -1,6 +1,92 @@
 from rest_framework import serializers
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, AssignmentSession, Message, MessageReaction, MessageReadReceipt, EscalationLog, AuditLog
+from .models import (
+    Ticket, TicketTask, TypeOfService, TicketAttachment,
+    AssignmentSession, Message, MessageReaction, MessageReadReceipt,
+    EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback,
+)
 from users.serializers import UserSerializer
+
+
+# ────────────────────────────────────────────
+# Product serializer
+# ────────────────────────────────────────────
+
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'device_equipment', 'version_no', 'date_purchased',
+            'serial_no', 'has_warranty', 'product_name', 'brand',
+            'model_name', 'sales_no', 'is_active', 'created_at', 'updated_at',
+        ]
+
+
+# ────────────────────────────────────────────
+# Client serializer
+# ────────────────────────────────────────────
+
+class ClientSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = [
+            'id', 'client_name', 'contact_person', 'landline', 'mobile_no',
+            'designation', 'department_organization', 'email_address', 'address',
+            'is_active', 'created_at', 'updated_at',
+        ]
+
+
+# ────────────────────────────────────────────
+# CallLog serializer
+# ────────────────────────────────────────────
+
+class CallLogSerializer(serializers.ModelSerializer):
+    admin_name = serializers.SerializerMethodField()
+    duration_seconds = serializers.ReadOnlyField()
+
+    class Meta:
+        model = CallLog
+        fields = [
+            'id', 'ticket', 'admin', 'admin_name', 'client_name',
+            'phone_number', 'call_start', 'call_end', 'duration_seconds',
+            'notes', 'created_at',
+        ]
+        read_only_fields = ['admin', 'admin_name', 'created_at']
+
+    def get_admin_name(self, obj):
+        if obj.admin:
+            name = obj.admin.get_full_name()
+            return name if name.strip() else obj.admin.username
+        return ''
+
+
+# ────────────────────────────────────────────
+# CSAT Feedback serializer
+# ────────────────────────────────────────────
+
+class CSATFeedbackSerializer(serializers.ModelSerializer):
+    admin_name = serializers.SerializerMethodField()
+    employee_name = serializers.SerializerMethodField()
+    stf_no = serializers.CharField(source='ticket.stf_no', read_only=True)
+
+    class Meta:
+        model = CSATFeedback
+        fields = [
+            'id', 'ticket', 'stf_no', 'employee', 'employee_name',
+            'admin', 'admin_name', 'rating', 'comments', 'created_at',
+        ]
+        read_only_fields = ['admin', 'admin_name', 'employee_name', 'stf_no', 'created_at']
+
+    def get_admin_name(self, obj):
+        if obj.admin:
+            name = obj.admin.get_full_name()
+            return name if name.strip() else obj.admin.username
+        return ''
+
+    def get_employee_name(self, obj):
+        if obj.employee:
+            name = obj.employee.get_full_name()
+            return name if name.strip() else obj.employee.username
+        return ''
 
 
 
@@ -25,7 +111,7 @@ class TicketAttachmentSerializer(serializers.ModelSerializer):
 class TypeOfServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = TypeOfService
-        fields = ['id', 'name', 'description', 'is_active']
+        fields = ['id', 'name', 'description', 'is_active', 'estimated_resolution_days']
 
 
 class EscalationLogSerializer(serializers.ModelSerializer):
@@ -44,6 +130,11 @@ class TicketSerializer(serializers.ModelSerializer):
     attachments = TicketAttachmentSerializer(many=True, read_only=True)
     type_of_service_detail = TypeOfServiceSerializer(source='type_of_service', read_only=True)
     escalation_logs = EscalationLogSerializer(many=True, read_only=True)
+    client_record_detail = ClientSerializer(source='client_record', read_only=True)
+    product_record_detail = ProductSerializer(source='product_record', read_only=True)
+    progress_percentage = serializers.ReadOnlyField()
+    sla_estimated_days = serializers.ReadOnlyField()
+    csat_feedback = CSATFeedbackSerializer(read_only=True)
 
     # Role-based writable fields
     TICKET_FIELDS = {
@@ -51,13 +142,15 @@ class TicketSerializer(serializers.ModelSerializer):
         'landline', 'department_organization', 'mobile_no', 'email_address',
         'type_of_service', 'type_of_service_others',
         'preferred_support_type', 'description_of_problem',
-        'priority',
+        'priority', 'client_record', 'product_record',
+        'estimated_resolution_days_override',
     }
     EMPLOYEE_FIELDS = {
         'has_warranty', 'product', 'brand', 'model_name',
         'device_equipment', 'version_no',
         'date_purchased', 'serial_no',
         'action_taken', 'remarks', 'job_status',
+        'cascade_type', 'observation', 'signature', 'signed_by_name',
     }
 
     class Meta:
@@ -79,9 +172,18 @@ class TicketSerializer(serializers.ModelSerializer):
             'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',
             'attachments',
             'escalation_logs',
+            # New additions
+            'client_record', 'client_record_detail',
+            'product_record', 'product_record_detail',
+            'cascade_type', 'observation',
+            'signature', 'signed_by_name',
+            'estimated_resolution_days_override',
+            'progress_percentage', 'sla_estimated_days',
+            'csat_feedback',
         ]
         read_only_fields = ['stf_no', 'date', 'time_in', 'time_out', 'confirmed_by_admin',
-                            'external_escalated_to', 'external_escalation_notes', 'external_escalated_at']
+                            'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',
+                            'progress_percentage', 'sla_estimated_days']
 
     def _get_allowed_fields(self):
         """Return the set of writable field names based on the requesting user's role."""
@@ -119,6 +221,8 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
     """Form shown to admins when creating a new ticket.
     Includes priority and assign_to so the admin can set them during the call flow."""
     assign_to = serializers.IntegerField(required=False, write_only=True, help_text='Employee ID to assign')
+    is_existing_client = serializers.BooleanField(required=False, default=False, write_only=True,
+                                                   help_text='True if using existing client record')
 
     class Meta:
         model = Ticket
@@ -128,6 +232,9 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
             'type_of_service', 'type_of_service_others',
             'description_of_problem', 'preferred_support_type',
             'priority', 'assign_to',
+            'client_record', 'product_record',
+            'estimated_resolution_days_override',
+            'is_existing_client',
         ]
 
 
@@ -148,6 +255,13 @@ class EmployeeTicketActionSerializer(serializers.Serializer):
         required=False,
         choices=[('', '---')] + list(Ticket.JOB_STATUS_CHOICES),
     )
+    cascade_type = serializers.ChoiceField(
+        required=False,
+        choices=[('', '---')] + list(Ticket.CASCADE_TYPE_CHOICES),
+    )
+    observation = serializers.CharField(required=False, allow_blank=True, style={'base_template': 'textarea.html'})
+    signature = serializers.CharField(required=False, allow_blank=True)
+    signed_by_name = serializers.CharField(required=False, allow_blank=True, max_length=200)
 
 
 # ────────────────────────────────────────────

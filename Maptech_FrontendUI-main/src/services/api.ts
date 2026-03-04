@@ -93,6 +93,19 @@ export interface BackendTicket {
   tasks: { id: number; description: string; assigned_to: number | null; status: string }[];
   attachments: { id: number; file: string; uploaded_by: number; uploaded_at: string; is_resolution_proof: boolean }[];
   escalation_logs: { id: number; escalation_type: string; from_user: number; to_user: number | null; to_external: string; notes: string; created_at: string }[];
+  // New fields
+  client_record: number | null;
+  client_record_detail: ClientRecord | null;
+  product_record: number | null;
+  product_record_detail: Product | null;
+  cascade_type: string;
+  observation: string;
+  signature: string;
+  signed_by_name: string;
+  estimated_resolution_days_override: number | null;
+  progress_percentage: number;
+  sla_estimated_days: number;
+  csat_feedback: CSATFeedback | null;
   [key: string]: unknown;
 }
 
@@ -101,6 +114,65 @@ export interface TypeOfService {
   name: string;
   description: string;
   is_active: boolean;
+  estimated_resolution_days: number;
+}
+
+export interface Product {
+  id: number;
+  device_equipment: string;
+  version_no: string;
+  date_purchased: string | null;
+  serial_no: string;
+  has_warranty: boolean;
+  product_name: string;
+  brand: string;
+  model_name: string;
+  sales_no: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientRecord {
+  id: number;
+  client_name: string;
+  contact_person: string;
+  landline: string;
+  mobile_no: string;
+  designation: string;
+  department_organization: string;
+  email_address: string;
+  address: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CallLog {
+  id: number;
+  ticket: number | null;
+  admin: number;
+  admin_name: string;
+  client_name: string;
+  phone_number: string;
+  call_start: string;
+  call_end: string | null;
+  duration_seconds: number | null;
+  notes: string;
+  created_at: string;
+}
+
+export interface CSATFeedback {
+  id: number;
+  ticket: number;
+  stf_no: string;
+  employee: number;
+  employee_name: string;
+  admin: number;
+  admin_name: string;
+  rating: number;
+  comments: string;
+  created_at: string;
 }
 
 export interface EscalationLog {
@@ -211,9 +283,18 @@ export async function confirmTicket(ticketId: number): Promise<BackendTicket> {
   return handleResponse<BackendTicket>(res);
 }
 
-/** Close a ticket (admin). */
+/** Close a ticket (admin). Requires CSAT to be submitted first if ticket has an assignee. */
 export async function closeTicket(ticketId: number): Promise<BackendTicket> {
   const res = await fetch(`${API_BASE}/tickets/${ticketId}/close_ticket/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  return handleResponse<BackendTicket>(res);
+}
+
+/** Start work on a ticket (employee). Sets time_in and status to in_progress. */
+export async function startWork(ticketId: number): Promise<BackendTicket> {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/start_work/`, {
     method: 'POST',
     headers: authHeaders(),
   });
@@ -336,8 +417,8 @@ export async function fetchAssignmentHistory(ticketId: number): Promise<unknown[
 
 // ── Employee endpoints ──
 
-/** Fetch the list of employees (for assignment dropdowns). */
-export async function fetchEmployees(): Promise<{ id: number; username: string; email: string; first_name: string; last_name: string }[]> {
+/** Fetch the list of employees (for assignment dropdowns). Sorted by fewest active tickets. */
+export async function fetchEmployees(): Promise<{ id: number; username: string; email: string; first_name: string; last_name: string; active_ticket_count: number; is_active: boolean }[]> {
   const res = await fetch(`${API_BASE}/employees/`, { headers: authHeaders() });
   return handleResponse(res);
 }
@@ -639,4 +720,130 @@ export async function fetchPublishedArticles(params?: { search?: string }): Prom
   const qs = query.toString() ? `?${query.toString()}` : '';
   const res = await fetch(`${API_BASE}/published-articles/${qs}`, { headers: authHeaders() });
   return handleResponse<PublishedArticle[]>(res);
+}
+
+// ── Product endpoints ──
+
+/** Fetch all products. */
+export async function fetchProducts(): Promise<Product[]> {
+  const res = await fetch(`${API_BASE}/products/`, { headers: authHeaders() });
+  return handleResponse<Product[]>(res);
+}
+
+/** Create a product. */
+export async function createProduct(data: Partial<Product>): Promise<Product> {
+  const res = await fetch(`${API_BASE}/products/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Product>(res);
+}
+
+/** Update a product. */
+export async function updateProduct(id: number, data: Partial<Product>): Promise<Product> {
+  const res = await fetch(`${API_BASE}/products/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<Product>(res);
+}
+
+/** Delete a product. */
+export async function deleteProduct(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/products/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+  }
+}
+
+// ── Client endpoints ──
+
+/** Fetch all clients. */
+export async function fetchClients(): Promise<ClientRecord[]> {
+  const res = await fetch(`${API_BASE}/clients/`, { headers: authHeaders() });
+  return handleResponse<ClientRecord[]>(res);
+}
+
+/** Create a client. */
+export async function createClient(data: Partial<ClientRecord>): Promise<ClientRecord> {
+  const res = await fetch(`${API_BASE}/clients/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<ClientRecord>(res);
+}
+
+/** Update a client. */
+export async function updateClient(id: number, data: Partial<ClientRecord>): Promise<ClientRecord> {
+  const res = await fetch(`${API_BASE}/clients/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<ClientRecord>(res);
+}
+
+/** Delete a client. */
+export async function deleteClient(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/clients/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+  }
+}
+
+// ── Call Log endpoints ──
+
+/** Create a call log entry (start a call). */
+export async function createCallLog(data: { ticket?: number; client_name: string; phone_number: string; call_start: string; notes?: string }): Promise<CallLog> {
+  const res = await fetch(`${API_BASE}/call-logs/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<CallLog>(res);
+}
+
+/** End a call (update call_end). */
+export async function endCallLog(id: number, data: { call_end: string; notes?: string }): Promise<CallLog> {
+  const res = await fetch(`${API_BASE}/call-logs/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<CallLog>(res);
+}
+
+/** Fetch call logs. */
+export async function fetchCallLogs(): Promise<CallLog[]> {
+  const res = await fetch(`${API_BASE}/call-logs/`, { headers: authHeaders() });
+  return handleResponse<CallLog[]>(res);
+}
+
+// ── CSAT Feedback endpoints ──
+
+/** Submit CSAT feedback (admin rates employee before closing). */
+export async function createCSATFeedback(data: { ticket: number; employee: number; rating: number; comments?: string }): Promise<CSATFeedback> {
+  const res = await fetch(`${API_BASE}/csat-feedback/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<CSATFeedback>(res);
+}
+
+/** Fetch CSAT feedback entries. */
+export async function fetchCSATFeedbacks(): Promise<CSATFeedback[]> {
+  const res = await fetch(`${API_BASE}/csat-feedback/`, { headers: authHeaders() });
+  return handleResponse<CSATFeedback[]>(res);
 }

@@ -153,7 +153,7 @@ export default function EmployeeSettings() {
               { label: 'Email', value: user?.email || '—', icon: Mail },
               { label: 'Phone', value: user?.phone || '—', icon: Phone },
               { label: 'Department', value: 'Technical Support', icon: Building },
-              { label: 'Role', value: 'Employee', icon: Shield },
+              { label: 'Role', value: 'Technical', icon: Shield },
             ].map((f) => (
               <div key={f.label}>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">{f.label}</label>
@@ -216,7 +216,7 @@ export default function EmployeeSettings() {
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role</label>
                 <div className={boxReadonly}>
                   <Shield className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Employee</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Technical</span>
                 </div>
               </div>
             </div>

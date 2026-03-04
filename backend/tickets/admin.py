@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback
 
 User = get_user_model()
 
@@ -26,7 +26,7 @@ class TicketTaskAdmin(admin.ModelAdmin):
 
 @admin.register(TypeOfService)
 class TypeOfServiceAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description', 'is_active')
+    list_display = ('name', 'description', 'estimated_resolution_days', 'is_active')
     list_filter = ('is_active',)
 
 
@@ -48,3 +48,31 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_filter = ('entity', 'action')
     search_fields = ('activity', 'actor_email', 'ip_address')
     readonly_fields = ('timestamp', 'entity', 'entity_id', 'action', 'activity', 'actor', 'actor_email', 'ip_address', 'changes')
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ('product_name', 'brand', 'model_name', 'serial_no', 'sales_no', 'has_warranty', 'is_active')
+    list_filter = ('has_warranty', 'is_active')
+    search_fields = ('product_name', 'brand', 'model_name', 'serial_no', 'sales_no')
+
+
+@admin.register(Client)
+class ClientAdmin(admin.ModelAdmin):
+    list_display = ('client_name', 'contact_person', 'mobile_no', 'email_address', 'department_organization', 'is_active')
+    list_filter = ('is_active',)
+    search_fields = ('client_name', 'contact_person', 'email_address')
+
+
+@admin.register(CallLog)
+class CallLogAdmin(admin.ModelAdmin):
+    list_display = ('admin', 'client_name', 'phone_number', 'call_start', 'call_end', 'ticket')
+    list_filter = ('admin',)
+    search_fields = ('client_name', 'phone_number', 'notes')
+
+
+@admin.register(CSATFeedback)
+class CSATFeedbackAdmin(admin.ModelAdmin):
+    list_display = ('ticket', 'employee', 'admin', 'rating', 'created_at')
+    list_filter = ('rating',)
+    search_fields = ('comments',)

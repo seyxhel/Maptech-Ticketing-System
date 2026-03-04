@@ -92,7 +92,7 @@ export default function EmployeeEscalation() {
     try {
       if (escalationType === 'internal') {
         await escalateTicket(selectedId as number, { notes });
-        toast.success('Ticket escalated internally. An admin will reassign it.');
+        toast.success('Ticket escalated internally. A supervisor will reassign it.');
       } else {
         await escalateExternal(selectedId as number, {
           external_escalated_to: escalateTo.trim(),
@@ -136,7 +136,7 @@ export default function EmployeeEscalation() {
     log.escalation_type === 'internal' ? 'Internal' : 'External';
 
   const toLabel = (log: EscalationLog) =>
-    log.to_external || (log.to_user ? `User #${log.to_user}` : 'Admin / Supervisor');
+    log.to_external || (log.to_user ? `User #${log.to_user}` : 'Supervisor');
 
   return (
     <div className="space-y-6">
@@ -203,7 +203,7 @@ export default function EmployeeEscalation() {
                     {[
                       {
                         key: 'internal' as const,
-                        label: 'Internal — Escalate to Admin',
+                        label: 'Internal — Escalate to Supervisor',
                         icon: ArrowUpRight,
                         active: 'bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700 text-orange-700 dark:text-orange-300',
                       },

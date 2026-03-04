@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { createTicket, fetchEmployees } from '../../../services/ticketService'
 import { fetchTypesOfService, TypeOfService } from '../../../services/typeOfServiceService'
+import { fetchClients, Client } from '../../../services/clientService'
+import { fetchProducts, Product } from '../../../services/productService'
+import { createCallLog, endCallLog } from '../../../services/callLogService'
 
 /* ── styles ── */
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
@@ -20,10 +23,17 @@ const CONTACT_FIELDS = [
   { name: 'department_organization', label: 'Department / Organization', placeholder: 'e.g. Information Technology', required: true },
 ] as const
 
-type ModalStep = 'none' | 'calling' | 'ongoing' | 'priority' | 'assign'
+type ModalStep = 'none' | 'ongoing' | 'priority' | 'assign'
 
 export default function AdminCreateTicket() {
   const navigate = useNavigate()
+
+  // Client type toggle
+  const [clientType, setClientType] = useState<'new' | 'existing'>('new')
+  const [existingClients, setExistingClients] = useState<Client[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<number | ''>('')
+  const [products, setProducts] = useState<Product[]>([])
+  const [selectedProductId, setSelectedProductId] = useState<number | ''>('')
 
   const [contactValues, setContactValues] = useState<Record<string, string>>({
     client: '', contact_person: '', landline: '', mobile_no: '', designation: '', department_organization: '',
@@ -32,23 +42,68 @@ export default function AdminCreateTicket() {
   const [address, setAddress] = useState('')
   const [typeOfServiceId, setTypeOfServiceId] = useState<string>('')
   const [typeOfServiceOthers, setTypeOfServiceOthers] = useState('')
+  const [estimatedResolutionDaysOverride, setEstimatedResolutionDaysOverride] = useState('')
   const [supportType, setSupportType] = useState('')
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Record<string, boolean>>({})
 
-  const [typesOfService, setTypesOfService] = useState<TypeOfService[]>([])
+  const [typesOfService, setTypesOfService] = useState<(TypeOfService & { estimated_resolution_days?: number })[]>([])
   const [employees, setEmployees] = useState<any[]>([])
 
   // Modal state
   const [modalStep, setModalStep] = useState<ModalStep>('none')
-  const [countdown, setCountdown] = useState(5)
   const [priorityLevel, setPriorityLevel] = useState('')
   const [selectedEmployee, setSelectedEmployee] = useState<number | null>(null)
+
+  // Call Log timer
+  const [callStartTime, setCallStartTime] = useState<Date | null>(null)
+  const [callElapsed, setCallElapsed] = useState(0)
+  const [activeCallLogId, setActiveCallLogId] = useState<number | null>(null)
+  const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     fetchTypesOfService().then(setTypesOfService).catch(() => {})
     fetchEmployees().then(setEmployees).catch(() => {})
+    fetchClients().then(setExistingClients).catch(() => {})
+    fetchProducts().then(setProducts).catch(() => {})
   }, [])
+
+  // When existing client selected, pre-fill contact info
+  useEffect(() => {
+    if (clientType === 'existing' && selectedClientId) {
+      const c = existingClients.find(cl => cl.id === selectedClientId)
+      if (c) {
+        setContactValues({
+          client: c.client_name,
+          contact_person: c.contact_person,
+          landline: c.landline,
+          mobile_no: c.mobile_no,
+          designation: c.designation,
+          department_organization: c.department_organization,
+        })
+        setEmail(c.email_address)
+        setAddress(c.address)
+      }
+    }
+  }, [clientType, selectedClientId, existingClients])
+
+  // Call timer interval
+  useEffect(() => {
+    if (modalStep === 'ongoing' && callStartTime) {
+      callTimerRef.current = setInterval(() => {
+        setCallElapsed(Math.floor((Date.now() - callStartTime.getTime()) / 1000))
+      }, 1000)
+    } else {
+      if (callTimerRef.current) clearInterval(callTimerRef.current)
+    }
+    return () => { if (callTimerRef.current) clearInterval(callTimerRef.current) }
+  }, [modalStep, callStartTime])
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0')
+    const s = (secs % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  }
 
   const setContactField = (name: string, value: string) => {
     // Mobile: digits only, max 11
@@ -72,9 +127,10 @@ export default function AdminCreateTicket() {
     { value: 'call', label: 'Call' },
   ]
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const newErrors: Record<string, boolean> = {}
+    if (clientType === 'existing' && !selectedClientId) newErrors['selectedClientId'] = true
     CONTACT_FIELDS.forEach((f) => {
       if (f.required && !contactValues[f.name]?.trim()) newErrors[f.name] = true
     })
@@ -82,6 +138,7 @@ export default function AdminCreateTicket() {
     if (!address.trim()) newErrors['address'] = true
     if (!typeOfServiceId) newErrors['typeOfServiceId'] = true
     if (selectedOthers && !typeOfServiceOthers.trim()) newErrors['typeOfServiceOthers'] = true
+    if (selectedOthers && !estimatedResolutionDaysOverride) newErrors['estimatedResolutionDaysOverride'] = true
     if (!supportType) newErrors['supportType'] = true
     if (!description.trim()) newErrors['description'] = true
     setErrors(newErrors)
@@ -89,26 +146,29 @@ export default function AdminCreateTicket() {
       toast.error('Please fill up all required fields.')
       return
     }
-    // Start call flow
-    setModalStep('calling')
-    setCountdown(5)
+    // Start call flow — create call log via API
+    try {
+      const log = await createCallLog({
+        client_name: contactValues.client,
+        phone_number: contactValues.mobile_no,
+        notes: description,
+      })
+      setActiveCallLogId(log.id)
+      setCallStartTime(new Date(log.call_start))
+      setCallElapsed(0)
+      setModalStep('ongoing')
+    } catch {
+      toast.error('Failed to start call log.')
+    }
   }
 
-  // Countdown timer
-  useEffect(() => {
-    if (modalStep !== 'calling') return
-    if (countdown <= 0) {
-      setModalStep('ongoing')
-      return
+  const handleEndCall = useCallback(async () => {
+    if (activeCallLogId) {
+      try { await endCallLog(activeCallLogId) } catch { /* ignore */ }
     }
-    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
-    return () => clearTimeout(t)
-  }, [modalStep, countdown])
-
-  const handleEndCall = useCallback(() => {
     setModalStep('priority')
     setPriorityLevel('')
-  }, [])
+  }, [activeCallLogId])
 
   const handleConfirmPriority = () => {
     if (!priorityLevel) {
@@ -138,8 +198,18 @@ export default function AdminCreateTicket() {
     }
     if (typeOfServiceId === 'others') {
       payload.type_of_service_others = typeOfServiceOthers
+      if (estimatedResolutionDaysOverride) {
+        payload.estimated_resolution_days_override = Number(estimatedResolutionDaysOverride)
+      }
     } else if (typeOfServiceId) {
       payload.type_of_service = Number(typeOfServiceId)
+    }
+    if (clientType === 'existing' && selectedClientId) {
+      payload.client_record = selectedClientId
+      payload.is_existing_client = true
+    }
+    if (selectedProductId) {
+      payload.product_record = selectedProductId
     }
 
     try {
@@ -173,15 +243,42 @@ export default function AdminCreateTicket() {
         {/* Section 1: Contact Info */}
         <div style={cardStyle}>
           <h3 style={sectionHeader}>1. Contact Information</h3>
+
+          {/* New / Existing Client Toggle */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            {(['new', 'existing'] as const).map(t => (
+              <button key={t} type="button" onClick={() => { setClientType(t); setSelectedClientId(''); if (t === 'new') setContactValues({ client: '', contact_person: '', landline: '', mobile_no: '', designation: '', department_organization: '' }); setEmail(''); setAddress('') }}
+                style={{ padding: '8px 20px', borderRadius: 20, fontWeight: 600, fontSize: 13, cursor: 'pointer', border: clientType === t ? '2px solid #0E8F79' : '2px solid #e5e7eb', background: clientType === t ? '#0E8F79' : '#fff', color: clientType === t ? '#fff' : '#374151', transition: 'all 0.15s' }}>
+                {t === 'new' ? '+ New Client' : '📋 Existing Client'}
+              </button>
+            ))}
+          </div>
+
+          {clientType === 'existing' && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={labelStyle}>Select Client Record <span style={{ color: '#ef4444' }}>*</span></label>
+              <select
+                style={{ ...inputStyle, ...errorBorder('selectedClientId') }}
+                value={selectedClientId}
+                onChange={e => { setSelectedClientId(e.target.value ? Number(e.target.value) : ''); setErrors(p => ({ ...p, selectedClientId: false })) }}
+              >
+                <option value="">-- Select a client --</option>
+                {existingClients.map(c => <option key={c.id} value={c.id}>{c.client_name} — {c.contact_person}</option>)}
+              </select>
+              {errors['selectedClientId'] && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>Please select a client</p>}
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {CONTACT_FIELDS.map((f) => (
               <div key={f.name}>
                 <label style={labelStyle}>{f.label} {f.required && <span style={{ color: '#ef4444' }}>*</span>}</label>
                 <input
-                  style={{ ...inputStyle, ...errorBorder(f.name) }}
+                  style={{ ...inputStyle, ...errorBorder(f.name), ...(clientType === 'existing' && selectedClientId ? { background: '#f3f4f6' } : {}) }}
                   placeholder={f.placeholder}
                   value={contactValues[f.name]}
                   onChange={(e) => setContactField(f.name, e.target.value)}
+                  readOnly={clientType === 'existing' && !!selectedClientId}
                 />
                 {errors[f.name] && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>This field is required</p>}
               </div>
@@ -236,8 +333,54 @@ export default function AdminCreateTicket() {
                 onChange={(e) => { setTypeOfServiceOthers(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, typeOfServiceOthers: false })) }}
               />
               {errors['typeOfServiceOthers'] && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>Please specify the service</p>}
+              <div style={{ marginTop: 12 }}>
+                <label style={labelStyle}>Estimated Resolution Days <span style={{ color: '#ef4444' }}>*</span></label>
+                <input
+                  type="number"
+                  min="1"
+                  style={{ ...inputStyle, ...errorBorder('estimatedResolutionDaysOverride'), maxWidth: 200 }}
+                  placeholder="e.g. 5"
+                  value={estimatedResolutionDaysOverride}
+                  onChange={(e) => { setEstimatedResolutionDaysOverride(e.target.value); setErrors(p => ({ ...p, estimatedResolutionDaysOverride: false })) }}
+                />
+                {errors['estimatedResolutionDaysOverride'] && <p style={{ color: '#ef4444', fontSize: 12, marginTop: 2 }}>Required for Others</p>}
+              </div>
             </div>
           )}
+          {!selectedOthers && typeOfServiceId && (() => {
+            const tos = typesOfService.find(s => String(s.id) === typeOfServiceId)
+            return tos?.estimated_resolution_days ? (
+              <p style={{ fontSize: 13, color: '#6b7280', marginTop: 8 }}>SLA Estimated Resolution: <strong>{tos.estimated_resolution_days} day(s)</strong></p>
+            ) : null
+          })()}
+        </div>
+
+        {/* Section 2b: Product Record (optional) */}
+        <div style={cardStyle}>
+          <h3 style={sectionHeader}>Product Information <span style={{ fontSize: 12, fontWeight: 400, color: '#9ca3af' }}>(Optional)</span></h3>
+          <select
+            style={inputStyle}
+            value={selectedProductId}
+            onChange={e => setSelectedProductId(e.target.value ? Number(e.target.value) : '')}
+          >
+            <option value="">-- Select a product (optional) --</option>
+            {products.map(p => <option key={p.id} value={p.id}>{p.product_name} — {p.brand} {p.model_name}</option>)}
+          </select>
+          {selectedProductId && (() => {
+            const p = products.find(pr => pr.id === selectedProductId)
+            return p ? (
+              <div style={{ marginTop: 12, background: '#f9fafb', borderRadius: 8, padding: 12, fontSize: 13 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                  <span><strong>Brand:</strong> {p.brand}</span>
+                  <span><strong>Model:</strong> {p.model_name}</span>
+                  <span><strong>Serial:</strong> {p.serial_no || 'N/A'}</span>
+                  <span><strong>Sales No:</strong> {p.sales_no || 'N/A'}</span>
+                  <span><strong>Warranty:</strong> {p.has_warranty ? 'Yes' : 'No'}</span>
+                  <span><strong>Purchased:</strong> {p.date_purchased || 'N/A'}</span>
+                </div>
+              </div>
+            ) : null
+          })()}
         </div>
 
         {/* Section 3: Support Type */}
@@ -285,22 +428,7 @@ export default function AdminCreateTicket() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', width: '100%', maxWidth: 420, overflow: 'hidden' }}>
 
-            {/* Step 1: Calling — 5 second countdown */}
-            {modalStep === 'calling' && (
-              <div style={{ padding: 32, textAlign: 'center' }}>
-                <div style={{ width: 80, height: 80, margin: '0 auto 20px', borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 36 }}>📞</span>
-                </div>
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>Calling Client...</h3>
-                <p style={{ color: '#6b7280', marginBottom: 20 }}>
-                  {contactValues.contact_person || 'Client'} — {contactValues.mobile_no || 'N/A'}
-                </p>
-                <div style={{ fontSize: 52, fontWeight: 800, color: '#3BC25B', marginBottom: 20, fontVariantNumeric: 'tabular-nums' }}>{countdown}</div>
-                <p style={{ fontSize: 14, color: '#9ca3af' }}>Connecting to the client...</p>
-              </div>
-            )}
-
-            {/* Step 2: Ongoing Call */}
+            {/* Call Ongoing — real timer */}
             {modalStep === 'ongoing' && (
               <div style={{ padding: 32, textAlign: 'center' }}>
                 <div style={{ width: 80, height: 80, margin: '0 auto 20px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -310,8 +438,9 @@ export default function AdminCreateTicket() {
                 <p style={{ color: '#6b7280', marginBottom: 8 }}>
                   {contactValues.contact_person || 'Client'} — {contactValues.mobile_no || 'N/A'}
                 </p>
+                <div style={{ fontSize: 40, fontWeight: 800, color: '#22c55e', marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>{formatTimer(callElapsed)}</div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '4px 12px', background: '#dcfce7', color: '#15803d', borderRadius: 20, fontSize: 14, fontWeight: 600, marginBottom: 28 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} /> Ongoing Call
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', animation: 'pulse 1.5s infinite' }} /> Ongoing Call
                 </div>
                 <div>
                   <button
@@ -413,7 +542,14 @@ export default function AdminCreateTicket() {
                         </div>
                         <div style={{ fontSize: 12, color: '#6b7280' }}>{emp.username}</div>
                       </div>
-                      {selectedEmployee === emp.id && <span style={{ color: '#3BC25B', fontWeight: 700, fontSize: 18 }}>✓</span>}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {emp.active_ticket_count !== undefined && (
+                          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, background: emp.active_ticket_count === 0 ? '#dcfce7' : '#fef3c7', color: emp.active_ticket_count === 0 ? '#15803d' : '#92400e', fontWeight: 600 }}>
+                            {emp.active_ticket_count} active
+                          </span>
+                        )}
+                        {selectedEmployee === emp.id && <span style={{ color: '#3BC25B', fontWeight: 700, fontSize: 18 }}>✓</span>}
+                      </div>
                     </button>
                   ))}
                   {employees.length === 0 && <p style={{ color: '#9ca3af', textAlign: 'center', padding: 16 }}>No employees available.</p>}

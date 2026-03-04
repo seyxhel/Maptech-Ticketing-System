@@ -15,11 +15,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName } from '../services/ticketMapper';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine } from 'lucide-react';
+import { SignaturePad } from '../components/ui/SignaturePad';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
 
@@ -98,6 +99,12 @@ export function TicketView() {
           assignedTo: getAssigneeName(btData) || 'unassigned',
           issue: btData.description_of_problem || btData.type_of_service_detail?.name || 'No description',
           department: btData.department_organization || 'N/A',
+          landline: btData.landline || 'N/A',
+          mobile: btData.mobile_no || 'N/A',
+          emailAddress: btData.email_address || 'N/A',
+          fullAddress: btData.address || 'N/A',
+          designation: btData.designation || 'N/A',
+          preferredSupport: ({'remote_online':'Remote / Online','onsite':'Onsite','chat':'Chat','call':'Call'} as Record<string,string>)[btData.preferred_support_type] || btData.preferred_support_type || 'N/A',
           typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
           productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty) ? {
             deviceEquipment: btData.device_equipment || '',
@@ -117,6 +124,14 @@ export function TicketView() {
             type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
           })),
           timeIn: btData.time_in ? new Date(btData.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+          timeOut: btData.time_out ? new Date(btData.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+          progressPercentage: btData.progress_percentage ?? 0,
+          slaEstimatedDays: btData.sla_estimated_days ?? null,
+          cascadeType: btData.cascade_type || null,
+          observation: btData.observation || '',
+          signature: btData.signature || null,
+          signedByName: btData.signed_by_name || '',
+          csatFeedback: btData.csat_feedback || null,
         };
       })()
     : {
@@ -132,6 +147,12 @@ export function TicketView() {
         assignedTo: '',
         issue: 'Loading...',
         department: '',
+        landline: '',
+        mobile: '',
+        emailAddress: '',
+        fullAddress: '',
+        designation: '',
+        preferredSupport: '',
         typeOfService: '',
         productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string } | null,
         actionTaken: '',
@@ -139,6 +160,14 @@ export function TicketView() {
         jobStatus: '',
         ticketAttachments: [] as { name: string; type: 'screenshot' | 'recording' }[],
         timeIn: '',
+        timeOut: '',
+        progressPercentage: 0,
+        slaEstimatedDays: null as number | null,
+        cascadeType: null as string | null,
+        observation: '',
+        signature: null as string | null,
+        signedByName: '',
+        csatFeedback: null as any,
       };
 
   const navigate = useNavigate();
@@ -312,7 +341,7 @@ export function TicketView() {
         {
           id: null,
           sender_id: user?.id ?? 0,
-          sender_username: user?.username || user?.name || (isAdmin ? 'Admin' : 'Employee'),
+          sender_username: user?.username || user?.name || (isAdmin ? 'Supervisor' : 'Technical'),
           sender_role: user?.role || 'employee',
           content: newMsg.trim(),
           attachments: localAttachments.length > 0 ? localAttachments : undefined,
@@ -455,6 +484,16 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
 
+  // ── New feature state ──
+  const [observation, setObservation] = useState('');
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [signedByName, setSignedByName] = useState('');
+  const [startingWork, setStartingWork] = useState(false);
+  const [showCsatModal, setShowCsatModal] = useState(false);
+  const [csatRating, setCsatRating] = useState(0);
+  const [csatComments, setCsatComments] = useState('');
+  const [submittingCsat, setSubmittingCsat] = useState(false);
+
   // ── Escalation modal state ──
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateType, setEscalateType] = useState<'internal' | 'external'>('internal');
@@ -488,6 +527,9 @@ export function TicketView() {
       setPdSerialNo(btData.serial_no || '');
       setPdDatePurchased(btData.date_purchased || '');
       setPdHasWarranty(btData.has_warranty ?? false);
+      setObservation(btData.observation || '');
+      setSignatureData(btData.signature || null);
+      setSignedByName(btData.signed_by_name || '');
     }
   }, [btData]);
 
@@ -531,6 +573,9 @@ export function TicketView() {
         action_taken: actionTaken,
         remarks: remarksText,
         job_status: jobStatus,
+        observation: observation,
+        signature: signatureData || '',
+        signed_by_name: signedByName,
       });
       setBtData(updated);
       toast.success('Ticket resolved successfully.');
@@ -552,7 +597,7 @@ export function TicketView() {
       if (escalateType === 'internal') {
         const updated = await escalateTicket(backendTicketId, { notes: escalateNotes });
         setBtData(updated);
-        toast.success('Ticket escalated to admin. It will be reassigned.');
+        toast.success('Ticket escalated to supervisor. It will be reassigned.');
       } else {
         const updated = await escalateExternal(backendTicketId, {
           external_escalated_to: escalateTo.trim(),
@@ -586,6 +631,46 @@ export function TicketView() {
       toast.error(err?.message || 'Failed to close ticket.');
     } finally {
       setClosingTicket(false);
+    }
+  };
+
+  /** Employee starts work on the ticket (sets time_in) */
+  const handleStartWork = async () => {
+    if (!backendTicketId) return;
+    setStartingWork(true);
+    try {
+      const updated = await startWork(backendTicketId);
+      setBtData(updated);
+      toast.success('Work started! Time In has been recorded.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to start work.');
+    } finally {
+      setStartingWork(false);
+    }
+  };
+
+  /** Admin submits CSAT feedback then closes ticket */
+  const handleCsatClose = async () => {
+    if (!backendTicketId || !btData) return;
+    if (csatRating < 1) { toast.error('Please rate the technical (1-5 stars).'); return; }
+    setSubmittingCsat(true);
+    try {
+      await createCSATFeedback({
+        ticket: backendTicketId,
+        employee: btData.assigned_to?.id ?? 0,
+        rating: csatRating,
+        comments: csatComments || undefined,
+      });
+      const updated = await closeTicket(backendTicketId);
+      setBtData(updated);
+      setShowCsatModal(false);
+      setCsatRating(0);
+      setCsatComments('');
+      toast.success('CSAT submitted and ticket closed.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit CSAT or close ticket.');
+    } finally {
+      setSubmittingCsat(false);
     }
   };
 
@@ -728,7 +813,45 @@ export function TicketView() {
               <div className="text-gray-500 dark:text-gray-400">
                 Time In <span className="ml-1 font-medium text-gray-800 dark:text-gray-200">{ticket.timeIn}</span>
               </div>
+              <div className="text-gray-500 dark:text-gray-400">
+                Time Out <span className="ml-1 font-medium text-gray-800 dark:text-gray-200">{ticket.timeOut}</span>
+              </div>
             </div>
+
+            {/* Progress Bar */}
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79]">Progress</span>
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{ticket.progressPercentage}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                <div
+                  className={`h-2.5 rounded-full transition-all duration-500 ${
+                    ticket.progressPercentage >= 100 ? 'bg-green-500' : ticket.progressPercentage >= 50 ? 'bg-[#0E8F79]' : 'bg-yellow-500'
+                  }`}
+                  style={{ width: `${Math.min(ticket.progressPercentage, 100)}%` }}
+                />
+              </div>
+              {ticket.slaEstimatedDays && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  SLA Estimated Resolution: <span className="font-medium">{ticket.slaEstimatedDays} day{ticket.slaEstimatedDays !== 1 ? 's' : ''}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Cascade Type Badge */}
+            {ticket.cascadeType && (
+              <div className="mb-5">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                  ticket.cascadeType === 'internal'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                }`}>
+                  {ticket.cascadeType === 'internal' ? <Shield className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                  {ticket.cascadeType === 'internal' ? 'Internal Cascade' : 'External Cascade'}
+                </span>
+              </div>
+            )}
 
             {/* Details Grid */}
             <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
@@ -741,16 +864,40 @@ export function TicketView() {
                 <div className="text-gray-900 dark:text-gray-100">{ticket.contact}</div>
               </div>
               <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Landline No.</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.landline}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Mobile No.</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.mobile}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Email Address</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.emailAddress}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Designation</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.designation}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Department/Organization</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.department}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Full Address</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.fullAddress}</div>
+              </div>
+              <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Type of Service</div>
                 <div className="text-gray-900 dark:text-gray-100">{ticket.typeOfService}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Assigned To</div>
-                <div className="text-gray-900 dark:text-gray-100">{ticket.assignedTo}</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Preferred Type of Support</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.preferredSupport}</div>
               </div>
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Department</div>
-                <div className="text-gray-900 dark:text-gray-100">{ticket.department}</div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Assigned To</div>
+                <div className="text-gray-900 dark:text-gray-100">{ticket.assignedTo}</div>
               </div>
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Issue</div>
@@ -885,47 +1032,43 @@ export function TicketView() {
               )}
             </div>
 
-            {/* SLA Section */}
+            {/* ── Digital Signature Section ── */}
             <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Response SLA</div>
-                  <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.total} />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
+                <PenLine className="w-4 h-4" /> Digital Signature
+              </h3>
+              {signatureData ? (
+                <div className="space-y-2">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <img src={signatureData} alt="Digital Signature" className="max-h-24 mx-auto" />
+                  </div>
+                  {signedByName && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Signed by: <span className="font-medium text-gray-700 dark:text-gray-300">{signedByName}</span></p>
+                  )}
                 </div>
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Activity</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">2 comments &bull; 1 attachment</div>
+              ) : canEdit ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Your Name</label>
+                    <input
+                      value={signedByName}
+                      onChange={(e) => setSignedByName(e.target.value)}
+                      placeholder="Enter your full name"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]"
+                    />
+                  </div>
+                  <SignaturePad onSave={(data) => setSignatureData(data)} />
                 </div>
-              </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">No signature captured yet</p>
+              )}
             </div>
+
           </Card>
         </div>
 
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Status of Job */}
-          <Card>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" /> Status of Job
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {JOB_STATUSES.map((s) => (
-                <button
-                  key={s}
-                  disabled={!canEdit}
-                  onClick={() => { if (canEdit) setJobStatus(s === jobStatus ? '' : s); }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                    jobStatus === s
-                      ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-sm'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#0E8F79]/50'
-                  } ${!canEdit ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </Card>
-
           {/* Action Taken */}
           <Card>
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
@@ -1112,9 +1255,104 @@ export function TicketView() {
             )}
           </Card>
 
+          {/* Status of Job */}
+          <Card>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
+              <ClipboardList className="w-4 h-4" /> Status of Job
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {JOB_STATUSES.map((s) => (
+                <button
+                  key={s}
+                  disabled={!canEdit}
+                  onClick={() => { if (canEdit) setJobStatus(s === jobStatus ? '' : s); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    jobStatus === s
+                      ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-sm'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#0E8F79]/50'
+                  } ${!canEdit ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          {/* Employee Performance Rating (visible once ticket is closed) */}
+          <Card>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
+              <Star className="w-4 h-4" /> Technical Performance Rating
+            </h3>
+            {ticket.csatFeedback ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-[#0E8F79] flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {ticket.assignedTo?.charAt(0)?.toUpperCase() || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{ticket.assignedTo || 'Technical'}</p>
+                    <p className="text-xs text-gray-400">Assigned Technical</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className={`w-5 h-5 ${s <= ticket.csatFeedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  ))}
+                  <span className="ml-2 text-sm font-bold text-gray-700 dark:text-gray-300">{ticket.csatFeedback.rating}/5</span>
+                  <span className="ml-1 text-xs text-gray-400">
+                    {ticket.csatFeedback.rating <= 2 ? 'Needs Improvement' : ticket.csatFeedback.rating <= 3 ? 'Satisfactory' : ticket.csatFeedback.rating <= 4 ? 'Good' : 'Excellent'}
+                  </span>
+                </div>
+                {ticket.csatFeedback.comments && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-yellow-400">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Feedback</p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">{ticket.csatFeedback.comments}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                    {ticket.assignedTo && ticket.assignedTo !== 'unassigned' ? ticket.assignedTo.charAt(0).toUpperCase() : '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{ticket.assignedTo && ticket.assignedTo !== 'unassigned' ? ticket.assignedTo : 'Unassigned'}</p>
+                    <p className="text-xs text-gray-400">Assigned Technical</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+                  ))}
+                  <span className="ml-2 text-sm text-gray-400 dark:text-gray-500">—/5</span>
+                </div>
+                <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-gray-200 dark:border-gray-700">
+                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Feedback</p>
+                  <p className="text-sm text-gray-300 dark:text-gray-600 italic">Will be provided upon ticket closure</p>
+                </div>
+              </div>
+            )}
+          </Card>
+
           {/* ── Action Buttons ── */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
+              {/* Employee: Start Work (only if assigned, status is Assigned/New, no time_in yet) */}
+              {isAssignedEmployee && !btData?.time_in && (ticket.status === 'Assigned' || ticket.status === 'New' || ticket.status === 'In Progress') && (
+                <button
+                  type="button"
+                  disabled={startingWork}
+                  onClick={handleStartWork}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {startingWork ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
+                  ) : (
+                    <><PlayCircle className="w-4 h-4" /> Start Work</>
+                  )}
+                </button>
+              )}
               {/* Employee: Resolve Ticket (only if assigned to this ticket and not yet Resolved) */}
               {isAssignedEmployee && ticket.status !== 'Resolved' && (
                 <button
@@ -1130,19 +1368,14 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Admin: Close Ticket (only after employee has Resolved it) */}
+              {/* Admin: Close Ticket (triggers rating modal) */}
               {isAdmin && ticket.status === 'Resolved' && (
                 <button
                   type="button"
-                  disabled={closingTicket}
-                  onClick={handleCloseTicket}
-                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg hover:shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                  onClick={() => setShowCsatModal(true)}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg hover:shadow-red-500/20 flex items-center justify-center gap-2 transition-all text-sm"
                 >
-                  {closingTicket ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" /> Closing...</>
-                  ) : (
-                    <><X className="w-4 h-4" /> Close Ticket</>
-                  )}
+                  <X className="w-4 h-4" /> Close Ticket
                 </button>
               )}
             </div>
@@ -1169,7 +1402,7 @@ export function TicketView() {
               </div>
               <div>
                 <div className="text-sm font-semibold text-white">
-                  {isAdmin ? 'Admin ↔ Employee' : 'Employee ↔ Admin'}
+                  {isAdmin ? 'Supervisor ↔ Technical' : 'Technical ↔ Supervisor'}
                 </div>
                 <div className="flex items-center gap-1.5">
                   {wsConnected ? (
@@ -1256,7 +1489,7 @@ export function TicketView() {
             {chatMessages.length === 0 && (
               <div className="flex flex-col items-center text-center pt-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between admin and employee here.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between supervisor and technical here.</p>
               </div>
             )}
 
@@ -1693,6 +1926,99 @@ export function TicketView() {
         </div>
       )}
 
+      {/* ── CSAT Rating Modal (Admin – before closing) ── */}
+      {showCsatModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                  <Star className="w-4 h-4 text-yellow-500" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Rate Technical Performance</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">Submit CSAT before closing this ticket</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCsatModal(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-5">
+              {/* Employee info */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-white/5 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-[#0E8F79] flex items-center justify-center text-white font-bold text-sm">
+                  {getAssigneeName(btData!)?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{getAssigneeName(btData!) || 'Technical'}</p>
+                  <p className="text-xs text-gray-400">Assigned Technical</p>
+                </div>
+              </div>
+
+              {/* Star Rating */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-3 uppercase tracking-wider">Rating</label>
+                <div className="flex items-center justify-center gap-2">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCsatRating(s)}
+                      className="p-1 transition-transform hover:scale-110"
+                    >
+                      <Star className={`w-8 h-8 transition-colors ${s <= csatRating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 dark:text-gray-600 hover:text-yellow-300'}`} />
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-gray-400 mt-1.5">
+                  {csatRating === 0 ? 'Click a star to rate' : csatRating <= 2 ? 'Needs Improvement' : csatRating <= 3 ? 'Satisfactory' : csatRating <= 4 ? 'Good' : 'Excellent'}
+                </p>
+              </div>
+
+              {/* Comments */}
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-1.5 uppercase tracking-wider">Comments (Optional)</label>
+                <textarea
+                  value={csatComments}
+                  onChange={(e) => setCsatComments(e.target.value)}
+                  rows={3}
+                  placeholder="Additional feedback about the technical's performance..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm placeholder-gray-300 dark:placeholder-white/20 focus:outline-none focus:border-yellow-500/60 resize-none transition-colors"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => { setShowCsatModal(false); setCsatRating(0); setCsatComments(''); }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={submittingCsat || csatRating < 1}
+                onClick={handleCsatClose}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {submittingCsat ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</>
+                ) : (
+                  <><Star className="w-3.5 h-3.5" /> Submit & Close</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* ── Escalate Ticket Modal ── */}
       {showEscalateModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -1749,7 +2075,7 @@ export function TicketView() {
                 </div>
                 <p className="mt-1.5 text-xs text-gray-400 dark:text-white/30">
                   {escalateType === 'internal'
-                    ? 'Escalate to a supervisor or admin for reassignment.'
+                    ? 'Escalate to a supervisor for reassignment.'
                     : 'Escalate to an external distributor or vendor.'}
                 </p>
               </div>

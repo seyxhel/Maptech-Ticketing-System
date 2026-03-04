@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { fetchTickets, assignTicket, reviewTicket, confirmTicket, closeTicket, escalateExternal, fetchEmployees } from '../../../services/ticketService'
+import { fetchTickets, assignTicket, reviewTicket, confirmTicket, closeTicket, fetchEmployees } from '../../../services/ticketService'
 import { fetchTypesOfService, createTypeOfService, updateTypeOfService, deleteTypeOfService, TypeOfService } from '../../../services/typeOfServiceService'
 import { getCurrentUser } from '../../../services/authService'
+import { createCSATFeedback } from '../../../services/csatService'
 import TicketChat from '../../../shared/components/TicketChat'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14, boxSizing: 'border-box' }
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   // Service form
   const [svcName, setSvcName] = useState('')
   const [svcDesc, setSvcDesc] = useState('')
+  const [svcEstDays, setSvcEstDays] = useState('')
   const [editingSvc, setEditingSvc] = useState<TypeOfService | null>(null)
 
   // Ticket detail modal
@@ -45,10 +47,10 @@ export default function AdminDashboard() {
   const [assignTicketId, setAssignTicketId] = useState<number | null>(null)
   const [assignEmployeeId, setAssignEmployeeId] = useState('')
 
-  // External escalation modal
-  const [showExtEscModal, setShowExtEscModal] = useState(false)
-  const [extEscTo, setExtEscTo] = useState('')
-  const [extEscNotes, setExtEscNotes] = useState('')
+  // CSAT feedback modal (required before closing)
+  const [showCsatModal, setShowCsatModal] = useState(false)
+  const [csatRating, setCsatRating] = useState(0)
+  const [csatComments, setCsatComments] = useState('')
 
   // Media preview lightbox
   const [previewMedia, setPreviewMedia] = useState<{ url: string; isVideo: boolean } | null>(null)
@@ -91,39 +93,55 @@ export default function AdminDashboard() {
 
   const handleCloseTicket = async () => {
     if (!viewTicket) return
-    const result = await closeTicket(viewTicket.id)
-    if (result.ok) {
-      const refreshed = await fetchTickets()
-      setTickets(refreshed)
-      setViewTicket(refreshed.find((t: any) => t.id === viewTicket.id) || null)
-    } else {
-      alert(result.data?.detail || 'Failed to close ticket.')
-    }
+    // Must provide CSAT first
+    setShowCsatModal(true)
+    setCsatRating(0)
+    setCsatComments('')
   }
 
-  const handleExtEscalate = async () => {
-    if (!viewTicket || !extEscTo.trim()) return
-    await escalateExternal(viewTicket.id, { escalated_to: extEscTo, notes: extEscNotes })
-    setShowExtEscModal(false)
-    setExtEscTo(''); setExtEscNotes('')
-    const refreshed = await fetchTickets()
-    setTickets(refreshed)
-    setViewTicket(refreshed.find((t: any) => t.id === viewTicket.id) || viewTicket)
+  const confirmCloseWithCsat = async () => {
+    if (!viewTicket || csatRating === 0) {
+      alert('Please provide a CSAT rating (1-5) before closing.')
+      return
+    }
+    try {
+      // Submit CSAT
+      await createCSATFeedback({
+        ticket: viewTicket.id,
+        employee: viewTicket.assigned_to?.id,
+        rating: csatRating,
+        comments: csatComments,
+      })
+      // Then close
+      const result = await closeTicket(viewTicket.id)
+      setShowCsatModal(false)
+      if (result.ok) {
+        const refreshed = await fetchTickets()
+        setTickets(refreshed)
+        setViewTicket(refreshed.find((t: any) => t.id === viewTicket.id) || null)
+      } else {
+        alert(result.data?.detail || 'Failed to close ticket.')
+      }
+    } catch {
+      alert('Failed to submit CSAT or close ticket.')
+    }
   }
 
   // ---------- Type of Service CRUD ----------
   const handleSvcSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const payload: any = { name: svcName, description: svcDesc }
+    if (svcEstDays) payload.estimated_resolution_days = Number(svcEstDays)
     if (editingSvc) {
-      await updateTypeOfService(editingSvc.id, { name: svcName, description: svcDesc })
+      await updateTypeOfService(editingSvc.id, payload)
     } else {
-      await createTypeOfService({ name: svcName, description: svcDesc })
+      await createTypeOfService(payload)
     }
-    setSvcName(''); setSvcDesc(''); setEditingSvc(null)
+    setSvcName(''); setSvcDesc(''); setSvcEstDays(''); setEditingSvc(null)
     setServices(await fetchTypesOfService())
   }
 
-  const handleEditSvc = (s: TypeOfService) => { setEditingSvc(s); setSvcName(s.name); setSvcDesc(s.description) }
+  const handleEditSvc = (s: TypeOfService) => { setEditingSvc(s); setSvcName(s.name); setSvcDesc(s.description); setSvcEstDays((s as any).estimated_resolution_days?.toString() || '') }
   const handleToggleSvc = async (s: TypeOfService) => { await updateTypeOfService(s.id, { is_active: !s.is_active }); setServices(await fetchTypesOfService()) }
   const handleDeleteSvc = async (s: TypeOfService) => { if (confirm(`Delete "${s.name}"?`)) { await deleteTypeOfService(s.id); setServices(await fetchTypesOfService()) } }
 
@@ -163,7 +181,7 @@ export default function AdminDashboard() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-                  {['STF No.', 'Date', 'Client', 'Status', 'Priority', 'Assigned', 'Actions'].map(h => (
+                  {['STF No.', 'Date', 'Client', 'Status', 'Priority', 'Progress', 'Assigned', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>{h}</th>
                   ))}
                 </tr>
@@ -179,6 +197,12 @@ export default function AdminDashboard() {
                       <span style={statusBadge(t.status)}>{t.status?.replace(/_/g, ' ')}</span>
                     </td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.priority || '—'}</td>
+                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                      <div style={{ background: '#e5e7eb', borderRadius: 4, overflow: 'hidden', height: 14, width: 80 }}>
+                        <div style={{ height: '100%', borderRadius: 4, background: (t.progress_percentage ?? 0) >= 100 ? '#ef4444' : '#22c55e', width: `${Math.min(t.progress_percentage ?? 0, 100)}%` }} />
+                      </div>
+                      <span style={{ fontSize: 11, color: '#6b7280' }}>{t.progress_percentage ?? 0}%</span>
+                    </td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{t.assigned_to?.username || '—'}</td>
                     <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                       <button style={{ ...btnPrimary, padding: '5px 12px', fontSize: 12 }} onClick={() => openTicketDetail(t)}>View</button>
@@ -202,15 +226,19 @@ export default function AdminDashboard() {
             </div>
             <div>
               <label style={{ fontWeight: 600, fontSize: 13 }}>Description</label>
-              <input style={{ ...inputStyle, width: 300 }} value={svcDesc} onChange={(e) => setSvcDesc(e.target.value)} />
+              <input style={{ ...inputStyle, width: 240 }} value={svcDesc} onChange={(e) => setSvcDesc(e.target.value)} />
+            </div>
+            <div>
+              <label style={{ fontWeight: 600, fontSize: 13 }}>Est. Resolution Days</label>
+              <input type="number" min="1" style={{ ...inputStyle, width: 120 }} value={svcEstDays} onChange={(e) => setSvcEstDays(e.target.value)} placeholder="e.g. 5" />
             </div>
             <button type="submit" style={btnPrimary}>{editingSvc ? 'Update' : 'Add'}</button>
-            {editingSvc && <button type="button" style={btnSecondary} onClick={() => { setEditingSvc(null); setSvcName(''); setSvcDesc('') }}>Cancel</button>}
+            {editingSvc && <button type="button" style={btnSecondary} onClick={() => { setEditingSvc(null); setSvcName(''); setSvcDesc(''); setSvcEstDays('') }}>Cancel</button>}
           </form>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
-                {['Name', 'Description', 'Status', 'Actions'].map(h => (
+                {['Name', 'Description', 'Est. Days', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 13 }}>{h}</th>
                 ))}
               </tr>
@@ -220,6 +248,7 @@ export default function AdminDashboard() {
                 <tr key={s.id}>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{s.name}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{s.description || '—'}</td>
+                  <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>{(s as any).estimated_resolution_days || '—'}</td>
                   <td style={{ padding: '10px 12px', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                     <span style={{ padding: '2px 10px', borderRadius: 9999, fontSize: 12, background: s.is_active ? '#dcfce7' : '#fee2e2', color: s.is_active ? '#15803d' : '#dc2626' }}>
                       {s.is_active ? 'Active' : 'Inactive'}
@@ -234,7 +263,7 @@ export default function AdminDashboard() {
                   </td>
                 </tr>
               ))}
-              {services.length === 0 && <tr><td colSpan={4} style={{ padding: 16, color: '#888', textAlign: 'center' }}>No services yet.</td></tr>}
+              {services.length === 0 && <tr><td colSpan={5} style={{ padding: 16, color: '#888', textAlign: 'center' }}>No services yet.</td></tr>}
             </tbody>
           </table>
         </section>
@@ -272,12 +301,38 @@ export default function AdminDashboard() {
             </div>
 
             {/* Employee work details (if filled) */}
-            {(viewTicket.action_taken || viewTicket.remarks || viewTicket.job_status) && (
+            {(viewTicket.action_taken || viewTicket.remarks || viewTicket.job_status || viewTicket.cascade_type || viewTicket.observation) && (
               <div style={{ padding: 16, background: '#f0f9ff', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>Employee Progress</h4>
                 {viewTicket.action_taken && <div style={{ marginBottom: 4 }}><strong>Action Taken:</strong> {viewTicket.action_taken}</div>}
                 {viewTicket.remarks && <div style={{ marginBottom: 4 }}><strong>Remarks:</strong> {viewTicket.remarks}</div>}
-                {viewTicket.job_status && <div><strong>Job Status:</strong> {viewTicket.job_status?.replace(/_/g, ' ')}</div>}
+                {viewTicket.job_status && <div style={{ marginBottom: 4 }}><strong>Job Status:</strong> {viewTicket.job_status?.replace(/_/g, ' ')}</div>}
+                {viewTicket.cascade_type && <div style={{ marginBottom: 4 }}><strong>Cascade Type:</strong> <span style={{ padding: '2px 8px', borderRadius: 4, background: viewTicket.cascade_type === 'internal' ? '#dbeafe' : '#fef3c7', color: viewTicket.cascade_type === 'internal' ? '#1d4ed8' : '#92400e', fontSize: 12, fontWeight: 600 }}>{viewTicket.cascade_type}</span></div>}
+                {viewTicket.observation && <div style={{ marginBottom: 4 }}><strong>Observation:</strong> {viewTicket.observation}</div>}
+
+                {/* Progress bar */}
+                {viewTicket.time_in && (
+                  <div style={{ marginTop: 8 }}>
+                    <strong>Progress:</strong>
+                    <div style={{ background: '#e5e7eb', borderRadius: 6, overflow: 'hidden', height: 18, marginTop: 4 }}>
+                      <div style={{ height: '100%', borderRadius: 6, background: (viewTicket.progress_percentage ?? 0) >= 100 ? '#ef4444' : '#22c55e', width: `${Math.min(viewTicket.progress_percentage ?? 0, 100)}%`, transition: 'width 0.4s', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>
+                        {viewTicket.progress_percentage ?? 0}%
+                      </div>
+                    </div>
+                    {viewTicket.sla_estimated_days && <span style={{ fontSize: 12, color: '#6b7280' }}>SLA: {viewTicket.sla_estimated_days} day(s)</span>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Signature */}
+            {viewTicket.signature && (
+              <div style={{ padding: 16, background: '#f9fafb', borderRadius: 8, marginBottom: 16 }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 14 }}>Client Signature</h4>
+                {viewTicket.signed_by_name && <p style={{ fontSize: 13, margin: '0 0 8px' }}><strong>Signed by:</strong> {viewTicket.signed_by_name}</p>}
+                <img src={viewTicket.signature} alt="Signature" style={{ maxWidth: 300, border: '1px solid #e5e7eb', borderRadius: 4 }} />
+              </div>
+            )}
               </div>
             )}
 
@@ -347,9 +402,6 @@ export default function AdminDashboard() {
               {!viewTicket.confirmed_by_admin && viewTicket.status !== 'closed' && (
                 <button style={{ ...btnPrimary, background: '#059669' }} onClick={handleConfirm}>Confirm Issue</button>
               )}
-              {viewTicket.status !== 'closed' && viewTicket.status !== 'escalated_external' && (
-                <button style={{ ...btnDanger, background: '#7c3aed' }} onClick={() => { setExtEscTo(''); setExtEscNotes(''); setShowExtEscModal(true) }}>Escalate External</button>
-              )}
               {viewTicket.status !== 'closed' && (
                 <button style={{ ...btnSecondary, fontWeight: 600 }} onClick={() => handleAssign(viewTicket.id)}>Reassign Employee</button>
               )}
@@ -392,23 +444,31 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── External Escalation Modal ── */}
-      {showExtEscModal && (
+      {/* ── CSAT Feedback Modal (before closing) ── */}
+      {showCsatModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 420, boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
-            <h3 style={{ marginTop: 0, color: '#7c3aed' }}>Escalate to External</h3>
-            <p style={{ fontSize: 13, color: '#6b7280' }}>Escalate this ticket to a distributor or principal.</p>
-            <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4 }}>Escalated To *</label>
-            <input style={inputStyle} value={extEscTo} onChange={(e) => setExtEscTo(e.target.value)} placeholder="e.g. Dell Philippines, HP Support" />
-            <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4, marginTop: 12 }}>Notes <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
-            <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={extEscNotes} onChange={(e) => setExtEscNotes(e.target.value)} placeholder="Details about the escalation..." />
+            <h3 style={{ marginTop: 0, color: '#15803d' }}>Rate Employee Performance (CSAT)</h3>
+            <p style={{ fontSize: 13, color: '#6b7280' }}>Provide feedback on the assigned employee before closing this ticket.</p>
+            <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 8 }}>Rating *</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(r => (
+                <button key={r} type="button" onClick={() => setCsatRating(r)}
+                  style={{ width: 44, height: 44, borderRadius: 8, fontSize: 18, fontWeight: 700, cursor: 'pointer', border: csatRating === r ? '2px solid #15803d' : '2px solid #e5e7eb', background: csatRating === r ? '#dcfce7' : '#fff', color: csatRating === r ? '#15803d' : '#6b7280' }}>
+                  {r}
+                </button>
+              ))}
+            </div>
+            <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4 }}>Comments <span style={{ fontWeight: 400, color: '#9ca3af' }}>(optional)</span></label>
+            <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={csatComments} onChange={e => setCsatComments(e.target.value)} placeholder="Additional comments about the employee's performance..." />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button style={btnSecondary} onClick={() => setShowExtEscModal(false)}>Cancel</button>
-              <button style={{ ...btnDanger, background: '#7c3aed' }} disabled={!extEscTo.trim()} onClick={handleExtEscalate}>Escalate</button>
+              <button style={btnSecondary} onClick={() => setShowCsatModal(false)}>Cancel</button>
+              <button style={{ ...btnPrimary, background: '#15803d' }} disabled={csatRating === 0} onClick={confirmCloseWithCsat}>Submit & Close Ticket</button>
             </div>
           </div>
         </div>
       )}
+
       {/* ───── MEDIA PREVIEW LIGHTBOX ───── */}
       {previewMedia && (
         <div

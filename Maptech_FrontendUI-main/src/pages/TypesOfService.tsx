@@ -33,7 +33,7 @@ export function TypesOfService() {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<TypeOfService | null>(null);
-  const [formData, setFormData] = useState({ name: '', description: '', is_active: true });
+  const [formData, setFormData] = useState({ name: '', description: '', is_active: true, estimated_resolution_days: 0 });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Delete confirmation state
@@ -78,7 +78,7 @@ export function TypesOfService() {
   // ── Modal helpers ──
   const openAddModal = () => {
     setEditingService(null);
-    setFormData({ name: '', description: '', is_active: true });
+    setFormData({ name: '', description: '', is_active: true, estimated_resolution_days: 0 });
     setFieldErrors({});
     setIsModalOpen(true);
   };
@@ -89,6 +89,7 @@ export function TypesOfService() {
       name: service.name,
       description: service.description,
       is_active: service.is_active,
+      estimated_resolution_days: service.estimated_resolution_days || 0,
     });
     setFieldErrors({});
     setIsModalOpen(true);
@@ -119,6 +120,7 @@ export function TypesOfService() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           is_active: formData.is_active,
+          estimated_resolution_days: formData.estimated_resolution_days,
         });
         setServices((prev) =>
           prev.map((s) => (s.id === updated.id ? updated : s))
@@ -128,7 +130,8 @@ export function TypesOfService() {
         const created = await createTypeOfService({
           name: formData.name.trim(),
           description: formData.description.trim(),
-        });
+          estimated_resolution_days: formData.estimated_resolution_days,
+        } as any);
         setServices((prev) => [...prev, created]);
         toast.success(`"${created.name}" created successfully.`);
       }
@@ -239,6 +242,7 @@ export function TypesOfService() {
               <tr className="text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
                 <th className="pb-3 font-medium">Name</th>
                 <th className="pb-3 font-medium">Description</th>
+                <th className="pb-3 font-medium text-center">Est. Days</th>
                 <th className="pb-3 font-medium text-center">Status</th>
                 <th className="pb-3 font-medium text-right">Actions</th>
               </tr>
@@ -246,7 +250,7 @@ export function TypesOfService() {
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-gray-400 dark:text-gray-500">
+                  <td colSpan={5} className="py-12 text-center text-gray-400 dark:text-gray-500">
                     <Settings2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
                     No types of service found.
                   </td>
@@ -257,6 +261,9 @@ export function TypesOfService() {
                     <td className="py-3 font-medium text-gray-900 dark:text-white">{service.name}</td>
                     <td className="py-3 text-gray-600 dark:text-gray-300 max-w-xs truncate">
                       {service.description || <span className="text-gray-400 italic">—</span>}
+                    </td>
+                    <td className="py-3 text-center text-gray-600 dark:text-gray-300">
+                      {service.estimated_resolution_days ? `${service.estimated_resolution_days}d` : '—'}
                     </td>
                     <td className="py-3 text-center">
                       <button
@@ -382,6 +389,24 @@ export function TypesOfService() {
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] resize-none"
                   placeholder="Optional description of this service type..."
                 />
+              </div>
+
+              {/* Estimated Resolution Days */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Estimated Resolution Days
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={formData.estimated_resolution_days}
+                  onChange={(e) => setFormData({ ...formData, estimated_resolution_days: Math.max(0, parseInt(e.target.value) || 0) })}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                  placeholder="e.g. 5"
+                />
+                <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                  SLA basis: estimated number of days to resolve tickets of this type. Set 0 for no SLA.
+                </p>
               </div>
 
               {/* Active toggle (only when editing) */}

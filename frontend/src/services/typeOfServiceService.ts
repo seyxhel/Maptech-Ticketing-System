@@ -5,6 +5,7 @@ export interface TypeOfService {
   name: string
   description: string
   is_active: boolean
+  estimated_resolution_days?: number
 }
 
 export async function fetchTypesOfService(): Promise<TypeOfService[]> {

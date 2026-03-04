@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2 } from 'lucide-react';
+import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2, Package, Users } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
@@ -14,6 +14,8 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
   { id: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/admin/audit-logs' },
   { id: 'knowledge-hub', label: 'Knowledge Hub', icon: BookOpen, path: '/admin/knowledge-hub' },
+  { id: 'products', label: 'Products', icon: Package, path: '/admin/products' },
+  { id: 'clients', label: 'Clients', icon: Users, path: '/admin/clients' },
   { id: 'types-of-service', label: 'Types of Service', icon: Settings2, path: '/admin/types-of-service' },
   { id: 'reports', label: 'Reports', icon: BarChart3, path: '/admin/reports' },
 ];
