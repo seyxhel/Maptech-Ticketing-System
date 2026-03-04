@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2 } from 'lucide-react';
@@ -88,6 +88,42 @@ export function Settings() {
   const [pwError, setPwError] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
+  // const [breachChecking, setBreachChecking] = useState(false);
+  const hibpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Real-time debounced HIBP breach check while typing
+  useEffect(() => {
+    // Clear any pending timer
+    if (hibpTimer.current) clearTimeout(hibpTimer.current);
+
+    // Only check if the password passes all basic rules
+    const { error } = validatePassword(newPassword);
+    if (!newPassword || error) {
+      // Reset breach status when password is empty or invalid
+      setPwRules((prev) => prev ? { ...prev, notBreached: null } : prev);
+      setBreachChecking(false);
+      return;
+    }
+
+    // Show checking state
+    setBreachChecking(true);
+    setPwRules((prev) => prev ? { ...prev, notBreached: null } : prev);
+
+    hibpTimer.current = setTimeout(async () => {
+      try {
+        const breached = await checkPasswordPwned(newPassword);
+        // Only update if password hasn't changed since we started
+        setPwRules((prev) => prev ? { ...prev, notBreached: !breached } : prev);
+      } catch {
+        // Network error — assume safe
+        setPwRules((prev) => prev ? { ...prev, notBreached: true } : prev);
+      } finally {
+        setBreachChecking(false);
+      }
+    }, 800);
+
+    return () => { if (hibpTimer.current) clearTimeout(hibpTimer.current); };
+  }, [newPassword]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,11 +139,10 @@ export function Settings() {
 
     setPwLoading(true);
     try {
-      const breached = await checkPasswordPwned(newPassword);
-      if (breached) {
-        setPwError('This password has been found in a data breach (haveibeenpwned.com). Please choose a different password.');
-        setPwRules((prev) => prev ? { ...prev, notBreached: false } : prev);
-        return;
+      // If breach check is still pending, do a final check now
+      if (pwRules?.notBreached === null) {
+        const breached = await checkPasswordPwned(newPassword);
+        setPwRules((prev) => prev ? { ...prev, notBreached: !breached } : prev);
       }
       await changePassword(currentPassword, newPassword);
       toast.success('Password changed successfully.');
@@ -265,10 +300,9 @@ export function Settings() {
                   { ok: pwRules.hasLowercase, text: 'A lowercase letter' },
                   { ok: pwRules.hasNumber, text: 'A number' },
                   { ok: pwRules.hasSpecial, text: 'A special character' },
-                  { ok: pwRules.notBreached, text: 'Not found in data breaches', pending: pwRules.notBreached === null },
                 ].map((r) => (
-                  <li key={r.text} className={'pending' in r && r.pending ? 'text-gray-400' : r.ok ? 'text-green-600' : 'text-red-500'}>
-                    {'pending' in r && r.pending ? '○' : r.ok ? '\u2713' : '\u2717'} {r.text}{('pending' in r && r.pending) ? ' (checked on submit)' : ''}
+                  <li key={r.text} className={r.ok ? 'text-green-600' : 'text-red-500'}>
+                    {r.ok ? '\u2713' : '\u2717'} {r.text}
                   </li>
                 ))}
               </ul>

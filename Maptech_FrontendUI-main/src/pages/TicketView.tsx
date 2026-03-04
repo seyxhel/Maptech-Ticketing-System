@@ -1540,7 +1540,7 @@ export function TicketView() {
                       )}
 
                       {/* Message Content */}
-                      <div className={`relative max-w-[75%] ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
+                      <div className={`relative max-w-[75%] min-w-0 ${mine ? 'items-end' : 'items-start'} flex flex-col`}>
                         {/* Sender Name + Role badge (first in group) */}
                         {!isConsecutive && !mine && (
                           <div className="flex items-center gap-1.5 mb-1 ml-1">
@@ -1558,14 +1558,14 @@ export function TicketView() {
 
                         {/* Reply preview */}
                         {m.reply_to && (
-                          <div className={`mb-1 px-2.5 py-1.5 rounded-lg text-[11px] border-l-2 border-[#0E8F79] ${
+                          <div className={`mb-1 px-2.5 py-1.5 rounded-lg text-[11px] border-l-2 border-[#0E8F79] overflow-hidden max-w-full min-w-0 ${
                             mine
                               ? 'bg-[#0E8F79]/20 text-white/80 self-end'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                           }`}>
                             <div className="flex items-center gap-1 mb-0.5">
-                              <CornerDownRight className="w-2.5 h-2.5" />
-                              <span className="font-semibold">{m.reply_to.sender_username}</span>
+                              <CornerDownRight className="w-2.5 h-2.5 flex-shrink-0" />
+                              <span className="font-semibold truncate">{m.reply_to.sender_username}</span>
                             </div>
                             <p className="truncate opacity-80">{m.reply_to.content}</p>
                           </div>
@@ -1662,7 +1662,7 @@ export function TicketView() {
                                 </div>
                               )}
                               {/* Text content */}
-                              {m.content && <div className="px-3.5 py-2">{m.content}</div>}
+                              {m.content && <div className="px-3.5 py-2 break-words overflow-hidden" style={{ overflowWrap: 'anywhere' }}>{m.content}</div>}
                             </div>
 
                             {/* Hover actions – side of bubble */}
@@ -1766,7 +1766,7 @@ export function TicketView() {
               <CornerDownRight className="w-4 h-4 text-[#0E8F79] flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] font-semibold text-[#0E8F79]">Replying to {replyTo.sender_username}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{replyTo.content}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 truncate break-words" style={{ overflowWrap: 'anywhere' }}>{replyTo.content}</div>
               </div>
               <button
                 onClick={() => setReplyTo(null)}

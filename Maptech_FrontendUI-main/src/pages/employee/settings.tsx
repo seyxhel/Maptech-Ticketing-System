@@ -160,7 +160,7 @@ export default function EmployeeSettings() {
               { label: 'Email', value: user?.email || '—', icon: Mail },
               { label: 'Phone', value: user?.phone || '—', icon: Phone },
               { label: 'Department', value: 'Technical Support', icon: Building },
-              { label: 'Role', value: 'Technical', icon: Shield },
+              { label: 'Role', value: 'Technical Staff', icon: Shield },
             ].map((f) => (
               <div key={f.label}>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">{f.label}</label>
@@ -223,7 +223,7 @@ export default function EmployeeSettings() {
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Role</label>
                 <div className={boxReadonly}>
                   <Shield className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Technical</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Technical Staff</span>
                 </div>
               </div>
             </div>
@@ -265,10 +265,9 @@ export default function EmployeeSettings() {
                   { ok: pwRules.hasLowercase, text: 'A lowercase letter' },
                   { ok: pwRules.hasNumber, text: 'A number' },
                   { ok: pwRules.hasSpecial, text: 'A special character' },
-                  { ok: pwRules.notBreached, text: 'Not found in data breaches', pending: pwRules.notBreached === null },
                 ].map((r) => (
-                  <li key={r.text} className={'pending' in r && r.pending ? 'text-gray-400' : r.ok ? 'text-green-600' : 'text-red-500'}>
-                    {'pending' in r && r.pending ? '○' : r.ok ? '\u2713' : '\u2717'} {r.text}{('pending' in r && r.pending) ? ' (checked on submit)' : ''}
+                  <li key={r.text} className={r.ok ? 'text-green-600' : 'text-red-500'}>
+                    {r.ok ? '\u2713' : '\u2717'} {r.text}
                   </li>
                 ))}
               </ul>

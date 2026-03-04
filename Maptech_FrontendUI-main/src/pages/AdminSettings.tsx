@@ -264,10 +264,9 @@ export function AdminSettings() {
                   { ok: pwRules.hasLowercase, text: 'A lowercase letter' },
                   { ok: pwRules.hasNumber, text: 'A number' },
                   { ok: pwRules.hasSpecial, text: 'A special character' },
-                  { ok: pwRules.notBreached, text: 'Not found in data breaches', pending: pwRules.notBreached === null },
                 ].map((r) => (
-                  <li key={r.text} className={'pending' in r && r.pending ? 'text-gray-400' : r.ok ? 'text-green-600' : 'text-red-500'}>
-                    {'pending' in r && r.pending ? '○' : r.ok ? '\u2713' : '\u2717'} {r.text}{('pending' in r && r.pending) ? ' (checked on submit)' : ''}
+                  <li key={r.text} className={r.ok ? 'text-green-600' : 'text-red-500'}>
+                    {r.ok ? '\u2713' : '\u2717'} {r.text}
                   </li>
                 ))}
               </ul>

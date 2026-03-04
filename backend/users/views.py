@@ -84,21 +84,23 @@ class AuthViewSet(viewsets.GenericViewSet):
         if not new_pw or len(new_pw) < 8:
             return Response({'detail': 'New password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # HIBP breach check — warn but allow
+        breach_warning = ''
         if _is_password_pwned(new_pw):
-            return Response(
-                {'detail': 'This password has been found in a data breach (haveibeenpwned.com). Please choose a different password.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            breach_warning = 'Warning: this password has been found in a data breach (haveibeenpwned.com). Consider changing it later.'
 
         user.set_password(new_pw)
         user.save()
         # Return new tokens since password change invalidates old ones
         refresh = RefreshToken.for_user(user)
-        return Response({
+        response_data = {
             'detail': 'Password changed successfully.',
             'access': str(refresh.access_token),
             'refresh': str(refresh),
-        })
+        }
+        if breach_warning:
+            response_data['warning'] = breach_warning
+        return Response(response_data)
 
     # ── Password reset (public) ──────────────────────────────────────────
     @action(detail=False, methods=['post'], permission_classes=[], url_path='password-reset')

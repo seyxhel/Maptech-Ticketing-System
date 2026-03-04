@@ -446,10 +446,9 @@ export function Signup() {
                       { ok: rules.hasLowercase, label: 'Lowercase letter' },
                       { ok: rules.hasNumber, label: 'Number' },
                       { ok: rules.hasSpecial, label: 'Special character' },
-                      { ok: rules.notBreached, label: 'Not found in data breaches', pending: rules.notBreached === null },
                     ].map((r) => (
-                      <p key={r.label} className={`text-xs ${'pending' in r && r.pending ? 'text-gray-500' : r.ok ? 'text-green-400' : 'text-red-400'}`}>
-                        {'pending' in r && r.pending ? '○' : r.ok ? '✓' : '✗'} {r.label}{('pending' in r && r.pending) ? ' (checked on submit)' : ''}
+                      <p key={r.label} className={`text-xs ${r.ok ? 'text-green-400' : 'text-red-400'}`}>
+                        {r.ok ? '✓' : '✗'} {r.label}
                       </p>
                     ))}
                   </div>
