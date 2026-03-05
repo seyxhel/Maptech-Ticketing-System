@@ -775,6 +775,44 @@ export async function fetchPublishedArticles(params?: { search?: string }): Prom
 
 // ── Product endpoints ──
 
+/** Fetch all device/equipment categories. */
+export async function fetchDeviceEquipment(): Promise<DeviceEquipment[]> {
+  const res = await fetch(`${API_BASE}/device-equipment/`, { headers: authHeaders() });
+  return handleResponse<DeviceEquipment[]>(res);
+}
+
+/** Create a device/equipment category. */
+export async function createDeviceEquipment(data: Partial<DeviceEquipment>): Promise<DeviceEquipment> {
+  const res = await fetch(`${API_BASE}/device-equipment/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<DeviceEquipment>(res);
+}
+
+/** Update a device/equipment category. */
+export async function updateDeviceEquipment(id: number, data: Partial<DeviceEquipment>): Promise<DeviceEquipment> {
+  const res = await fetch(`${API_BASE}/device-equipment/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<DeviceEquipment>(res);
+}
+
+/** Delete a device/equipment category. */
+export async function deleteDeviceEquipment(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/device-equipment/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to delete category');
+  }
+}
+
 /** Fetch all products. */
 export async function fetchProducts(): Promise<Product[]> {
   const res = await fetch(`${API_BASE}/products/`, { headers: authHeaders() });

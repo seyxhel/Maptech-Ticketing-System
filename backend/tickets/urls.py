@@ -6,7 +6,7 @@ from .views import (
     AuditLogViewSet, KnowledgeHubViewSet, PublishedArticleViewSet,
     list_employees,
     ProductViewSet, ClientViewSet, CallLogViewSet, CSATFeedbackViewSet,
-    NotificationViewSet,
+    NotificationViewSet, CategoryViewSet,
 )
 from users.views import AuthViewSet, CustomTokenObtainPairView, UserViewSet
 from rest_framework_simplejwt.views import TokenRefreshView

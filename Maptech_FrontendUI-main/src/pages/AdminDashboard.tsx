@@ -32,6 +32,8 @@ import type { BackendTicket, TicketStats } from '../services/api';
 import { mapBackendTicketToUI } from '../services/ticketMapper';
 import type { UITicket } from '../services/ticketMapper';
 
+const ITEMS_PER_PAGE = 10;
+
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
@@ -44,6 +46,12 @@ export function AdminDashboard() {
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TicketStats | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterPriority, setFilterPriority] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showFilter, setShowFilter] = useState(false);
   const [escalationHistory, setEscalationHistory] = useState<
     { id: number; ticketId: string; type: string; to: string; reason: string; time: string }[]
   >([]);
@@ -165,7 +173,15 @@ export function AdminDashboard() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / ITEMS_PER_PAGE));
   const pagedTickets = filteredTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const latestTicketCards = tickets.slice(0, 5);
+  const latestBackendTickets = backendTickets.slice(0, 5);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+
+  const getLastUpdatedText = (stfNo: string) => {
+    const bt = backendTickets.find((t) => t.stf_no === stfNo);
+    if (!bt?.updated_at) return 'N/A';
+    return new Date(bt.updated_at).toLocaleString();
+  };
 
   const handleEscalate = async () => {
     if (!escalationReason) { toast.error('Please provide a reason for escalation.'); return; }

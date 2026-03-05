@@ -839,9 +839,6 @@ export function TicketView() {
           </button>
           {isAdmin && (
             <>
-              <button onClick={openAdminEdit} title="Edit Ticket" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm text-gray-700 dark:text-gray-300">
-                <PenLine className="w-4 h-4 text-gray-700" /> Edit
-              </button>
               <button onClick={handleAdminDelete} title="Delete Ticket" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-800 text-sm text-red-700 dark:text-red-400">
                 <Trash2 className="w-4 h-4" /> Delete
               </button>

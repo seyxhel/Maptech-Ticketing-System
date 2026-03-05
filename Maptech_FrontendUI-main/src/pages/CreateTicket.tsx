@@ -5,7 +5,6 @@ import { GreenButton } from '../components/ui/GreenButton';
 import { toast } from 'sonner';
 import {
   Calendar,
-  Clock,
   FileText,
   Monitor,
   Wrench,
@@ -101,7 +100,7 @@ export function CreateTicket() {
 
     const now = new Date();
     toast.success('Service Ticket Submitted Successfully', {
-      description: `Date: ${now.toLocaleDateString()} | STF No.: ${stfNo} | Time In: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      description: `Date: ${now.toLocaleDateString()} | STF No.: ${stfNo}`,
     });
   };
 
@@ -134,14 +133,6 @@ export function CreateTicket() {
             icon: FileText,
             label: 'STF No.',
             value: stfNo
-          },
-          {
-            icon: Clock,
-            label: 'Time In',
-            value: new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit'
-            })
           }].
           map(({ icon: Icon, label, value }) =>
           <div key={label} className="flex items-center gap-2">

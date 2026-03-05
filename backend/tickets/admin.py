@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback, Notification
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback, Notification, Category
 
 User = get_user_model()
 

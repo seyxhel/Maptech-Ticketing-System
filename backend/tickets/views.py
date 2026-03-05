@@ -9,7 +9,7 @@ from django.utils import timezone
 from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, EscalationLog, AuditLog,
-    Product, Client, CallLog, CSATFeedback, Notification,
+    Product, Client, CallLog, CSATFeedback, Notification, Category,
 )
 from .serializers import (
     TicketSerializer, TypeOfServiceSerializer,
@@ -22,7 +22,7 @@ from .serializers import (
     PublishedArticleSerializer,
     ProductSerializer, ClientSerializer,
     CallLogSerializer, CSATFeedbackSerializer,
-    NotificationSerializer,
+    NotificationSerializer, CategorySerializer,
 )
 from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant, IsSuperAdmin
 from users.serializers import UserSerializer

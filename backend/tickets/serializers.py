@@ -3,7 +3,7 @@ from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, MessageReaction, MessageReadReceipt,
     EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback,
-    Notification,
+    Notification, Category,
 )
 from users.serializers import UserSerializer
 
