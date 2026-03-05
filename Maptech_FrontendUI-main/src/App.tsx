@@ -29,6 +29,7 @@ import AdminCreateTicket from './pages/admin/create-ticket';
 import AdminTicketDetails from './pages/admin/ticket-details';
 import AdminSettings from './pages/admin/settings';
 import AdminAuditLogs from './pages/admin/audit-logs';
+import AdminCallLogs from './pages/admin/call-logs';
 import AdminKnowledgeHub from './pages/admin/knowledge-hub';
 import AdminTypesOfService from './pages/admin/types-of-service';
 import AdminProducts from './pages/admin/products';
@@ -105,6 +106,7 @@ export function App() {
               <Route path="create-ticket" element={<AdminCreateTicket />} />
               <Route path="ticket-details" element={<AdminTicketDetails />} />
               <Route path="audit-logs" element={<AdminAuditLogs />} />
+              <Route path="call-logs" element={<AdminCallLogs />} />
               <Route path="knowledge-hub" element={<Navigate to="/admin/knowledge-hub/uploaded" replace />} />
               <Route path="knowledge-hub/uploaded" element={<AdminKnowledgeHub filter="uploaded" />} />
               <Route path="knowledge-hub/published" element={<AdminKnowledgeHub filter="published" />} />

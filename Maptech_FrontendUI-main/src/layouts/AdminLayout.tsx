@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2, Package, Users, Monitor, Upload, FileCheck, Archive } from 'lucide-react';
+import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2, Package, Users, Monitor, Upload, FileCheck, Archive, Shield, PhoneCall } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
@@ -12,7 +12,16 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'tickets', label: 'Tickets', icon: Ticket, path: '/admin/tickets' },
   { id: 'create-ticket', label: 'Create Ticket', icon: PlusCircle, path: '/admin/create-ticket' },
   { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
-  { id: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/admin/audit-logs' },
+  {
+    id: 'logs',
+    label: 'Logs',
+    icon: ScrollText,
+    path: '/admin/logs',
+    children: [
+      { id: 'audit-logs', label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
+      { id: 'call-logs', label: 'Call Logs', icon: PhoneCall, path: '/admin/call-logs' },
+    ],
+  },
   {
     id: 'knowledge-hub',
     label: 'Knowledge Hub',
