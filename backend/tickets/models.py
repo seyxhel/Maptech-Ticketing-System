@@ -338,7 +338,7 @@ class Message(models.Model):
     ]
 
     ticket = models.ForeignKey(Ticket, related_name='messages', on_delete=models.CASCADE)
-    assignment_session = models.ForeignKey(AssignmentSession, related_name='messages', on_delete=models.CASCADE)
+    assignment_session = models.ForeignKey(AssignmentSession, related_name='messages', on_delete=models.CASCADE, null=True, blank=True)
     channel_type = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
     content = models.TextField()

@@ -116,8 +116,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                 except User.DoesNotExist:
                     pass
 
-            # Set time_in since admin is creating directly
-            ticket.time_in = timezone.now()
             ticket.confirmed_by_admin = True
             ticket.save()
 

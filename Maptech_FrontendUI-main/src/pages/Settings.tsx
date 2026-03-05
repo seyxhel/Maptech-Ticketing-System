@@ -88,7 +88,7 @@ export function Settings() {
   const [pwError, setPwError] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
-  // const [breachChecking, setBreachChecking] = useState(false);
+  const [breachChecking, setBreachChecking] = useState(false);
   const hibpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Real-time debounced HIBP breach check while typing
