@@ -9,3 +9,4 @@ channels[daphne]
 channels
 drf-yasg
 whitenoise
+Pillow

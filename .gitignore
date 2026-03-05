@@ -10,3 +10,10 @@ media/
 .env.local
 .env.*.local
 !.env.example
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+*$py.class
+
+# pytest cache
+.pytest_cache/

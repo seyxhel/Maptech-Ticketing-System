@@ -32,6 +32,7 @@ export interface LoginResponse {
     suffix?: string;
     phone?: string;
     is_active?: boolean;
+    profile_picture_url?: string | null;
     [key: string]: unknown;
   };
   redirect_path?: string;
@@ -136,4 +137,34 @@ export async function updateProfile(data: Record<string, unknown>): Promise<Logi
   return result as LoginResponse['user'];
 }
 
+/** Upload profile picture (authenticated user). */
+export async function uploadAvatar(file: File): Promise<LoginResponse['user']> {
+  const token = getToken();
+  const formData = new FormData();
+  formData.append('profile_picture', file);
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}/auth/upload_avatar/`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(result.detail || 'Avatar upload failed.');
+  }
+  return result as LoginResponse['user'];
+}
 
+/** Remove profile picture (authenticated user). */
+export async function removeAvatar(): Promise<LoginResponse['user']> {
+  const res = await fetch(`${API_BASE}/auth/remove_avatar/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(result.detail || 'Failed to remove avatar.');
+  }
+  return result as LoginResponse['user'];
+}

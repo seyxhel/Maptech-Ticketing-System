@@ -3,6 +3,7 @@ import requests as http_requests
 
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -45,7 +46,44 @@ class AuthViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context={'request': request}).data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated],
+            url_path='upload_avatar', parser_classes=[MultiPartParser, FormParser])
+    def upload_avatar(self, request):
+        """Upload or replace the authenticated user's profile picture."""
+        if 'profile_picture' not in request.FILES:
+            return Response({'detail': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES['profile_picture']
+        # Validate content type
+        if not file.content_type.startswith('image/'):
+            return Response({'detail': 'File must be an image.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Limit to 5 MB
+        if file.size > 5 * 1024 * 1024:
+            return Response({'detail': 'Image must be 5 MB or smaller.'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        # Remove old picture to save storage
+        if user.profile_picture:
+            try:
+                user.profile_picture.delete(save=False)
+            except Exception:
+                pass
+        user.profile_picture = file
+        user.save(update_fields=['profile_picture'])
+        return Response(UserSerializer(user, context={'request': request}).data)
+
+    @action(detail=False, methods=['delete'], permission_classes=[IsAuthenticated], url_path='remove_avatar')
+    def remove_avatar(self, request):
+        """Remove the authenticated user's profile picture."""
+        user = request.user
+        if user.profile_picture:
+            try:
+                user.profile_picture.delete(save=False)
+            except Exception:
+                pass
+            user.profile_picture = None
+            user.save(update_fields=['profile_picture'])
+        return Response(UserSerializer(user, context={'request': request}).data)
 
     @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
     def update_profile(self, request):
@@ -65,7 +103,7 @@ class AuthViewSet(viewsets.GenericViewSet):
         elif _re.match(r'^63\d{10}$', raw_phone):
             user.phone = '+' + raw_phone
         user.save()
-        return Response(UserSerializer(user).data)
+        return Response(UserSerializer(user, context={'request': request}).data)
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def change_password(self, request):
@@ -185,7 +223,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     pass
             data = {**resp.data}
             if user:
-                data['user'] = UserSerializer(user).data
+                data['user'] = UserSerializer(user, context={'request': request}).data
             return Response(data)
 
         # If auth failed, allow login by email: check whether the provided "username" looks like an email
@@ -218,7 +256,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     data = {
                         'access': str(refresh.access_token),
                         'refresh': str(refresh),
-                        'user': UserSerializer(user).data,
+                        'user': UserSerializer(user, context={'request': request}).data,
                     }
                     return Response(data)
             except User.DoesNotExist:

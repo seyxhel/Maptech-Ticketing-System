@@ -18,6 +18,12 @@ class User(AbstractUser):
     middle_name = models.CharField(max_length=150, blank=True)
     suffix = models.CharField(max_length=3, blank=True)
     phone = models.CharField(max_length=13, blank=True)
+    profile_picture = models.ImageField(
+        upload_to='profile_pictures/',
+        null=True,
+        blank=True,
+        help_text='User profile picture',
+    )
 
     @property
     def is_admin_level(self):

@@ -5,13 +5,26 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     has_usable_password = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'middle_name', 'last_name', 'suffix', 'phone', 'last_login', 'is_active', 'has_usable_password']
+        fields = [
+            'id', 'username', 'email', 'role',
+            'first_name', 'middle_name', 'last_name', 'suffix', 'phone',
+            'last_login', 'is_active', 'has_usable_password',
+            'profile_picture', 'profile_picture_url',
+        ]
+        extra_kwargs = {'profile_picture': {'write_only': True, 'required': False}}
 
     def get_has_usable_password(self, obj):
         return obj.has_usable_password()
+
+    def get_profile_picture_url(self, obj):
+        if not obj.profile_picture:
+            return None
+        # Return the relative path so the frontend proxy handles serving it
+        return obj.profile_picture.url
 
 class AdminUserCreateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)

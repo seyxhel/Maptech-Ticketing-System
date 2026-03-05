@@ -21,6 +21,7 @@ interface TopNavUser {
   email?: string;
   name?: string;
   role?: string;
+  profile_picture_url?: string | null;
 }
 
 interface TopNavProps {
@@ -206,8 +207,20 @@ export function TopNav({
             </p>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#63D44A] to-[#0E8F79] flex items-center justify-center text-white text-xs font-bold">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#63D44A] to-[#0E8F79] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative">
+              {/* Initials always rendered as fallback */}
               {getInitials(authUser, role)}
+              {/* Photo overlaid on top; hides itself on error revealing initials.
+                  key forces remount when URL changes, so a previous onError display:none is cleared. */}
+              {authUser?.profile_picture_url && (
+                <img
+                  key={authUser.profile_picture_url}
+                  src={authUser.profile_picture_url}
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+              )}
             </div>
             <button
               onClick={() => {

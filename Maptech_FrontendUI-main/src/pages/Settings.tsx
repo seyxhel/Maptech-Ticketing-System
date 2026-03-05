@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
-import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2 } from 'lucide-react';
+import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2, Camera, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { changePassword, updateProfile } from '../services/authService';
+import { changePassword, updateProfile, uploadAvatar, removeAvatar } from '../services/authService';
 import { toast } from 'sonner';
 import {
   validatePassword,
@@ -45,6 +45,62 @@ export function Settings() {
   };
 
   const cancelEdit = () => { setEditing(false); setFieldErrors({}); };
+
+  /* ── Avatar upload ── */
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [removeAvatarLoading, setRemoveAvatarLoading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null); // local blob for instant preview
+  const [avatarImgError, setAvatarImgError] = useState(false);
+  const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
+
+  // Compute the src to show: local blob preview > server URL (with cache-bust) > nothing
+  const avatarSrc = avatarPreview
+    ? avatarPreview
+    : user?.profile_picture_url
+    ? `${user.profile_picture_url}?t=${encodeURIComponent(user.profile_picture_url.split('/').pop() || '')}`
+    : null;
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const blobUrl = URL.createObjectURL(file);
+    setAvatarPreview(blobUrl);
+    setAvatarImgError(false);
+    setAvatarLoading(true);
+    // Update navbar instantly with the local blob so the circle reflects the new photo right away
+    updateUser({ profile_picture_url: blobUrl });
+    try {
+      const updated = await uploadAvatar(file);
+      // Replace blob URL in context with the permanent server URL
+      updateUser({ profile_picture_url: updated.profile_picture_url ?? null });
+      toast.success('Profile picture updated.');
+    } catch (err) {
+      setAvatarPreview(null);
+      updateUser({ profile_picture_url: user?.profile_picture_url ?? null });
+      toast.error(err instanceof Error ? err.message : 'Failed to upload picture.');
+    } finally {
+      setAvatarLoading(false);
+      // Delay revocation so React can flush the server URL update to the navbar before the blob dies
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setRemoveAvatarLoading(true);
+    try {
+      await removeAvatar();
+      setAvatarPreview(null);
+      setAvatarImgError(false);
+      updateUser({ profile_picture_url: null });
+      toast.success('Profile picture removed.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove picture.');
+    } finally {
+      setRemoveAvatarLoading(false);
+    }
+  };
 
   const handleField = (field: string, value: string) => {
     setForm((p) => ({ ...p, [field]: value }));
@@ -171,6 +227,89 @@ export function Settings() {
 
       {/* ── Personal Details ── */}
       <Card accent>
+        {/* Avatar */}
+        <div className="flex items-center gap-6 mb-6">
+          <div className="relative flex-shrink-0">
+            {/* Circle: click image → preview; click empty circle → file picker */}
+            <div
+              className="w-28 h-28 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center cursor-pointer group"
+              onClick={() => {
+                if (avatarLoading || removeAvatarLoading) return;
+                if (avatarSrc && !avatarImgError) setAvatarLightboxOpen(true);
+                else avatarInputRef.current?.click();
+              }}
+            >
+              {avatarSrc && !avatarImgError ? (
+                <img
+                  src={avatarSrc}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={() => setAvatarImgError(true)}
+                />
+              ) : (
+                <User className="w-12 h-12 text-gray-400" />
+              )}
+              <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarLoading
+                  ? <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  : (avatarSrc && !avatarImgError)
+                  ? <Eye className="w-6 h-6 text-white" />
+                  : <Camera className="w-6 h-6 text-white" />}
+              </div>
+            </div>
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">Profile Picture</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">JPG, PNG or GIF · Max 5 MB</p>
+            <div className="flex items-center gap-3 mt-2">
+              <button
+                type="button"
+                onClick={() => !avatarLoading && !removeAvatarLoading && avatarInputRef.current?.click()}
+                disabled={avatarLoading || removeAvatarLoading}
+                className="text-xs font-medium text-[#3BC25B] hover:text-[#63D44A] transition-colors disabled:opacity-50"
+              >
+                {avatarLoading ? 'Uploading…' : 'Change photo'}
+              </button>
+              {(user?.profile_picture_url || avatarPreview) && (
+                <>
+                  <span className="text-gray-500 dark:text-gray-600 text-xs">·</span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={avatarLoading || removeAvatarLoading}
+                    className="text-xs font-medium text-red-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                  >
+                    {removeAvatarLoading ? 'Removing…' : 'Remove photo'}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Lightbox */}
+        {avatarLightboxOpen && avatarSrc && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setAvatarLightboxOpen(false)}
+          >
+            <div className="relative max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setAvatarLightboxOpen(false)}
+                className="absolute -top-3 -right-3 z-10 w-8 h-8 rounded-full bg-gray-800 border border-gray-600 flex items-center justify-center text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <img
+                src={avatarSrc}
+                alt="Profile preview"
+                className="w-full rounded-2xl object-cover shadow-2xl"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Personal Details</h2>
           {!editing ? (

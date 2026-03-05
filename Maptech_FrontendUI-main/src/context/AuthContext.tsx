@@ -18,6 +18,7 @@ export interface AuthUser {
   last_name?: string;
   suffix?: string;
   phone?: string;
+  profile_picture_url?: string | null;
 }
 
 interface AuthContextValue {
@@ -95,6 +96,7 @@ function buildAuthUser(apiUser: Record<string, unknown>): AuthUser | null {
     last_name: apiUser.last_name as string | undefined,
     suffix: apiUser.suffix as string | undefined,
     phone: apiUser.phone as string | undefined,
+    profile_picture_url: apiUser.profile_picture_url as string | null | undefined,
     name: [apiUser.first_name, apiUser.last_name].filter(Boolean).join(' ') || (apiUser.username as string),
   };
 }
@@ -117,6 +119,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // ── Step 1: hydrate from cache instantly so the navbar shows name/photo now ──
+      const cachedUser = readStorage(STORAGE_KEY);
+      if (cachedUser) {
+        try {
+          const parsed = JSON.parse(cachedUser) as AuthUser;
+          if (!cancelled && parsed?.role) {
+            setAccessToken(storedAccess);
+            setUser(parsed);
+            setLoading(false); // render the app now; Step 2 will silently update
+          }
+        } catch { /* ignore corrupt cache */ }
+      }
+
+      // ── Step 2: fetch fresh user from API and update (refreshes photo URL, name, role) ──
       try {
         // Try fetching current user with the stored access token
         const apiUser = await fetchCurrentUser(storedAccess);
@@ -125,6 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (authUser) {
             setAccessToken(storedAccess);
             setUser(authUser);
+            // Keep cache in sync with fresh server data
+            const persist = !!localStorage.getItem(TOKEN_KEY);
+            writeStorage(STORAGE_KEY, JSON.stringify(authUser), persist);
           } else {
             // Unknown role — clear tokens and deny access
             clearStorage(TOKEN_KEY);
@@ -143,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (authUser) {
                 const persist = !!localStorage.getItem(TOKEN_KEY);
                 writeStorage(TOKEN_KEY, newAccess, persist);
+                writeStorage(STORAGE_KEY, JSON.stringify(authUser), persist);
                 setAccessToken(newAccess);
                 setUser(authUser);
               } else {
@@ -163,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (!cancelled) setLoading(false);
+      if (!cancelled) setLoading(false); // no-op if cache already cleared it
     }
 
     restore();
@@ -205,8 +225,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...partial, name: [partial.first_name ?? prev.first_name, partial.last_name ?? prev.last_name].filter(Boolean).join(' ') || prev.username || '' };
+      // Don't persist blob: URLs — they're transient and die on refresh
+      const toStore = { ...next };
+      if (typeof toStore.profile_picture_url === 'string' && toStore.profile_picture_url.startsWith('blob:')) {
+        toStore.profile_picture_url = prev.profile_picture_url ?? null;
+      }
       const persist = !!localStorage.getItem(TOKEN_KEY);
-      writeStorage(STORAGE_KEY, JSON.stringify(next), persist);
+      writeStorage(STORAGE_KEY, JSON.stringify(toStore), persist);
       return next;
     });
   }, []);
