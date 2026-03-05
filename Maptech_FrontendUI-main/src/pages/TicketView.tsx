@@ -1599,16 +1599,18 @@ export function TicketView() {
                   <X className="w-4 h-4" /> Close Ticket
                 </button>
               )}
-              {/* Admin: Link Ticket — navigate to create-ticket with linked context */}
-              {isAdmin && ticket.status !== 'Closed' && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/admin/create-ticket?linkedTicketId=${btData?.id}&linkedStf=${encodeURIComponent(btData?.stf_no || '')}`)}
-                  className="w-full py-3 rounded-xl font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-all text-sm"
-                >
-                  <Link2 className="w-4 h-4" /> Link Ticket / Same Problem
-                </button>
-              )}
+            </div>
+          )}
+          {/* Admin: Link Ticket — navigate to create-ticket with linked context */}
+          {isAdmin && ticket.status === 'Closed' && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/admin/create-ticket?linkedTicketId=${btData?.id}&linkedStf=${encodeURIComponent(btData?.stf_no || '')}`)}
+                className="w-full py-3 rounded-xl font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-all text-sm"
+              >
+                <Link2 className="w-4 h-4" /> Link Ticket / Same Problem
+              </button>
             </div>
           )}
         </div>
