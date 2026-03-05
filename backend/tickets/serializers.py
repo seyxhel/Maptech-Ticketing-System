@@ -3,9 +3,24 @@ from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, MessageReaction, MessageReadReceipt,
     EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback,
-    Notification,
+    Notification, Category,
 )
 from users.serializers import UserSerializer
+
+
+# ────────────────────────────────────────────
+# Category serializer
+# ────────────────────────────────────────────
+
+class CategorySerializer(serializers.ModelSerializer):
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description', 'is_active', 'product_count', 'created_at', 'updated_at']
+
+    def get_product_count(self, obj):
+        return obj.products.count()
 
 
 # ────────────────────────────────────────────
@@ -13,10 +28,12 @@ from users.serializers import UserSerializer
 # ────────────────────────────────────────────
 
 class ProductSerializer(serializers.ModelSerializer):
+    category_detail = CategorySerializer(source='category', read_only=True)
+
     class Meta:
         model = Product
         fields = [
-            'id', 'device_equipment', 'version_no', 'date_purchased',
+            'id', 'category', 'category_detail', 'device_equipment', 'version_no', 'date_purchased',
             'serial_no', 'has_warranty', 'product_name', 'brand',
             'model_name', 'sales_no', 'is_active', 'created_at', 'updated_at',
         ]
@@ -121,7 +138,7 @@ class EscalationLogSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EscalationLog
-        fields = ['id', 'escalation_type', 'from_user', 'to_user', 'to_external', 'notes', 'created_at']
+        fields = ['id', 'ticket', 'escalation_type', 'from_user', 'to_user', 'to_external', 'notes', 'created_at']
 
 
 class TicketSerializer(serializers.ModelSerializer):
@@ -237,6 +254,9 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
             'estimated_resolution_days_override',
             'is_existing_client',
         ]
+        extra_kwargs = {
+            'email_address': {'required': False, 'allow_blank': True, 'default': ''},
+        }
 
 
 class EmployeeTicketActionSerializer(serializers.Serializer):
@@ -346,7 +366,9 @@ class KnowledgeHubAttachmentSerializer(serializers.ModelSerializer):
             'description_of_problem', 'type_of_service_name', 'assigned_to_name',
             # Publish fields
             'is_published', 'published_title', 'published_description',
-            'published_by_detail', 'published_at',
+            'published_tags', 'published_by_detail', 'published_at',
+            # Archive field
+            'is_archived',
         ]
 
     def get_type_of_service_name(self, obj):
@@ -371,9 +393,9 @@ class PublishedArticleSerializer(serializers.ModelSerializer):
     class Meta:
         model = TicketAttachment
         fields = [
-            'id', 'published_title', 'published_description', 'file_url',
-            'stf_no', 'uploaded_by_name', 'published_by_name', 'published_at',
-            'uploaded_at',
+            'id', 'published_title', 'published_description', 'published_tags',
+            'file_url', 'stf_no', 'uploaded_by_name', 'published_by_name',
+            'published_at', 'uploaded_at',
         ]
 
     def get_file_url(self, obj):

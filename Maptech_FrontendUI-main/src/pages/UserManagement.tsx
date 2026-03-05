@@ -76,6 +76,18 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  technical: 'Technical Staff',
+  supervisor: 'Supervisor',
+  superadmin: 'Superadmin',
+  admin: 'Admin',
+  employee: 'Employee',
+};
+
+function roleLabel(role: string): string {
+  return ROLE_LABELS[role.toLowerCase()] ?? cap(role);
+}
+
 const EMPTY_FORM = {
   lastName: '',
   firstName: '',
@@ -106,7 +118,7 @@ export function UserManagement() {
       const data = await fetchUsers();
       setUsers(data.map(toUserAccount));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch users';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch users.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -200,7 +212,7 @@ export function UserManagement() {
       setIsModalOpen(false);
       await loadUsers(); // Refresh the list from the backend
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Operation failed';
+      const msg = err instanceof Error ? err.message : 'Operation failed.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -216,16 +228,17 @@ export function UserManagement() {
         toast.info(`${user.name} has been ${next}.`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Toggle failed';
+      const msg = err instanceof Error ? err.message : 'Toggle failed.';
       toast.error(msg);
     }
   };
   const roleBadge = (role: string) => {
-    if (role === 'Supervisor')
+    const r = role.toLowerCase();
+    if (r === 'supervisor')
     return 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700';
-    if (role === 'Technical')
+    if (r === 'technical')
     return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-700';
-    if (role === 'Superadmin')
+    if (r === 'superadmin')
     return 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-700';
     return 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600';
   };
@@ -276,7 +289,7 @@ export function UserManagement() {
           cls: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700'
         },
         {
-          label: 'Technicals',
+          label: 'Technical Staff',
           count: roleCounts.Technical,
           cls: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
         },
@@ -303,7 +316,7 @@ export function UserManagement() {
               onClick={() => setRoleFilter(tab)}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${roleFilter === tab ? 'bg-white dark:bg-gray-600 text-[#0E8F79] dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
 
-                {tab}
+                {tab === 'Technical' ? 'Technical Staff' : tab}
                 <span
                   className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${
                     roleFilter === tab
@@ -383,7 +396,7 @@ export function UserManagement() {
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${roleBadge(user.role)}`}
                         >
-                          {cap(user.role)}
+                          {roleLabel(user.role)}
                         </span>
                       </td>
                       <td className="px-6 py-4">

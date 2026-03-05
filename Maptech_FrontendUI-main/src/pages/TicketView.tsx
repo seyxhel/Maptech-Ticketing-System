@@ -15,10 +15,10 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
-import { mapStatus, mapPriority, getAssigneeName } from '../services/ticketMapper';
+import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
 import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine } from 'lucide-react';
 import { SignaturePad } from '../components/ui/SignaturePad';
 
@@ -484,6 +484,13 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
 
+  // Admin edit/delete modal state
+  const [adminEditOpen, setAdminEditOpen] = useState(false);
+  const [adminEditFields, setAdminEditFields] = useState({ status: ticket.status, priority: ticket.priority });
+  const [savingAdminEdit, setSavingAdminEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAdmin, setDeletingAdmin] = useState(false);
+
   // ── New feature state ──
   const [observation, setObservation] = useState('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -649,6 +656,48 @@ export function TicketView() {
     }
   };
 
+  const ADMIN_PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+  const ADMIN_STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
+
+  const openAdminEdit = () => {
+    setAdminEditFields({ status: ticket.status, priority: ticket.priority });
+    setAdminEditOpen(true);
+  };
+
+  const saveAdminEdit = async () => {
+    if (!backendTicketId) return;
+    try {
+      const updated = await updateTicket(backendTicketId, {
+        status: reverseMapStatus(adminEditFields.status),
+        priority: reverseMapPriority(adminEditFields.priority),
+      } as any);
+      setBtData(updated);
+      toast.success('Ticket updated.');
+      setAdminEditOpen(false);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to update ticket.');
+    }
+  };
+
+  const handleAdminDelete = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmAdminDelete = async () => {
+    if (!backendTicketId) return;
+    setDeletingAdmin(true);
+    try {
+      await apiDeleteTicket(backendTicketId);
+      toast.success('Ticket deleted.');
+      navigate('/admin/tickets');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete ticket.');
+    } finally {
+      setDeletingAdmin(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   /** Admin submits CSAT feedback then closes ticket */
   const handleCsatClose = async () => {
     if (!backendTicketId || !btData) return;
@@ -788,6 +837,13 @@ export function TicketView() {
             <MessageSquare className="w-4 h-4 text-[#0E8F79]" />
             Messages
           </button>
+          {isAdmin && (
+            <>
+              <button onClick={handleAdminDelete} title="Delete Ticket" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-800 text-sm text-red-700 dark:text-red-400">
+                <Trash2 className="w-4 h-4" /> Delete
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -894,14 +950,6 @@ export function TicketView() {
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Preferred Type of Support</div>
                 <div className="text-gray-900 dark:text-gray-100">{ticket.preferredSupport}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Assigned To</div>
-                <div className="text-gray-900 dark:text-gray-100">{ticket.assignedTo}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Issue</div>
-                <div className="text-gray-900 dark:text-gray-100">{ticket.issue}</div>
               </div>
               {/* Description - Full Width */}
               <div className="col-span-2 mt-2">
@@ -1353,8 +1401,8 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Employee: Resolve Ticket (only if assigned to this ticket and not yet Resolved) */}
-              {isAssignedEmployee && ticket.status !== 'Resolved' && (
+              {/* Employee: Resolve Ticket (only if work has been started and not yet Resolved) */}
+              {isAssignedEmployee && !!btData?.time_in && ticket.status !== 'Resolved' && (
                 <button
                   type="button"
                   disabled={savingFields}
@@ -1895,6 +1943,84 @@ export function TicketView() {
             </div>
           </div>
         </div>
+      )}
+      {/* ── Admin Edit Modal ── */}
+      {adminEditOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#3BC25B]/20 flex items-center justify-center">
+                  <PenLine className="w-4 h-4 text-[#3BC25B]" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Edit Ticket</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">Update status and priority</p>
+                </div>
+              </div>
+              <button onClick={() => setAdminEditOpen(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-2 uppercase tracking-wider">Status</label>
+                <select value={adminEditFields.status} onChange={(e) => setAdminEditFields((p) => ({ ...p, status: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#3BC25B] outline-none">
+                  {ADMIN_STATUSES.map((s) => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-2 uppercase tracking-wider">Priority</label>
+                <select value={adminEditFields.priority} onChange={(e) => setAdminEditFields((p) => ({ ...p, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-[#3BC25B] outline-none">
+                  {ADMIN_PRIORITIES.map((p) => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setAdminEditOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
+              <button type="button" disabled={savingAdminEdit} onClick={async () => { setSavingAdminEdit(true); await saveAdminEdit(); setSavingAdminEdit(false); }} className="flex-1 py-2.5 rounded-xl bg-[#3BC25B] text-white text-sm font-semibold hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {savingAdminEdit ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <>Save Changes</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Delete Confirmation Modal (Admin) ── */}
+      {showDeleteConfirm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Delete Ticket</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">This action cannot be undone.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDeleteConfirm(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700 dark:text-gray-300">Are you sure you want to permanently delete ticket <span className="font-mono text-xs text-[#0E8F79]">{ticket.id}</span>?</p>
+            </div>
+
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
+              <button type="button" disabled={deletingAdmin} onClick={confirmAdminDelete} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {deletingAdmin ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Deleting...</> : <>Delete Ticket</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Image Lightbox ── */}

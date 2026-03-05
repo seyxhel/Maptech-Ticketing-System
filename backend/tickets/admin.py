@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback, Notification
+from .models import Ticket, TicketTask, TypeOfService, TicketAttachment, EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback, Notification, Category
 
 User = get_user_model()
 
@@ -50,10 +50,17 @@ class AuditLogAdmin(admin.ModelAdmin):
     readonly_fields = ('timestamp', 'entity', 'entity_id', 'action', 'activity', 'actor', 'actor_email', 'ip_address', 'changes')
 
 
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'is_active', 'created_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'description')
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ('product_name', 'brand', 'model_name', 'serial_no', 'sales_no', 'has_warranty', 'is_active')
-    list_filter = ('has_warranty', 'is_active')
+    list_display = ('product_name', 'brand', 'model_name', 'category', 'serial_no', 'sales_no', 'has_warranty', 'is_active')
+    list_filter = ('has_warranty', 'is_active', 'category')
     search_fields = ('product_name', 'brand', 'model_name', 'serial_no', 'sales_no')
 
 

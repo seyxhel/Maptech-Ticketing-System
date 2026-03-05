@@ -8,6 +8,7 @@ import {
   LogOut,
   Ticket,
   ShieldAlert,
+  ChevronDown,
 } from 'lucide-react';
 import { SignOutModal } from '../ui/SignOutModal';
 
@@ -16,6 +17,7 @@ export interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
+  children?: NavItem[];
 }
 
 interface SidebarProps {
@@ -30,6 +32,15 @@ interface SidebarProps {
 export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp, onExpandChange }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (id: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const handleMouseEnter = () => {
     setIsExpanded(true);
@@ -108,9 +119,51 @@ export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp,
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = navItemsProp ? isPathMatch(item.path) : currentPage === item.path;
-          const Icon = item.icon;
           if (item.id === 'logout') return null;
+          const Icon = item.icon;
+          const hasChildren = item.children && item.children.length > 0;
+          const isChildActive = hasChildren && item.children!.some((c) => isPathMatch(c.path));
+          const isActive = navItemsProp ? (isPathMatch(item.path) || isChildActive) : currentPage === item.path;
+          const isGroupOpen = expandedGroups.has(item.id) || isChildActive;
+
+          if (hasChildren) {
+            return (
+              <div key={item.id}>
+                <button
+                  onClick={() => { if (isExpanded) toggleGroup(item.id); else onNavigate(item.children![0].path); }}
+                  className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group ${isExpanded ? '' : 'justify-center'} ${isActive ? 'bg-gradient-to-r from-[#63D44A] to-[#0E8F79] text-white shadow-lg shadow-[#3BC25B]/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'}`}
+                  title={!isExpanded ? item.label : undefined}
+                >
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${isExpanded ? 'mr-3' : ''} ${isActive ? 'text-white' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'}`} />
+                  {isExpanded && (
+                    <>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isGroupOpen ? 'rotate-180' : ''}`} />
+                    </>
+                  )}
+                </button>
+                {isExpanded && isGroupOpen && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    {item.children!.map((child) => {
+                      const childActive = isPathMatch(child.path);
+                      const ChildIcon = child.icon;
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => onNavigate(child.path)}
+                          className={`w-full flex items-center px-4 py-2 text-sm rounded-lg transition-all duration-200 group ${childActive ? 'bg-[#3BC25B]/15 text-[#0E8F79] dark:text-[#63D44A] font-semibold' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'}`}
+                        >
+                          <ChildIcon className={`w-4 h-4 flex-shrink-0 mr-3 ${childActive ? 'text-[#0E8F79] dark:text-[#63D44A]' : 'text-gray-400 dark:text-gray-500 group-hover:text-gray-900 dark:group-hover:text-white'}`} />
+                          {child.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <button
               key={item.id}
@@ -124,7 +177,6 @@ export function Sidebar({ role, onNavigate, currentPage, navItems: navItemsProp,
               {isExpanded && item.label}
             </button>
           );
-
         })}
       </nav>
 

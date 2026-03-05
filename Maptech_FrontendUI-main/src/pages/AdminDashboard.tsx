@@ -11,17 +11,10 @@ import {
   UserCheck,
   Clock,
   AlertOctagon,
-  Filter,
-  MoreHorizontal,
   ArrowUpRight,
   Share2,
   Building2,
   History,
-  X,
-  Eye,
-  Pencil,
-  Trash2,
-  ChevronLeft,
   ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,24 +29,16 @@ import {
   escalateExternal,
 } from '../services/api';
 import type { BackendTicket, TicketStats } from '../services/api';
-import { mapBackendTicketToUI, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
+import { mapBackendTicketToUI } from '../services/ticketMapper';
 import type { UITicket } from '../services/ticketMapper';
 
-const ITEMS_PER_PAGE = 5;
-const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
+const ITEMS_PER_PAGE = 10;
 
 export function AdminDashboard() {
   const navigate = useNavigate();
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
   const [escalationReason, setEscalationReason] = useState('');
   const [selectedEscalationTicket, setSelectedEscalationTicket] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showFilter, setShowFilter] = useState(false);
-  const [filterPriority, setFilterPriority] = useState<string[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [tickets, setTickets] = useState<UITicket[]>([]);
   const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
   const [editTicket, setEditTicket] = useState<UITicket | null>(null);
@@ -61,6 +46,12 @@ export function AdminDashboard() {
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TicketStats | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterPriority, setFilterPriority] = useState<string[]>([]);
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [showFilter, setShowFilter] = useState(false);
   const [escalationHistory, setEscalationHistory] = useState<
     { id: number; ticketId: string; type: string; to: string; reason: string; time: string }[]
   >([]);
@@ -182,19 +173,27 @@ export function AdminDashboard() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / ITEMS_PER_PAGE));
   const pagedTickets = filteredTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const latestTicketCards = tickets.slice(0, 5);
+  const latestBackendTickets = backendTickets.slice(0, 5);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
 
+  const getLastUpdatedText = (stfNo: string) => {
+    const bt = backendTickets.find((t) => t.stf_no === stfNo);
+    if (!bt?.updated_at) return 'N/A';
+    return new Date(bt.updated_at).toLocaleString();
+  };
+
   const handleEscalate = async () => {
-    if (!escalationReason) { toast.error('Please provide a reason for escalation'); return; }
+    if (!escalationReason) { toast.error('Please provide a reason for escalation.'); return; }
     const bt = backendTickets.find((t) => t.stf_no === selectedEscalationTicket);
-    if (!bt) { toast.error('Ticket not found'); return; }
+    if (!bt) { toast.error('Ticket not found.'); return; }
     try {
       const targetName = escalationType === 'Distributor' ? 'Distributor' : escalationType === 'Principal' ? 'Principal' : 'Higher Position';
       await escalateExternal(bt.id, { external_escalated_to: targetName, external_escalation_notes: escalationReason } as any);
       toast.success(`Ticket ${selectedEscalationTicket} escalated successfully`);
       setEscalationReason('');
     } catch (err: any) {
-      toast.error(err?.message || 'Escalation failed');
+      toast.error(err?.message || 'Escalation failed.');
     }
   };
 
@@ -228,77 +227,71 @@ export function AdminDashboard() {
         <Card className="lg:col-span-2" accent>
           <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">Submitted Tickets</h3>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <div className="relative flex-1 md:w-64">
-                <input type="text" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} placeholder="Search tickets..." className="w-full pl-4 pr-10 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" />
+            <GreenButton variant="outline" onClick={() => navigate('/admin/tickets')}>
+              View All
+            </GreenButton>
+          </div>
+          <div className="space-y-4">
+            {latestTicketCards.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">No submitted tickets yet.</p>
               </div>
-              <button onClick={() => setShowFilter(true)} className="p-2 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400">
-                <Filter className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
-                <tr>
-                  <th className="px-6 py-4 font-semibold">Ticket Details</th>
-                  <th className="px-6 py-4 font-semibold">Client</th>
-                  <th className="px-6 py-4 font-semibold">Priority</th>
-                  <th className="px-6 py-4 font-semibold">Status</th>
-                  <th className="px-6 py-4 font-semibold">SLA Timer</th>
-                  <th className="px-6 py-4 font-semibold">Assignee</th>
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {pagedTickets.map((ticket) => (
-                  <tr key={ticket.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-bold text-gray-900 dark:text-white text-xs block mb-1">{ticket.id}</span>
-                      <span className="font-medium text-gray-800 dark:text-gray-200">{ticket.subject}</span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{ticket.client}</td>
-                    <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
-                    <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
-                    <td className="px-6 py-4">
-                      {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
-                    </td>
-                    <td className="px-6 py-4">
-                      {ticket.assignee ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs text-gray-700 dark:text-gray-300">{ticket.assignee.charAt(0)}</div>
-                          <span className="text-gray-600 dark:text-gray-400">{ticket.assignee}</span>
-                        </div>
-                      ) : (
-                        <button className="text-xs font-medium text-[#0E8F79] dark:text-green-400 hover:underline">+ Assign Agent</button>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right relative">
-                      <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === ticket.id ? null : ticket.id); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
-                        <MoreHorizontal className="w-5 h-5" />
-                      </button>
-                      {openMenuId === ticket.id && (
-                        <div onClick={(e) => e.stopPropagation()} className="absolute right-6 top-12 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]">
-                          <button onClick={() => { setOpenMenuId(null); navigate(`/admin/ticket-details?stf=${ticket.id}`); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"><Eye className="w-4 h-4" /> View</button>
-                          <button onClick={() => openEdit(ticket)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"><Pencil className="w-4 h-4" /> Edit</button>
-                          <button onClick={() => deleteTicket(ticket.id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /> Delete</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filteredTickets.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredTickets.length)} of {filteredTickets.length} tickets</span>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-[#3BC25B] hover:text-white dark:hover:bg-[#3BC25B] text-gray-600 dark:text-gray-400 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <button key={page} onClick={() => setCurrentPage(page)} className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-[#3BC25B] text-white shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}>{page}</button>
-              ))}
-              <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-[#3BC25B] hover:text-white dark:hover:bg-[#3BC25B] text-gray-600 dark:text-gray-400 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition-colors"><ChevronRightIcon className="w-4 h-4" /></button>
-            </div>
+            ) : (
+              latestTicketCards.map((ticket) => (
+                <div key={ticket.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-xs text-[#0E8F79] dark:text-green-400 mb-1">{ticket.id}</p>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{ticket.subject}</h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Client: {ticket.client}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last Updated: {getLastUpdatedText(ticket.id)}</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/admin/ticket-details?stf=${ticket.id}`)}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-[#0E8F79] text-white hover:bg-[#0b7463] transition-colors"
+                    >
+                      View Details
+                      <ChevronRightIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</p>
+                      <div className="mt-1"><PriorityBadge priority={ticket.priority} /></div>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</p>
+                      <div className="mt-1"><StatusBadge status={ticket.status} /></div>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Assignee</p>
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{ticket.assignee || 'Unassigned'}</p>
+                    </div>
+                    <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Progress</p>
+                      <div className="mt-1">
+                        {(() => {
+                          const bt = latestBackendTickets.find((b) => b.stf_no === ticket.id);
+                          const progress = bt?.progress_percentage ?? bt?.progressPercentage ?? 0;
+                          return (
+                            <>
+                              <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
+                                <span>Progress</span>
+                                <span className="font-bold">{progress}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                                <div className="h-full bg-[#3BC25B] rounded-full transition-all" style={{ width: `${progress}%` }} />
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </Card>
 

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2, Package, Users } from 'lucide-react';
+import { LayoutDashboard, Ticket, ShieldAlert, BarChart3, PlusCircle, ScrollText, BookOpen, Settings2, Package, Users, Monitor, Upload, FileCheck, Archive } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
@@ -13,7 +13,18 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'create-ticket', label: 'Create Ticket', icon: PlusCircle, path: '/admin/create-ticket' },
   { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
   { id: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/admin/audit-logs' },
-  { id: 'knowledge-hub', label: 'Knowledge Hub', icon: BookOpen, path: '/admin/knowledge-hub' },
+  {
+    id: 'knowledge-hub',
+    label: 'Knowledge Hub',
+    icon: BookOpen,
+    path: '/admin/knowledge-hub',
+    children: [
+      { id: 'kh-uploaded', label: 'Uploaded Attachments', icon: Upload, path: '/admin/knowledge-hub/uploaded' },
+      { id: 'kh-published', label: 'Published Attachments', icon: FileCheck, path: '/admin/knowledge-hub/published' },
+      { id: 'kh-archived', label: 'Archived Attachments', icon: Archive, path: '/admin/knowledge-hub/archived' },
+    ],
+  },
+  { id: 'device-equipment', label: 'Device/Equipment', icon: Monitor, path: '/admin/device-equipment' },
   { id: 'products', label: 'Products', icon: Package, path: '/admin/products' },
   { id: 'clients', label: 'Clients', icon: Users, path: '/admin/clients' },
   { id: 'types-of-service', label: 'Types of Service', icon: Settings2, path: '/admin/types-of-service' },
