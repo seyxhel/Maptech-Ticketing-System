@@ -392,10 +392,8 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def review(self, request, pk=None):
-        """Admin/Superadmin reviews a ticket — populates time_in and optionally sets priority."""
+        """Admin/Superadmin reviews a ticket — optionally sets priority."""
         ticket = self.get_object()
-        if not ticket.time_in:
-            ticket.time_in = timezone.now()
         priority = request.data.get('priority')
         if priority and priority in dict(Ticket.PRIORITY_CHOICES):
             ticket.priority = priority
@@ -403,7 +401,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_REVIEW,
                            f"{request.user.email} reviewed ticket {ticket.stf_no}",
-                           changes={'priority': ticket.priority, 'time_in': str(ticket.time_in)})
+                           changes={'priority': ticket.priority})
 
         return Response(self.get_serializer(ticket).data)
 
@@ -421,16 +419,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             if field in request.data:
                 setattr(ticket, field, request.data[field])
                 changes[field] = request.data[field]
-
-        # Time In: set when employee first starts working on the ticket
-        if not ticket.time_in:
-            ticket.time_in = timezone.now()
-            changes['time_in'] = str(ticket.time_in)
-
-        # Set status to in_progress when employee starts working
-        if ticket.status == Ticket.STATUS_OPEN:
-            ticket.status = Ticket.STATUS_IN_PROGRESS
-            changes['status'] = ticket.status
 
         ticket.save()
 
@@ -454,10 +442,6 @@ class TicketViewSet(viewsets.ModelViewSet):
         for field in allowed:
             if field in request.data:
                 setattr(ticket, field, request.data[field])
-
-        # Time In: set when employee first starts working on the ticket
-        if not ticket.time_in:
-            ticket.time_in = timezone.now()
 
         # Set status to pending_closure (Resolved) when employee clicks Resolve
         old_status = ticket.status

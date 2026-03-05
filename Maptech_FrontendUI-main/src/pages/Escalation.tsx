@@ -20,15 +20,8 @@ function makeSTF(n: number) {
   return `STF-MT-20260226${String(100000 + n).slice(1)}`;
 }
 
-const INITIAL_ESCALATIONS = [
-  { id: 1, ticketId: makeSTF(4), type: 'Escalated' as const, to: 'Senior Network Engineer', reason: 'Complex network configuration requiring advanced Cisco CCNP-level diagnostics', time: '2h ago', status: 'pending' as const },
-  { id: 2, ticketId: makeSTF(2), type: 'Cascaded' as const, to: 'Cisco Support (Principal)', reason: 'Hardware failure confirmed, warranty claim needed for switch replacement', time: '5h ago', status: 'in-progress' as const },
-  { id: 3, ticketId: makeSTF(8), type: 'Cascaded' as const, to: 'Local Distributor (CompuTrader)', reason: 'VPN appliance part replacement via warranty', time: '1d ago', status: 'resolved' as const },
-  { id: 4, ticketId: makeSTF(1), type: 'Escalated' as const, to: 'IT Director', reason: 'System-wide outage affecting entire North Wing — executive attention required', time: '3h ago', status: 'pending' as const },
-  { id: 5, ticketId: makeSTF(7), type: 'Cascaded' as const, to: 'Microsoft Support (Principal)', reason: 'Exchange Online gateway issue traced to Microsoft service health', time: '6h ago', status: 'in-progress' as const },
-  { id: 6, ticketId: makeSTF(10), type: 'Escalated' as const, to: 'Database Administrator', reason: 'Migration requires DBA expertise for schema changes', time: '8h ago', status: 'resolved' as const },
-  { id: 7, ticketId: makeSTF(6), type: 'Cascaded' as const, to: 'Dell Support (Principal)', reason: 'Server hardware failure under ProSupport warranty', time: '1d ago', status: 'pending' as const },
-];
+// Start with no mock escalation history; real data will be loaded from the backend.
+const INITIAL_ESCALATIONS: any[] = [];
 
 const AVAILABLE_TICKETS = [
   { value: makeSTF(1), label: 'System outage in North Wing' },
@@ -42,7 +35,7 @@ const ITEMS_PER_PAGE = 4;
 export function Escalation() {
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
   const [escalationReason, setEscalationReason] = useState('');
-  const [selectedTicket, setSelectedTicket] = useState(AVAILABLE_TICKETS[0].value);
+  const [selectedTicket, setSelectedTicket] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [escalations, setEscalations] = useState(() => INITIAL_ESCALATIONS);
   const [reasonError, setReasonError] = useState('');
@@ -99,12 +92,8 @@ export function Escalation() {
           <h3 className="font-bold text-gray-900 dark:text-white mb-4">Escalation Module</h3>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Ticket</label>
-              <select value={selectedTicket} onChange={(e) => setSelectedTicket(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm">
-                {AVAILABLE_TICKETS.map((t) => (
-                  <option key={t.value} value={t.value}>{t.value} — {t.label}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ticket STF No.</label>
+              <input type="text" value={selectedTicket} onChange={(e) => setSelectedTicket(e.target.value.toUpperCase())} placeholder="e.g. STF-MT-20260305000001" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Escalation Type</label>
@@ -135,32 +124,34 @@ export function Escalation() {
             <h3 className="font-bold text-gray-900 dark:text-white">Escalation History</h3>
           </div>
           <div className="space-y-4">
-            {paged.map((item) => (
-              <div key={item.id} className={`p-4 rounded-lg border ${item.type === 'Escalated' ? 'border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10' : 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10'}`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold text-gray-900 dark:text-white">{item.ticketId}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${item.type === 'Escalated' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' : 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'}`}>{item.type}</span>
+            {paged.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-8 text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">No escalation history.</p>
+              </div>
+            ) : (
+              paged.map((item) => (
+                <div key={item.id} className={`p-4 rounded-lg border ${item.type === 'Escalated' ? 'border-orange-200 dark:border-orange-800 bg-orange-50/50 dark:bg-orange-900/10' : 'border-teal-200 dark:border-teal-800 bg-teal-50/50 dark:bg-teal-900/10'}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">{item.ticketId}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${item.type === 'Escalated' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' : 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'}`}>{item.type}</span>
+                      </div>
+                      <div className="text-sm text-gray-700 dark:text-gray-300 mb-1 font-medium">To: {item.to}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">{item.reason}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{item.time}</div>
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-100">{statusLabel(item.status)}</div>
+                      </div>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">To: <span className="font-medium text-gray-800 dark:text-gray-200">{item.to}</span></p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">&ldquo;{item.reason}&rdquo;</p>
-                  </div>
-                  <div className="text-right flex flex-col items-end gap-1">
-                    <span className="text-xs text-gray-400">{item.time}</span>
-                    <div className="flex items-center gap-1">
+                    <div className="ml-4 flex-shrink-0">
                       {statusIcon(item.status)}
-                      <span className="text-xs text-gray-600 dark:text-gray-400">{statusLabel(item.status)}</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Showing {escalations.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, escalations.length)} of {escalations.length}</span>
             <div className="flex items-center gap-1">
               <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-[#3BC25B] hover:text-white dark:hover:bg-[#3BC25B] text-gray-600 dark:text-gray-400 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition-colors"><ChevronLeft className="w-4 h-4" /></button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
@@ -168,7 +159,6 @@ export function Escalation() {
               ))}
               <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-[#3BC25B] hover:text-white dark:hover:bg-[#3BC25B] text-gray-600 dark:text-gray-400 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-600 transition-colors"><ChevronRightIcon className="w-4 h-4" /></button>
             </div>
-          </div>
         </Card>
       </div>
     </div>

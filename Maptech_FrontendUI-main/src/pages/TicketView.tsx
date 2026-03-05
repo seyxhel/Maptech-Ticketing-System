@@ -15,7 +15,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts } from '../services/api';
+import type { Product } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
@@ -201,6 +202,7 @@ export function TicketView() {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<{ file: File; url: string; type: 'image' | 'video' | 'file' }[]>([]);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [videoLightboxUrl, setVideoLightboxUrl] = useState<string | null>(null);
 
   // Resolution proof attachment state
   const screenshotInputRef = useRef<HTMLInputElement>(null);
@@ -520,6 +522,29 @@ export function TicketView() {
   const [pdDatePurchased, setPdDatePurchased] = useState('');
   const [pdHasWarranty, setPdHasWarranty] = useState(false);
 
+  // ── Product catalog dropdown ──
+  const [productCatalog, setProductCatalog] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+
+  useEffect(() => {
+    fetchProducts().then(setProductCatalog).catch(() => {});
+  }, []);
+
+  const handleProductSelect = (productId: string) => {
+    setSelectedProductId(productId);
+    if (!productId) return;
+    const product = productCatalog.find(p => p.id === Number(productId));
+    if (!product) return;
+    setPdDeviceEquipment(product.device_equipment || '');
+    setPdProduct(product.product_name || '');
+    setPdBrand(product.brand || '');
+    setPdModel(product.model_name || '');
+    setPdVersionNo(product.version_no || '');
+    setPdSerialNo(product.serial_no || '');
+    setPdDatePurchased(product.date_purchased || '');
+    setPdHasWarranty(product.has_warranty ?? false);
+  };
+
   // Sync form state when backend data loads or updates
   useEffect(() => {
     if (btData) {
@@ -537,6 +562,16 @@ export function TicketView() {
       setObservation(btData.observation || '');
       setSignatureData(btData.signature || null);
       setSignedByName(btData.signed_by_name || '');
+
+      // Populate uploadedAttachments from backend data
+      if (btData.attachments && btData.attachments.length > 0) {
+        setUploadedAttachments(btData.attachments.map((a: any) => ({
+          id: a.id,
+          name: a.file?.split('/').pop() || 'file',
+          type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
+          url: a.file,
+        })));
+      }
     }
   }, [btData]);
 
@@ -966,6 +1001,23 @@ export function TicketView() {
                 <Package className="w-4 h-4" /> Product Details
                 {canEdit && <span className="text-[10px] font-normal normal-case text-gray-400">(fill in after assignment)</span>}
               </h3>
+              {canEdit && (
+                <div className="mb-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Select Product</div>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => handleProductSelect(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]"
+                  >
+                    <option value="">-- Select a registered product --</option>
+                    {productCatalog.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {[p.product_name, p.brand, p.model_name, p.serial_no].filter(Boolean).join(' / ') || `Product #${p.id}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 {/* Device / Equipment */}
                 <div>
@@ -1272,33 +1324,59 @@ export function TicketView() {
             )}
 
             {/* Already uploaded attachments (from backend or just uploaded) */}
-            {(uploadedAttachments.length > 0 || (ticket.ticketAttachments && ticket.ticketAttachments.length > 0)) && (
+            {uploadedAttachments.length > 0 && (
               <div className="mt-3 space-y-2">
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uploaded Files</div>
-                {uploadedAttachments.map((att) => (
-                  <div key={att.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800 group">
-                    {att.type === 'screenshot' ? <Camera className="w-4 h-4 text-green-600" /> : <Video className="w-4 h-4 text-green-600" />}
-                    <span className="text-sm text-green-700 dark:text-green-400 flex-1 truncate">{att.name}</span>
-                    {att.url && (
-                      <a href={att.url} target="_blank" rel="noopener noreferrer" className="p-1 rounded hover:bg-green-100 dark:hover:bg-green-800 transition-colors">
-                        <Download className="w-3.5 h-3.5 text-green-500" />
-                      </a>
-                    )}
-                    {canEdit && (
-                      <button type="button" onClick={() => handleRemoveUploaded(att)} className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-3.5 h-3.5 text-red-400" />
-                      </button>
-                    )}
-                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  </div>
-                ))}
-                {ticket.ticketAttachments?.map((att: { name: string; type: string }, i: number) => (
-                  <div key={`legacy-${i}`} className="flex items-center gap-3 p-2.5 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800">
-                    {att.type === 'screenshot' ? <Camera className="w-4 h-4 text-green-600" /> : <Video className="w-4 h-4 text-green-600" />}
-                    <span className="text-sm text-green-700 dark:text-green-400 flex-1">{att.name}</span>
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                  </div>
-                ))}
+                <div className="grid grid-cols-2 gap-2">
+                  {uploadedAttachments.map((att) => (
+                    <div key={att.id} className="relative group rounded-lg overflow-hidden border border-green-100 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
+                      {att.type === 'screenshot' && att.url ? (
+                        <button
+                          type="button"
+                          onClick={() => setLightboxUrl(att.url!)}
+                          className="block w-full cursor-pointer hover:opacity-90 transition-opacity"
+                        >
+                          <img
+                            src={att.url}
+                            alt={att.name}
+                            className="w-full h-32 object-cover"
+                          />
+                        </button>
+                      ) : att.type === 'recording' && att.url ? (
+                        <button
+                          type="button"
+                          onClick={() => setVideoLightboxUrl(att.url!)}
+                          className="relative block w-full cursor-pointer hover:opacity-90 transition-opacity bg-gray-900"
+                        >
+                          <video src={att.url} className="w-full h-32 object-cover" muted />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
+                              <Play className="w-5 h-5 text-white ml-0.5" />
+                            </div>
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="flex items-center justify-center h-32 bg-gray-100 dark:bg-gray-800">
+                          <File className="w-8 h-8 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        {att.type === 'screenshot' ? <Camera className="w-3.5 h-3.5 text-green-600 flex-shrink-0" /> : <Video className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />}
+                        <span className="text-xs text-green-700 dark:text-green-400 flex-1 truncate">{att.name}</span>
+                        {att.url && (
+                          <a href={att.url} download onClick={(e) => e.stopPropagation()} className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-800 transition-colors">
+                            <Download className="w-3 h-3 text-green-500" />
+                          </a>
+                        )}
+                        {canEdit && (
+                          <button type="button" onClick={() => handleRemoveUploaded(att)} className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100">
+                            <Trash2 className="w-3 h-3 text-red-400" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </Card>
@@ -2043,6 +2121,36 @@ export function TicketView() {
           />
           <a
             href={lightboxUrl}
+            download
+            onClick={(e) => e.stopPropagation()}
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+          >
+            <Download className="w-4 h-4" /> Download
+          </a>
+        </div>
+      )}
+
+      {/* ── Video Lightbox ── */}
+      {videoLightboxUrl && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setVideoLightboxUrl(null)}
+        >
+          <button
+            onClick={() => setVideoLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors z-10"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <video
+            src={videoLightboxUrl}
+            controls
+            autoPlay
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <a
+            href={videoLightboxUrl}
             download
             onClick={(e) => e.stopPropagation()}
             className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
