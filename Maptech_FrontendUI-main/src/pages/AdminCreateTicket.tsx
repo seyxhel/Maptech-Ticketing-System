@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../components/ui/Card';
 import { GreenButton } from '../components/ui/GreenButton';
 import { toast } from 'sonner';
@@ -40,6 +40,7 @@ import {
   Package,
   Cog,
   ExternalLink,
+  Link2,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -52,6 +53,7 @@ import {
   fetchTickets,
   createCallLog,
   endCallLog,
+  linkTickets,
 } from '../services/api';
 import type { TypeOfService as ServiceType, ClientRecord, Product, BackendTicket } from '../services/api';
 
@@ -87,6 +89,9 @@ type ModalStep = 'none' | 'stf-details' | 'ongoing' | 'assign';
 
 export function AdminCreateTicket() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const linkedTicketId = searchParams.get('linkedTicketId') ? Number(searchParams.get('linkedTicketId')) : null;
+  const linkedStf = searchParams.get('linkedStf') || null;
 
   const getStfNo = () => {
     const d = new Date();
@@ -372,9 +377,18 @@ export function AdminCreateTicket() {
       const created = await createTicket(ticketData as any);
       await assignTicket(created.id, selectedEmployee);
 
+      // Link to original ticket if this was triggered from "Link Ticket / Same Problem"
+      if (linkedTicketId) {
+        try {
+          await linkTickets(linkedTicketId, [created.id]);
+        } catch { /* linking is best-effort */ }
+      }
+
       setModalStep('none');
       toast.success(`Ticket ${created.stf_no} assigned to ${emp?.name}`, {
-        description: `Priority: ${priorityLevel} | Service: ${serviceType}`,
+        description: linkedStf
+          ? `Linked to ${linkedStf} | Priority: ${priorityLevel} | Service: ${serviceType}`
+          : `Priority: ${priorityLevel} | Service: ${serviceType}`,
       });
       navigate(`/admin/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
     } catch (err: any) {
@@ -433,9 +447,18 @@ export function AdminCreateTicket() {
 
       const created = await createTicket(ticketData as any);
 
+      // Link to original ticket if this was triggered from "Link Ticket / Same Problem"
+      if (linkedTicketId) {
+        try {
+          await linkTickets(linkedTicketId, [created.id]);
+        } catch { /* linking is best-effort */ }
+      }
+
       setModalStep('none');
       toast.success(`Ticket ${created.stf_no} created for external assignment`, {
-        description: `Priority: ${priorityLevel} | Service: ${serviceType}`,
+        description: linkedStf
+          ? `Linked to ${linkedStf} | Priority: ${priorityLevel} | Service: ${serviceType}`
+          : `Priority: ${priorityLevel} | Service: ${serviceType}`,
       });
       navigate(`/admin/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
     } catch (err: any) {
@@ -455,6 +478,17 @@ export function AdminCreateTicket() {
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">SERVICE TICKET FORM</h1>
         <p className="text-[#0E8F79] dark:text-green-400 font-medium mt-1">Maptech Information Solutions Inc.</p>
+
+        {/* Linked ticket notification banner */}
+        {linkedStf && (
+          <div className="mt-4 mx-auto max-w-2xl flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 text-sm">
+            <Link2 className="w-5 h-5 flex-shrink-0" />
+            <span>
+              This ticket will be <strong>linked</strong> to <strong>{linkedStf}</strong> as a related / same-problem ticket.
+            </span>
+          </div>
+        )}
+
         <div className="flex flex-wrap justify-center gap-4 mt-6 text-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-2xl mx-auto">
           {[
             { icon: Calendar, label: 'Date', value: new Date().toLocaleDateString() },

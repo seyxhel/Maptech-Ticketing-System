@@ -15,12 +15,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, markUnresolved } from '../services/api';
 import type { Product } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
-import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine } from 'lucide-react';
+import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine, Link2, AlertTriangle } from 'lucide-react';
 import { SignaturePad } from '../components/ui/SignaturePad';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
@@ -90,7 +90,7 @@ export function TicketView() {
         return {
           id: btData.stf_no,
           priority: mapPriority(btData.priority) as 'Critical' | 'High' | 'Medium' | 'Low',
-          status: mapStatus(btData.status, btData.assigned_to) as 'In Progress' | 'Assigned' | 'Resolved' | 'Closed' | 'Pending' | 'Escalated' | 'New',
+          status: mapStatus(btData.status, btData.assigned_to) as 'In Progress' | 'Assigned' | 'Resolved' | 'Closed' | 'Pending' | 'Escalated' | 'New' | 'For Observation' | 'Unresolved',
           sla,
           total,
           client: btData.client || 'N/A',
@@ -578,9 +578,14 @@ export function TicketView() {
   // Fields are only editable by the assigned employee AND ticket is not Resolved/Closed
   // Admins can view but not edit these fields
   const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
-  const canEdit = isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
+  const canEdit = isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Unresolved';
 
   const [savingProductDetails, setSavingProductDetails] = useState(false);
+  const [submittingObservation, setSubmittingObservation] = useState(false);
+  const [markingUnresolved, setMarkingUnresolved] = useState(false);
+  const [showUnresolvedModal, setShowUnresolvedModal] = useState(false);
+  const [unresolvedNotes, setUnresolvedNotes] = useState('');
+
 
   /** Employee saves product details only (no status change) */
   const handleSaveProductDetails = async () => {
@@ -625,6 +630,53 @@ export function TicketView() {
       toast.error(err?.message || 'Failed to resolve ticket.');
     } finally {
       setSavingFields(false);
+    }
+  };
+
+  /** Employee submits for observation without resolving */
+  const handleSubmitForObservation = async () => {
+    if (!backendTicketId) return;
+    setSubmittingObservation(true);
+    try {
+      const updated = await submitForObservation(backendTicketId, {
+        action_taken: actionTaken,
+        remarks: remarksText,
+        observation: observation,
+        job_status: jobStatus,
+        signature: signatureData || '',
+        signed_by_name: signedByName,
+      });
+      setBtData(updated);
+      toast.success('Ticket submitted for observation.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit for observation.');
+    } finally {
+      setSubmittingObservation(false);
+    }
+  };
+
+  /** Employee marks ticket as unresolved */
+  const handleMarkUnresolved = async () => {
+    if (!backendTicketId) return;
+    setMarkingUnresolved(true);
+    try {
+      const updated = await markUnresolved(backendTicketId, {
+        notes: unresolvedNotes,
+        action_taken: actionTaken,
+        remarks: remarksText,
+        observation: observation,
+        job_status: jobStatus,
+        signature: signatureData || '',
+        signed_by_name: signedByName,
+      });
+      setBtData(updated);
+      setShowUnresolvedModal(false);
+      setUnresolvedNotes('');
+      toast.success('Ticket marked as unresolved.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to mark ticket as unresolved.');
+    } finally {
+      setMarkingUnresolved(false);
     }
   };
 
@@ -692,7 +744,7 @@ export function TicketView() {
   };
 
   const ADMIN_PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-  const ADMIN_STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
+  const ADMIN_STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'For Observation', 'Unresolved', 'Resolved', 'Closed', 'Pending'];
 
   const openAdminEdit = () => {
     setAdminEditFields({ status: ticket.status, priority: ticket.priority });
@@ -941,6 +993,24 @@ export function TicketView() {
                   {ticket.cascadeType === 'internal' ? <Shield className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
                   {ticket.cascadeType === 'internal' ? 'Internal Cascade' : 'External Cascade'}
                 </span>
+              </div>
+            )}
+
+            {/* Linked Tickets */}
+            {btData?.linked_ticket_stfs && btData.linked_ticket_stfs.length > 0 && (
+              <div className="mb-5">
+                <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-2">Linked Tickets</div>
+                <div className="flex flex-wrap gap-2">
+                  {btData.linked_ticket_stfs.map((stf: string, idx: number) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30"
+                    >
+                      <Link2 className="w-3 h-3" />
+                      {stf}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1479,8 +1549,23 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Employee: Resolve Ticket (only if work has been started and not yet Resolved) */}
-              {isAssignedEmployee && !!btData?.time_in && ticket.status !== 'Resolved' && (
+              {/* Employee: Submit for Observation (only when In Progress — right after Start Work) */}
+              {isAssignedEmployee && !!btData?.time_in && ticket.status === 'In Progress' && (
+                <button
+                  type="button"
+                  disabled={submittingObservation}
+                  onClick={handleSubmitForObservation}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {submittingObservation ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</>
+                  ) : (
+                    <><Eye className="w-4 h-4" /> Submit &amp; For Observation</>
+                  )}
+                </button>
+              )}
+              {/* Employee: Resolve Ticket (only after observation) */}
+              {isAssignedEmployee && ticket.status === 'For Observation' && (
                 <button
                   type="button"
                   disabled={savingFields}
@@ -1494,14 +1579,34 @@ export function TicketView() {
                   )}
                 </button>
               )}
+              {/* Employee: Mark Unresolved (only after observation) */}
+              {isAssignedEmployee && ticket.status === 'For Observation' && (
+                <button
+                  type="button"
+                  onClick={() => setShowUnresolvedModal(true)}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-rose-500 to-rose-600 hover:shadow-lg hover:shadow-rose-500/20 flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  <AlertTriangle className="w-4 h-4" /> Unresolved
+                </button>
+              )}
               {/* Admin: Close Ticket (triggers rating modal) */}
-              {isAdmin && ticket.status === 'Resolved' && (
+              {isAdmin && (ticket.status === 'Resolved' || ticket.status === 'Unresolved') && (
                 <button
                   type="button"
                   onClick={() => setShowCsatModal(true)}
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg hover:shadow-red-500/20 flex items-center justify-center gap-2 transition-all text-sm"
                 >
                   <X className="w-4 h-4" /> Close Ticket
+                </button>
+              )}
+              {/* Admin: Link Ticket — navigate to create-ticket with linked context */}
+              {isAdmin && ticket.status !== 'Closed' && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/create-ticket?linkedTicketId=${btData?.id}&linkedStf=${encodeURIComponent(btData?.stf_no || '')}`)}
+                  className="w-full py-3 rounded-xl font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  <Link2 className="w-4 h-4" /> Link Ticket / Same Problem
                 </button>
               )}
             </div>
@@ -2383,6 +2488,67 @@ export function TicketView() {
         </div>,
         document.body
       )}
+      {/* Unresolved Modal */}
+      {showUnresolvedModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Mark as Unresolved</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">This ticket could not be resolved</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUnresolvedModal(false)}
+                className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-1.5 uppercase tracking-wider">
+                  Reason / Notes <span className="text-rose-400">*</span>
+                </label>
+                <textarea
+                  value={unresolvedNotes}
+                  onChange={e => setUnresolvedNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Describe why this ticket cannot be resolved…"
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm placeholder-gray-300 dark:placeholder-white/20 focus:outline-none focus:border-rose-500/60 resize-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button
+                type="button"
+                onClick={() => { setShowUnresolvedModal(false); setUnresolvedNotes(''); }}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={markingUnresolved || !unresolvedNotes.trim()}
+                onClick={handleMarkUnresolved}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-rose-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {markingUnresolved ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting…</>
+                ) : (
+                  <><AlertTriangle className="w-3.5 h-3.5" /> Mark Unresolved</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       </>
       )}
     </div>

@@ -107,6 +107,8 @@ class Ticket(models.Model):
     STATUS_ESCALATED = 'escalated'
     STATUS_ESCALATED_EXTERNAL = 'escalated_external'
     STATUS_PENDING_CLOSURE = 'pending_closure'
+    STATUS_FOR_OBSERVATION = 'for_observation'
+    STATUS_UNRESOLVED = 'unresolved'
     STATUS_CHOICES = [
         (STATUS_OPEN, 'Open'),
         (STATUS_IN_PROGRESS, 'In Progress'),
@@ -114,6 +116,8 @@ class Ticket(models.Model):
         (STATUS_ESCALATED, 'Escalated (Internal)'),
         (STATUS_ESCALATED_EXTERNAL, 'Escalated (External)'),
         (STATUS_PENDING_CLOSURE, 'Pending Closure'),
+        (STATUS_FOR_OBSERVATION, 'For Observation'),
+        (STATUS_UNRESOLVED, 'Unresolved'),
     ]
 
     # --- Priority choices (admin sets) ---
@@ -241,6 +245,10 @@ class Ticket(models.Model):
     external_escalated_to = models.CharField(max_length=300, blank=True, default='')
     external_escalation_notes = models.TextField(blank=True, default='')
     external_escalated_at = models.DateTimeField(null=True, blank=True)
+
+    # ---- Linked tickets (same problem / related) ----
+    linked_tickets = models.ManyToManyField('self', blank=True,
+                                            help_text='Related tickets (same problem)')
 
     # Current active assignment session (for messaging scope)
     current_session = models.ForeignKey('AssignmentSession', null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
@@ -475,6 +483,9 @@ class AuditLog(models.Model):
     ACTION_RESOLVE = 'RESOLVE'
     ACTION_UPLOAD = 'UPLOAD'
     ACTION_CONFIRM = 'CONFIRM'
+    ACTION_OBSERVE = 'OBSERVE'
+    ACTION_UNRESOLVED = 'UNRESOLVED'
+    ACTION_LINK = 'LINK'
     ACTION_CHOICES = [
         (ACTION_CREATE, 'Create'),
         (ACTION_UPDATE, 'Update'),
@@ -491,6 +502,9 @@ class AuditLog(models.Model):
         (ACTION_RESOLVE, 'Resolve'),
         (ACTION_UPLOAD, 'Upload'),
         (ACTION_CONFIRM, 'Confirm'),
+        (ACTION_OBSERVE, 'Submit for Observation'),
+        (ACTION_UNRESOLVED, 'Mark Unresolved'),
+        (ACTION_LINK, 'Link Tickets'),
     ]
 
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)

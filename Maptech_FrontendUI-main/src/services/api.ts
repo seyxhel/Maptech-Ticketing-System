@@ -386,6 +386,36 @@ export async function updateEmployeeFields(ticketId: number, data: Record<string
   return handleResponse<BackendTicket>(res);
 }
 
+/** Submit ticket for observation (employee). */
+export async function submitForObservation(ticketId: number, data: Record<string, unknown>): Promise<BackendTicket> {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/submit_for_observation/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<BackendTicket>(res);
+}
+
+/** Mark ticket as unresolved (employee). */
+export async function markUnresolved(ticketId: number, data: Record<string, unknown>): Promise<BackendTicket> {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/mark_unresolved/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<BackendTicket>(res);
+}
+
+/** Link tickets together (supervisor). */
+export async function linkTickets(ticketId: number, ticketIds: number[]): Promise<BackendTicket> {
+  const res = await fetch(`${API_BASE}/tickets/${ticketId}/link_tickets/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ ticket_ids: ticketIds }),
+  });
+  return handleResponse<BackendTicket>(res);
+}
+
 /** Upload resolution proof (supports one or multiple files). */
 export async function uploadResolutionProof(ticketId: number, files: File | File[]): Promise<unknown> {
   const formData = new FormData();

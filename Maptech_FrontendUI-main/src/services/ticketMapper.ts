@@ -12,6 +12,8 @@ const STATUS_MAP: Record<string, string> = {
   escalated: 'Escalated',
   escalated_external: 'Escalated',
   pending_closure: 'Resolved',
+  for_observation: 'For Observation',
+  unresolved: 'Unresolved',
 };
 
 const STATUS_REVERSE_MAP: Record<string, string> = {
@@ -21,6 +23,8 @@ const STATUS_REVERSE_MAP: Record<string, string> = {
   Escalated: 'escalated',
   Closed: 'closed',
   Resolved: 'pending_closure',
+  'For Observation': 'for_observation',
+  Unresolved: 'unresolved',
 };
 
 export function mapStatus(backendStatus: string, assignedTo: unknown): string {

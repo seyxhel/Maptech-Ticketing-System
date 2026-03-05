@@ -153,6 +153,10 @@ class TicketSerializer(serializers.ModelSerializer):
     progress_percentage = serializers.ReadOnlyField()
     sla_estimated_days = serializers.ReadOnlyField()
     csat_feedback = CSATFeedbackSerializer(read_only=True)
+    linked_ticket_ids = serializers.PrimaryKeyRelatedField(
+        source='linked_tickets', many=True, read_only=True,
+    )
+    linked_ticket_stfs = serializers.SerializerMethodField()
 
     # Role-based writable fields
     TICKET_FIELDS = {
@@ -198,10 +202,14 @@ class TicketSerializer(serializers.ModelSerializer):
             'estimated_resolution_days_override',
             'progress_percentage', 'sla_estimated_days',
             'csat_feedback',
+            'linked_ticket_ids', 'linked_ticket_stfs',
         ]
         read_only_fields = ['stf_no', 'date', 'time_in', 'time_out', 'confirmed_by_admin',
                             'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',
                             'progress_percentage', 'sla_estimated_days']
+
+    def get_linked_ticket_stfs(self, obj):
+        return list(obj.linked_tickets.values_list('stf_no', flat=True))
 
     def _get_allowed_fields(self):
         """Return the set of writable field names based on the requesting user's role."""

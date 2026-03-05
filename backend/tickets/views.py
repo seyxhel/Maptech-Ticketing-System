@@ -179,6 +179,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             'update_task':              [IsAuthenticated(), IsAdminOrAssignedEmployee()],
             # Employee starts working
             'start_work':               [IsAuthenticated(), IsAssignedEmployee()],
+            # Employee: submit for observation / mark unresolved
+            'submit_for_observation':   [IsAuthenticated(), IsAssignedEmployee()],
+            'mark_unresolved':          [IsAuthenticated(), IsAssignedEmployee()],
+            # Admin: link tickets
+            'link_tickets':             [IsAuthenticated(), IsAdminLevel()],
             # Delete attachment (resolution proofs)
             'delete_attachment':        [IsAuthenticated(), IsTicketParticipant()],
         }
@@ -457,6 +462,103 @@ class TicketViewSet(viewsets.ModelViewSet):
         self._audit_ticket(request, ticket, action_type,
                            f"{request.user.email} updated fields on ticket {ticket.stf_no} (status: {old_status} → {ticket.status})",
                            changes={f: request.data[f] for f in allowed if f in request.data})
+
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'])
+    def submit_for_observation(self, request, pk=None):
+        """Employee submits ticket for observation — saves fields without resolving."""
+        ticket = self.get_object()
+        user = request.user
+        allowed = [
+            'action_taken', 'remarks', 'observation',
+            'job_status', 'cascade_type', 'signature', 'signed_by_name',
+        ]
+        for field in allowed:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+
+        old_status = ticket.status
+        ticket.status = Ticket.STATUS_FOR_OBSERVATION
+        ticket.save()
+
+        sys_content = f"{user.get_full_name() or user.username} submitted this ticket for observation."
+        if request.data.get('observation'):
+            sys_content += f" Observation: {request.data['observation'][:200]}"
+        for ch in ['admin_employee']:
+            Message.objects.create(
+                ticket=ticket,
+                channel_type=ch,
+                sender=user,
+                content=sys_content,
+                is_system_message=True,
+            )
+            self._broadcast_system_message(ticket.id, ch, sys_content, user)
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_OBSERVE,
+                           f"{user.email} submitted ticket {ticket.stf_no} for observation (status: {old_status} \u2192 {ticket.status})",
+                           changes={f: request.data[f] for f in allowed if f in request.data})
+
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'])
+    def mark_unresolved(self, request, pk=None):
+        """Employee marks ticket as unresolved."""
+        ticket = self.get_object()
+        user = request.user
+        notes = request.data.get('notes', '')
+
+        allowed = [
+            'action_taken', 'remarks', 'observation',
+            'job_status', 'cascade_type', 'signature', 'signed_by_name',
+        ]
+        for field in allowed:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+
+        old_status = ticket.status
+        ticket.status = Ticket.STATUS_UNRESOLVED
+        if not ticket.time_out:
+            ticket.time_out = timezone.now()
+        ticket.save()
+
+        sys_content = f"{user.get_full_name() or user.username} marked this ticket as unresolved."
+        if notes:
+            sys_content += f" Notes: {notes}"
+        for ch in ['admin_employee']:
+            Message.objects.create(
+                ticket=ticket,
+                channel_type=ch,
+                sender=user,
+                content=sys_content,
+                is_system_message=True,
+            )
+            self._broadcast_system_message(ticket.id, ch, sys_content, user)
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UNRESOLVED,
+                           f"{user.email} marked ticket {ticket.stf_no} as unresolved (status: {old_status} \u2192 {ticket.status})",
+                           changes={'notes': notes, **{f: request.data[f] for f in allowed if f in request.data}})
+
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'])
+    def link_tickets(self, request, pk=None):
+        """Supervisor links this ticket to other tickets (same problem / related)."""
+        ticket = self.get_object()
+        ticket_ids = request.data.get('ticket_ids', [])
+        if not ticket_ids or not isinstance(ticket_ids, list):
+            return Response({'detail': 'ticket_ids required (list of ticket IDs)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        tickets_to_link = Ticket.objects.filter(id__in=ticket_ids).exclude(id=ticket.id)
+        if not tickets_to_link.exists():
+            return Response({'detail': 'No valid tickets found to link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        ticket.linked_tickets.add(*tickets_to_link)
+
+        linked_stfs = list(tickets_to_link.values_list('stf_no', flat=True))
+        self._audit_ticket(request, ticket, AuditLog.ACTION_LINK,
+                           f"{request.user.email} linked ticket {ticket.stf_no} to {', '.join(linked_stfs)}",
+                           changes={'linked_ticket_ids': list(tickets_to_link.values_list('id', flat=True))})
 
         return Response(self.get_serializer(ticket).data)
 
