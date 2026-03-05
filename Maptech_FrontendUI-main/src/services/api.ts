@@ -25,7 +25,22 @@ async function handleResponse<T>(res: Response): Promise<T> {
   const data: T = await res.json().catch(() => ({}) as T);
   if (!res.ok) {
     const errData = data as Record<string, unknown>;
-    const msg = (errData.detail as string) || (errData.message as string) || `API error ${res.status}`;
+    let msg = (errData.detail as string) || (errData.message as string) || '';
+
+    // DRF validation errors are usually an object of field -> string[]
+    if (!msg && errData && typeof errData === 'object') {
+      const firstEntry = Object.entries(errData)[0];
+      if (firstEntry) {
+        const [field, value] = firstEntry;
+        if (Array.isArray(value) && value.length > 0) {
+          msg = `${field}: ${String(value[0])}`;
+        } else if (typeof value === 'string') {
+          msg = `${field}: ${value}`;
+        }
+      }
+    }
+
+    if (!msg) msg = `API error ${res.status}.`;
     throw new Error(msg);
   }
   return data;
@@ -117,8 +132,20 @@ export interface TypeOfService {
   estimated_resolution_days: number;
 }
 
+export interface DeviceEquipment {
+  id: number;
+  name: string;
+  description: string;
+  is_active: boolean;
+  product_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Product {
   id: number;
+  category: number | null;
+  category_detail: DeviceEquipment | null;
   device_equipment: string;
   version_no: string;
   date_purchased: string | null;
@@ -250,7 +277,7 @@ export async function deleteTicket(id: number): Promise<void> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -383,7 +410,7 @@ export async function deleteAttachment(ticketId: number, attachmentId: number): 
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -516,7 +543,7 @@ export async function deleteTypeOfService(id: number): Promise<void> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -593,7 +620,7 @@ export async function exportAuditLogs(params?: {
   if (params?.date_to) query.set('date_to', params.date_to);
   const qs = query.toString() ? `?${query.toString()}` : '';
   const res = await fetch(`${API_BASE}/audit-logs/export/${qs}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Export failed');
+  if (!res.ok) throw new Error('Export failed.');
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -703,7 +730,7 @@ export async function deleteKnowledgeHubAttachment(id: number): Promise<void> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -758,7 +785,7 @@ export async function deleteProduct(id: number): Promise<void> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -798,7 +825,7 @@ export async function deleteClient(id: number): Promise<void> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status})`);
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
   }
 }
 
@@ -846,4 +873,44 @@ export async function createCSATFeedback(data: { ticket: number; employee: numbe
 export async function fetchCSATFeedbacks(): Promise<CSATFeedback[]> {
   const res = await fetch(`${API_BASE}/csat-feedback/`, { headers: authHeaders() });
   return handleResponse<CSATFeedback[]>(res);
+}
+
+// ── Device/Equipment endpoints ──
+
+/** Fetch all device/equipment items. */
+export async function fetchDeviceEquipment(): Promise<DeviceEquipment[]> {
+  const res = await fetch(`${API_BASE}/device-equipment/`, { headers: authHeaders() });
+  return handleResponse<DeviceEquipment[]>(res);
+}
+
+/** Create a device/equipment item. */
+export async function createDeviceEquipment(data: { name: string; description?: string }): Promise<DeviceEquipment> {
+  const res = await fetch(`${API_BASE}/device-equipment/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<DeviceEquipment>(res);
+}
+
+/** Update a device/equipment item. */
+export async function updateDeviceEquipment(id: number, data: Partial<DeviceEquipment>): Promise<DeviceEquipment> {
+  const res = await fetch(`${API_BASE}/device-equipment/${id}/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse<DeviceEquipment>(res);
+}
+
+/** Delete a device/equipment item. */
+export async function deleteDeviceEquipment(id: number): Promise<void> {
+  const res = await fetch(`${API_BASE}/device-equipment/${id}/`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error((data as Record<string, string>).detail || `Delete failed (${res.status}).`);
+  }
 }

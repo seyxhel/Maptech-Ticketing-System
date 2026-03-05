@@ -106,7 +106,7 @@ export function UserManagement() {
       const data = await fetchUsers();
       setUsers(data.map(toUserAccount));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch users';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch users.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -200,7 +200,7 @@ export function UserManagement() {
       setIsModalOpen(false);
       await loadUsers(); // Refresh the list from the backend
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Operation failed';
+      const msg = err instanceof Error ? err.message : 'Operation failed.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -216,7 +216,7 @@ export function UserManagement() {
         toast.info(`${user.name} has been ${next}.`);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Toggle failed';
+      const msg = err instanceof Error ? err.message : 'Toggle failed.';
       toast.error(msg);
     }
   };

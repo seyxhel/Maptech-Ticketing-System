@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
 import { GreenButton } from '../components/ui/GreenButton';
@@ -21,36 +21,22 @@ import {
   Line,
   Legend,
 } from 'recharts';
+import { fetchTickets, fetchTicketStats } from '../services/api';
+import type { BackendTicket, TicketStats } from '../services/api';
 
-const monthlyData = [
-  { name: 'Jan', tickets: 45, resolved: 40 },
-  { name: 'Feb', tickets: 52, resolved: 48 },
-  { name: 'Mar', tickets: 61, resolved: 55 },
-  { name: 'Apr', tickets: 55, resolved: 52 },
-  { name: 'May', tickets: 72, resolved: 65 },
-  { name: 'Jun', tickets: 68, resolved: 64 },
-];
-
-const slaData = [
-  { name: 'Jan', withinSla: 92, breached: 8 },
-  { name: 'Feb', withinSla: 88, breached: 12 },
-  { name: 'Mar', withinSla: 95, breached: 5 },
-  { name: 'Apr', withinSla: 90, breached: 10 },
-  { name: 'May', withinSla: 87, breached: 13 },
-  { name: 'Jun', withinSla: 93, breached: 7 },
-];
-
-const categoryData = [
-  { name: 'Network', count: 38 },
-  { name: 'Hardware', count: 25 },
-  { name: 'Software', count: 42 },
-  { name: 'Email', count: 18 },
-  { name: 'Security', count: 12 },
-  { name: 'Other', count: 8 },
-];
+// Placeholders until data loads
+const emptyMonthly: { name: string; tickets: number; resolved: number }[] = [];
+const emptySla: { name: string; withinSla: number; breached: number }[] = [];
+const emptyCategory: { name: string; count: number }[] = [];
 
 export function Reports() {
   const reportRef = useRef<HTMLDivElement>(null);
+  const [tickets, setTickets] = useState<BackendTicket[] | null>(null);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [monthlyData, setMonthlyData] = useState(emptyMonthly);
+  const [slaData, setSlaData] = useState(emptySla);
+  const [categoryData, setCategoryData] = useState(emptyCategory);
+  const [loading, setLoading] = useState(true);
 
   const handleExportPDF = () => {
     // Use browser print API to generate PDF
@@ -125,6 +111,79 @@ export function Reports() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        const [rawTickets, statsResp] = await Promise.all([fetchTickets(), fetchTicketStats().catch(() => null)]);
+        if (cancelled) return;
+        setTickets(rawTickets);
+        setStats(statsResp as TicketStats ?? null);
+
+        // Monthly data: last 6 months, by created_at
+        const now = new Date();
+        const months: { key: string; name: string; start: Date; end: Date }[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const name = d.toLocaleString('default', { month: 'short' });
+          const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0);
+          const end = new Date(d.getFullYear(), d.getMonth() + 1, 1, 0, 0, 0);
+          months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, name, start, end });
+        }
+
+        const monthly = months.map((m) => {
+          const ticketsIn = rawTickets.filter((t) => {
+            const created = new Date(t.created_at);
+            return created >= m.start && created < m.end;
+          });
+          const resolvedIn = ticketsIn.filter((t) => ['pending_closure', 'closed', 'resolved', 'closed'].includes(t.status) || t.status === 'pending_closure');
+          return { name: m.name, tickets: ticketsIn.length, resolved: resolvedIn.length };
+        });
+        setMonthlyData(monthly);
+
+        // SLA data: within vs breached per month among resolved tickets
+        const slaMonthly = months.map((m) => {
+          const resolved = rawTickets.filter((t) => {
+            const updated = new Date(t.updated_at);
+            return updated >= m.start && updated < m.end && (t.status === 'pending_closure' || t.status === 'closed' || t.status === 'resolved');
+          });
+          let within = 0;
+          for (const t of resolved) {
+            const created = new Date(t.created_at).getTime();
+            const updated = new Date(t.updated_at).getTime();
+            const slaDays = t.sla_estimated_days ?? (t.type_of_service_detail?.estimated_resolution_days ?? null) ?? 0;
+            const allowed = slaDays * 24 * 60 * 60 * 1000;
+            if (allowed === 0) {
+              within += 1; // unknown SLA treated as within
+            } else if ((updated - created) <= allowed) {
+              within += 1;
+            }
+          }
+          const total = resolved.length;
+          const withinPct = total === 0 ? 100 : Math.round((within / total) * 100);
+          const breachedPct = 100 - withinPct;
+          return { name: m.name, withinSla: withinPct, breached: breachedPct };
+        });
+        setSlaData(slaMonthly);
+
+        // Category data: group by device_equipment (fallback to 'Unspecified')
+        const counts: Record<string, number> = {};
+        for (const t of rawTickets) {
+          const key = (t.device_equipment || t.type_of_service_detail?.name || 'Unspecified') as string;
+          counts[key] = (counts[key] || 0) + 1;
+        }
+        const catArr = Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 12);
+        setCategoryData(catArr);
+      } catch (err) {
+        // ignore; charts will stay empty
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="space-y-6" ref={reportRef}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -138,10 +197,10 @@ export function Reports() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <StatCard title="Total Tickets" value="353" icon={BarChart3} color="blue" trend={{ value: 12, isPositive: true }} />
-        <StatCard title="Resolved" value="324" icon={TrendingUp} color="green" trend={{ value: 8, isPositive: true }} />
-        <StatCard title="Avg Resolution" value="4.2h" icon={Clock} color="orange" trend={{ value: 15, isPositive: true }} />
-        <StatCard title="SLA Compliance" value="91%" icon={Users} color="purple" trend={{ value: 3, isPositive: true }} />
+        <StatCard title="Total Tickets" value={loading ? '—' : String(stats?.total ?? (tickets ? tickets.length : '—'))} icon={BarChart3} color="blue" trend={{ value: stats?.total ?? 0, isPositive: true }} />
+        <StatCard title="Resolved" value={loading ? '—' : String(stats?.pending_closure ?? tickets?.filter((t) => ['pending_closure', 'closed', 'resolved'].includes(t.status)).length ?? '—')} icon={TrendingUp} color="green" trend={{ value: stats?.pending_closure ?? 0, isPositive: true }} />
+        <StatCard title="Avg Resolution" value={loading ? '—' : stats?.avg_resolution_time ? `${Math.round(stats.avg_resolution_time)}h` : '—'} icon={Clock} color="orange" trend={{ value: 0, isPositive: true }} />
+        <StatCard title="SLA Compliance" value={loading ? '—' : `${(slaData.length ? `${Math.round(slaData.reduce((s, x) => s + x.withinSla, 0) / slaData.length)}%` : '—')}`} icon={Users} color="purple" trend={{ value: 0, isPositive: true }} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -149,7 +208,7 @@ export function Reports() {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Monthly Ticket Volume</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyData}>
+                <BarChart data={loading ? [] : monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -166,7 +225,7 @@ export function Reports() {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">SLA Compliance Trend</h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={slaData}>
+                <LineChart data={loading ? [] : slaData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -182,9 +241,9 @@ export function Reports() {
 
       <Card accent>
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Tickets by Category</h3>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={categoryData} layout="vertical">
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={loading ? [] : categoryData} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
               <XAxis type="number" tick={{ fontSize: 12 }} />
               <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={80} />

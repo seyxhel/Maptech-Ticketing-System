@@ -9,7 +9,7 @@ from django.utils import timezone
 from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, EscalationLog, AuditLog,
-    Product, Client, CallLog, CSATFeedback,
+    Product, Client, CallLog, CSATFeedback, Category,
 )
 from .serializers import (
     TicketSerializer, TypeOfServiceSerializer,
@@ -22,6 +22,7 @@ from .serializers import (
     PublishedArticleSerializer,
     ProductSerializer, ClientSerializer,
     CallLogSerializer, CSATFeedbackSerializer,
+    CategorySerializer,
 )
 from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant, IsSuperAdmin
 from users.serializers import UserSerializer
@@ -1090,6 +1091,33 @@ class PublishedArticleViewSet(viewsets.ReadOnlyModelViewSet):
 # ────────────────────────────────────────────
 # Product CRUD ViewSet
 # ────────────────────────────────────────────
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """CRUD for product categories. Admin manages, all authenticated can list."""
+    queryset = Category.objects.all().order_by('name')
+    serializer_class = CategorySerializer
+    swagger_tags = ['Categories']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminLevel()]
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Category.objects.none()
+        qs = Category.objects.all().order_by('name')
+        if not self.request.user.is_admin_level:
+            qs = qs.filter(is_active=True)
+
+        search = self.request.query_params.get('search')
+        if search:
+            qs = qs.filter(
+                Q(name__icontains=search) |
+                Q(description__icontains=search)
+            )
+        return qs
+
 
 class ProductViewSet(viewsets.ModelViewSet):
     """CRUD for global Product catalog. Admin manages, all authenticated can list."""

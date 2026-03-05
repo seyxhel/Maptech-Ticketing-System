@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import {
   createTicket,
+  assignTicket,
   fetchEmployees,
   fetchTypesOfService,
   fetchClients,
@@ -317,6 +318,7 @@ export function AdminCreateTicket() {
     // Map support type label to backend value
     const supportTypeMap: Record<string, string> = {
       'Remote / Online': 'remote_online',
+      'Remote/Online': 'remote_online',
       'Onsite': 'onsite',
       'Chat': 'chat',
       'Call': 'call',
@@ -336,9 +338,8 @@ export function AdminCreateTicket() {
         email_address: email,
         address,
         description_of_problem: description,
-        preferred_support_type: supportTypeMap[supportType] || '',
+        preferred_support_type: supportTypeMap[supportType?.trim()] || 'remote_online',
         priority: priorityLevel.toLowerCase(),
-        assign_to: selectedEmployee,
       };
 
       if (matchedService) {
@@ -362,6 +363,7 @@ export function AdminCreateTicket() {
       }
 
       const created = await createTicket(ticketData as any);
+      await assignTicket(created.id, selectedEmployee);
 
       setModalStep('none');
       toast.success(`Ticket ${created.stf_no} assigned to ${emp?.name}`, {

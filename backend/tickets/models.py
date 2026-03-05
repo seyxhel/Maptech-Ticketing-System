@@ -22,11 +22,37 @@ class TypeOfService(models.Model):
 
 
 # ────────────────────────────────────────────
+# Category model (product categories)
+# ────────────────────────────────────────────
+
+class Category(models.Model):
+    """Admin-managed product category."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Category'
+        verbose_name_plural = 'Categories'
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+# ────────────────────────────────────────────
 # Product model (global catalog)
 # ────────────────────────────────────────────
 
 class Product(models.Model):
     """Global product/equipment catalog."""
+    category = models.ForeignKey(
+        Category, related_name='products', null=True, blank=True,
+        on_delete=models.SET_NULL,
+        help_text='Product category',
+    )
     device_equipment = models.CharField(max_length=300, blank=True)
     version_no = models.CharField(max_length=100, blank=True)
     date_purchased = models.DateField(null=True, blank=True)

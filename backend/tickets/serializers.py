@@ -3,8 +3,24 @@ from .models import (
     Ticket, TicketTask, TypeOfService, TicketAttachment,
     AssignmentSession, Message, MessageReaction, MessageReadReceipt,
     EscalationLog, AuditLog, Product, Client, CallLog, CSATFeedback,
+    Category,
 )
 from users.serializers import UserSerializer
+
+
+# ────────────────────────────────────────────
+# Category serializer
+# ────────────────────────────────────────────
+
+class CategorySerializer(serializers.ModelSerializer):
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'description', 'is_active', 'product_count', 'created_at', 'updated_at']
+
+    def get_product_count(self, obj):
+        return obj.products.count()
 
 
 # ────────────────────────────────────────────
@@ -12,10 +28,12 @@ from users.serializers import UserSerializer
 # ────────────────────────────────────────────
 
 class ProductSerializer(serializers.ModelSerializer):
+    category_detail = CategorySerializer(source='category', read_only=True)
+
     class Meta:
         model = Product
         fields = [
-            'id', 'device_equipment', 'version_no', 'date_purchased',
+            'id', 'category', 'category_detail', 'device_equipment', 'version_no', 'date_purchased',
             'serial_no', 'has_warranty', 'product_name', 'brand',
             'model_name', 'sales_no', 'is_active', 'created_at', 'updated_at',
         ]

@@ -48,7 +48,7 @@ export async function loginWithCredentials(creds: LoginCredentials): Promise<Log
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || data.message || 'Login failed');
+    throw new Error(data.detail || data.message || 'Login failed.');
   }
   return data as LoginResponse;
 }
@@ -62,7 +62,7 @@ export async function fetchCurrentUser(accessToken: string): Promise<LoginRespon
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Failed to fetch user profile');
+    throw new Error(data.detail || 'Failed to fetch user profile.');
   }
   return data as LoginResponse['user'];
 }
@@ -75,7 +75,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Token refresh failed');
+    throw new Error(data.detail || 'Token refresh failed.');
   }
   return data as { access: string };
 }
@@ -89,7 +89,7 @@ export async function forgotPassword(email: string): Promise<{ detail: string }>
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Password reset request failed');
+    throw new Error(data.detail || 'Password reset request failed.');
   }
   return data as { detail: string };
 }
@@ -103,7 +103,7 @@ export async function resetPasswordConfirm(uid: string, token: string, newPasswo
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Password reset failed');
+    throw new Error(data.detail || 'Password reset failed.');
   }
   return data as { detail: string };
 }
@@ -117,7 +117,7 @@ export async function changePassword(oldPassword: string, newPassword: string): 
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Password change failed');
+    throw new Error(data.detail || 'Password change failed.');
   }
   return data as { detail: string };
 }
@@ -131,7 +131,7 @@ export async function updateProfile(data: Record<string, unknown>): Promise<Logi
   });
   const result = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(result.detail || 'Profile update failed');
+    throw new Error(result.detail || 'Profile update failed.');
   }
   return result as LoginResponse['user'];
 }
