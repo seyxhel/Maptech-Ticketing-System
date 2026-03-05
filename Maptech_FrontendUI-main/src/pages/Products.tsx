@@ -17,7 +17,9 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
+  fetchDeviceEquipment,
   type Product,
+  type DeviceEquipment,
 } from '../services/api';
 
 const ITEMS_PER_PAGE = 10;
@@ -27,6 +29,7 @@ const EMPTY_FORM = {
   brand: '',
   model_name: '',
   device_equipment: '',
+  device_equipment_id: '' as string | number,
   version_no: '',
   serial_no: '',
   sales_no: '',
@@ -37,6 +40,7 @@ const EMPTY_FORM = {
 
 export function Products() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [deviceEquipment, setDeviceEquipment] = useState<DeviceEquipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,10 +59,11 @@ export function Products() {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchProducts();
+      const [data, list] = await Promise.all([fetchProducts(), fetchDeviceEquipment()]);
       setProducts(data);
+      setDeviceEquipment(list);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch products';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch products.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -106,6 +111,7 @@ export function Products() {
       date_purchased: product.date_purchased || '',
       has_warranty: product.has_warranty,
       is_active: product.is_active,
+      device_equipment_id: product.category || '',
     });
     setFieldErrors({});
     setIsModalOpen(true);
@@ -119,9 +125,14 @@ export function Products() {
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.product_name.trim() && !formData.device_equipment.trim()) {
-      errors.product_name = 'Product name or device/equipment is required';
-    }
+    if (!formData.product_name.trim()) errors.product_name = 'Product name is required.';
+    if (!formData.device_equipment_id && !formData.device_equipment.trim()) errors.device_equipment = 'Device/Equipment is required.';
+    if (!formData.brand.trim()) errors.brand = 'Brand is required.';
+    if (!formData.model_name.trim()) errors.model_name = 'Model is required.';
+    if (!formData.version_no.trim()) errors.version_no = 'Version number is required.';
+    if (!formData.serial_no.trim()) errors.serial_no = 'Serial number is required.';
+    if (!formData.sales_no.trim()) errors.sales_no = 'Sales / Invoice No. is required.';
+    if (!formData.date_purchased) errors.date_purchased = 'Date Purchased is required.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -143,7 +154,13 @@ export function Products() {
         date_purchased: formData.date_purchased || null,
         has_warranty: formData.has_warranty,
         is_active: formData.is_active,
+        category: formData.device_equipment_id ? Number(formData.device_equipment_id) : null,
       };
+
+      const selectedDevice = formData.device_equipment_id
+        ? deviceEquipment.find((item) => item.id === Number(formData.device_equipment_id))
+        : null;
+      payload.device_equipment = selectedDevice ? selectedDevice.name : formData.device_equipment.trim();
 
       if (editingProduct) {
         const updated = await updateProduct(editingProduct.id, payload as any);
@@ -156,7 +173,7 @@ export function Products() {
       }
       closeModal();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save product';
+      const msg = err instanceof Error ? err.message : 'Failed to save product.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -171,7 +188,7 @@ export function Products() {
       setProducts((prev) => prev.filter((p) => p.id !== deleteTarget.id));
       toast.success(`"${deleteTarget.product_name || deleteTarget.device_equipment}" deleted.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete product';
+      const msg = err instanceof Error ? err.message : 'Failed to delete product.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -185,7 +202,7 @@ export function Products() {
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       toast.success(`"${updated.product_name || updated.device_equipment}" ${updated.is_active ? 'activated' : 'deactivated'}.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      const msg = err instanceof Error ? err.message : 'Failed to update status.';
       toast.error(msg);
     }
   };
@@ -253,6 +270,7 @@ export function Products() {
             <thead>
               <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
                 <th className="pb-3 font-medium">Product Name</th>
+                <th className="pb-3 font-medium">Device/Equipment</th>
                 <th className="pb-3 font-medium">Brand</th>
                 <th className="pb-3 font-medium">Model</th>
                 <th className="pb-3 font-medium">Serial No.</th>
@@ -264,7 +282,7 @@ export function Products() {
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {paged.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-gray-400 dark:text-gray-500">
+                  <td colSpan={8} className="py-12 text-center text-gray-400 dark:text-gray-500">
                     <Package className="w-10 h-10 mx-auto mb-2 opacity-30" />
                     No products found.
                   </td>
@@ -274,6 +292,15 @@ export function Products() {
                   <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="py-3 font-medium text-gray-900 dark:text-white">
                       {product.product_name || product.device_equipment || '—'}
+                    </td>
+                    <td className="py-3 text-gray-600 dark:text-gray-300">
+                      {product.category_detail ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                          {product.category_detail.name}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600 dark:text-gray-300">{product.device_equipment || '—'}</span>
+                      )}
                     </td>
                     <td className="py-3 text-gray-600 dark:text-gray-300">{product.brand || '—'}</td>
                     <td className="py-3 text-gray-600 dark:text-gray-300">{product.model_name || '—'}</td>
@@ -348,37 +375,63 @@ export function Products() {
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Name</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Name <span className="text-red-500">*</span></label>
                   <input type="text" value={formData.product_name} onChange={(e) => setFormData({ ...formData, product_name: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.product_name ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. Laptop" />
                   {fieldErrors.product_name && <p className="mt-1 text-xs text-red-500">{fieldErrors.product_name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Brand</label>
-                  <input type="text" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Dell" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device / Equipment <span className="text-red-500">*</span></label>
+                  <select
+                    value={formData.device_equipment_id}
+                    onChange={(e) => {
+                      const selectedId = e.target.value ? Number(e.target.value) : '';
+                      const selected = selectedId
+                        ? deviceEquipment.find((item) => item.id === Number(selectedId))
+                        : null;
+                      setFormData({
+                        ...formData,
+                        device_equipment_id: selectedId,
+                        device_equipment: selected ? selected.name : '',
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                  >
+                    <option value="">— Select Device/Equipment —</option>
+                    {deviceEquipment.filter((item) => item.is_active).map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                  {fieldErrors.device_equipment && <p className="mt-1 text-xs text-red-500">{fieldErrors.device_equipment}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model</label>
-                  <input type="text" value={formData.model_name} onChange={(e) => setFormData({ ...formData, model_name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Latitude 5520" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Brand <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.brand} onChange={(e) => setFormData({ ...formData, brand: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.brand ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. Dell" />
+                  {fieldErrors.brand && <p className="mt-1 text-xs text-red-500">{fieldErrors.brand}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device / Equipment</label>
-                  <input type="text" value={formData.device_equipment} onChange={(e) => setFormData({ ...formData, device_equipment: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Desktop Computer" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Model <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.model_name} onChange={(e) => setFormData({ ...formData, model_name: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.model_name ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. Latitude 5520" />
+                  {fieldErrors.model_name && <p className="mt-1 text-xs text-red-500">{fieldErrors.model_name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Version No.</label>
-                  <input type="text" value={formData.version_no} onChange={(e) => setFormData({ ...formData, version_no: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. v2.1" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Version No. <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.version_no} onChange={(e) => setFormData({ ...formData, version_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.version_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. v2.1" />
+                  {fieldErrors.version_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.version_no}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Serial No.</label>
-                  <input type="text" value={formData.serial_no} onChange={(e) => setFormData({ ...formData, serial_no: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. SN123456" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Serial No. <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.serial_no} onChange={(e) => setFormData({ ...formData, serial_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.serial_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. SN123456" />
+                  {fieldErrors.serial_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.serial_no}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales / Invoice No.</label>
-                  <input type="text" value={formData.sales_no} onChange={(e) => setFormData({ ...formData, sales_no: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. INV-2025-001" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales / Invoice No. <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.sales_no} onChange={(e) => setFormData({ ...formData, sales_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.sales_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. INV-2025-001" />
+                  {fieldErrors.sales_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.sales_no}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Purchased</label>
-                  <input type="date" value={formData.date_purchased} onChange={(e) => setFormData({ ...formData, date_purchased: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Purchased <span className="text-red-500">*</span></label>
+                  <input type="date" value={formData.date_purchased} onChange={(e) => setFormData({ ...formData, date_purchased: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.date_purchased ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} />
+                  {fieldErrors.date_purchased && <p className="mt-1 text-xs text-red-500">{fieldErrors.date_purchased}</p>}
                 </div>
               </div>
 

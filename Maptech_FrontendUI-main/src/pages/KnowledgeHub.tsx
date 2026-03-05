@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
-import { StatCard } from '../components/ui/StatCard';
 import {
   Search,
   Paperclip,
-  FileCheck,
-  Clock,
   RefreshCw,
   Trash2,
   Eye,
@@ -18,13 +15,20 @@ import {
   Film,
   File as FileIcon,
   ExternalLink,
+  Archive,
+  ArchiveRestore,
+  Send,
+  Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { KnowledgeHubAttachment, KnowledgeHubSummary } from '../services/api';
+import type { KnowledgeHubAttachment } from '../services/api';
 import {
   fetchKnowledgeHubAttachments,
-  fetchKnowledgeHubSummary,
   deleteKnowledgeHubAttachment,
+  archiveAttachment,
+  unarchiveAttachment,
+  publishAttachment,
+  updateKnowledgeHubAttachment,
 } from '../services/api';
 
 const ITEMS_PER_PAGE = 12;
@@ -75,333 +79,207 @@ function FileTypeIcon({ url }: { url: string }) {
   return <FileIcon className="w-5 h-5 text-gray-500" />;
 }
 
-// ── Mock data (used until real backend is wired up) ──
-
-const MOCK_USER = (first: string, last: string, role = 'employee') => ({
-  id: Math.floor(Math.random() * 1000),
-  username: `${first.toLowerCase()}.${last.toLowerCase()}`,
-  email: `${first.toLowerCase()}.${last.toLowerCase()}@maptech.com`,
-  role,
-  first_name: first,
-  last_name: last,
-});
-
-const MOCK_ATTACHMENTS: KnowledgeHubAttachment[] = [
-  {
-    id: 1,
-    file: '/ticket_attachments/2026/02/28/motherboard_burnt_capacitor.jpg',
-    uploaded_by: MOCK_USER('Juan', 'Dela Cruz'),
-    uploaded_at: '2026-02-28T14:32:00Z',
-    is_resolution_proof: true,
-    ticket_id: 101,
-    stf_no: 'STF-MP-20260228000001',
-    ticket_status: 'closed',
-    client: 'Barangay San Isidro',
-    description_of_problem: 'Desktop PC not powering on. Burnt smell coming from the motherboard area.',
-    type_of_service_name: 'Hardware Repair',
-    assigned_to_name: 'Juan Dela Cruz',
-  },
-  {
-    id: 2,
-    file: '/ticket_attachments/2026/02/27/network_switch_config.pdf',
-    uploaded_by: MOCK_USER('Maria', 'Santos'),
-    uploaded_at: '2026-02-27T10:15:00Z',
-    is_resolution_proof: true,
-    ticket_id: 98,
-    stf_no: 'STF-MP-20260227000003',
-    ticket_status: 'closed',
-    client: 'DENR Region IV',
-    description_of_problem: 'Network switch needs reconfiguration after office relocation.',
-    type_of_service_name: 'Network Setup',
-    assigned_to_name: 'Maria Santos',
-  },
-  {
-    id: 3,
-    file: '/ticket_attachments/2026/02/27/printer_error_screenshot.png',
-    uploaded_by: MOCK_USER('Pedro', 'Reyes'),
-    uploaded_at: '2026-02-27T08:45:00Z',
-    is_resolution_proof: true,
-    ticket_id: 95,
-    stf_no: 'STF-MP-20260227000001',
-    ticket_status: 'in_progress',
-    client: 'Municipal Hall of Tanauan',
-    description_of_problem: 'Printer constantly showing "Paper Jam" error even when no paper is jammed.',
-    type_of_service_name: 'Printer Maintenance',
-    assigned_to_name: 'Pedro Reyes',
-  },
-  {
-    id: 4,
-    file: '/ticket_attachments/2026/02/26/server_rack_wiring.jpg',
-    uploaded_by: MOCK_USER('Ana', 'Garcia'),
-    uploaded_at: '2026-02-26T16:20:00Z',
-    is_resolution_proof: true,
-    ticket_id: 90,
-    stf_no: 'STF-MP-20260226000002',
-    ticket_status: 'closed',
-    client: 'PhilHealth Regional Office',
-    description_of_problem: 'Server rack cabling is disorganized causing intermittent connectivity issues.',
-    type_of_service_name: 'Server Maintenance',
-    assigned_to_name: 'Ana Garcia',
-  },
-  {
-    id: 5,
-    file: '/ticket_attachments/2026/02/26/bsod_dump_analysis.docx',
-    uploaded_by: MOCK_USER('Carlos', 'Mendoza'),
-    uploaded_at: '2026-02-26T11:05:00Z',
-    is_resolution_proof: true,
-    ticket_id: 88,
-    stf_no: 'STF-MP-20260226000001',
-    ticket_status: 'pending_closure',
-    client: 'DepEd Division of Batangas',
-    description_of_problem: 'Multiple workstations experiencing BSOD with KERNEL_DATA_INPAGE_ERROR stop code.',
-    type_of_service_name: 'Software Troubleshooting',
-    assigned_to_name: 'Carlos Mendoza',
-  },
-  {
-    id: 6,
-    file: '/ticket_attachments/2026/02/25/cctv_installation_proof.mp4',
-    uploaded_by: MOCK_USER('Rico', 'Bautista'),
-    uploaded_at: '2026-02-25T09:30:00Z',
-    is_resolution_proof: true,
-    ticket_id: 85,
-    stf_no: 'STF-MP-20260225000004',
-    ticket_status: 'closed',
-    client: 'Lipa City Hall',
-    description_of_problem: 'Request for CCTV installation in the new annex building, 8 cameras total.',
-    type_of_service_name: 'CCTV Installation',
-    assigned_to_name: 'Rico Bautista',
-  },
-  {
-    id: 7,
-    file: '/ticket_attachments/2026/02/25/firewall_rules_export.xlsx',
-    uploaded_by: MOCK_USER('Liza', 'Aquino'),
-    uploaded_at: '2026-02-25T07:55:00Z',
-    is_resolution_proof: true,
-    ticket_id: 83,
-    stf_no: 'STF-MP-20260225000002',
-    ticket_status: 'escalated',
-    client: 'PNP Provincial Office',
-    description_of_problem: 'Firewall showing unusual traffic patterns. Possible intrusion attempt detected.',
-    type_of_service_name: 'Network Security',
-    assigned_to_name: 'Liza Aquino',
-  },
-  {
-    id: 8,
-    file: '/ticket_attachments/2026/02/24/ups_replacement_receipt.pdf',
-    uploaded_by: MOCK_USER('Mark', 'Villanueva'),
-    uploaded_at: '2026-02-24T15:10:00Z',
-    is_resolution_proof: true,
-    ticket_id: 80,
-    stf_no: 'STF-MP-20260224000003',
-    ticket_status: 'closed',
-    client: 'Bureau of Fire Protection',
-    description_of_problem: 'UPS unit for the main server constantly beeping and battery not holding charge.',
-    type_of_service_name: 'Hardware Replacement',
-    assigned_to_name: 'Mark Villanueva',
-  },
-  {
-    id: 9,
-    file: '/ticket_attachments/2026/02/24/os_reinstall_checklist.png',
-    uploaded_by: MOCK_USER('Grace', 'Tan'),
-    uploaded_at: '2026-02-24T13:40:00Z',
-    is_resolution_proof: true,
-    ticket_id: 78,
-    stf_no: 'STF-MP-20260224000001',
-    ticket_status: 'closed',
-    client: 'DSWD Field Office',
-    description_of_problem: 'Workstation corrupted by malware. Requires full OS reinstallation and data recovery.',
-    type_of_service_name: 'OS Installation',
-    assigned_to_name: 'Grace Tan',
-  },
-  {
-    id: 10,
-    file: '/ticket_attachments/2026/02/23/email_migration_report.pdf',
-    uploaded_by: MOCK_USER('James', 'Lim'),
-    uploaded_at: '2026-02-23T11:20:00Z',
-    is_resolution_proof: true,
-    ticket_id: 75,
-    stf_no: 'STF-MP-20260223000002',
-    ticket_status: 'closed',
-    client: 'DTI Regional Office',
-    description_of_problem: 'Migrate 50 email accounts from on-prem Exchange to Microsoft 365.',
-    type_of_service_name: 'Email Migration',
-    assigned_to_name: 'James Lim',
-  },
-  {
-    id: 11,
-    file: '/ticket_attachments/2026/02/22/biometrics_device_test.jpg',
-    uploaded_by: MOCK_USER('Juan', 'Dela Cruz'),
-    uploaded_at: '2026-02-22T09:00:00Z',
-    is_resolution_proof: true,
-    ticket_id: 72,
-    stf_no: 'STF-MP-20260222000001',
-    ticket_status: 'in_progress',
-    client: 'Batangas Provincial Capitol',
-    description_of_problem: 'Biometrics attendance device not syncing with the DTR system.',
-    type_of_service_name: 'Biometrics Setup',
-    assigned_to_name: 'Juan Dela Cruz',
-  },
-  {
-    id: 12,
-    file: '/ticket_attachments/2026/02/21/data_backup_log.txt',
-    uploaded_by: MOCK_USER('Maria', 'Santos'),
-    uploaded_at: '2026-02-21T17:30:00Z',
-    is_resolution_proof: true,
-    ticket_id: 70,
-    stf_no: 'STF-MP-20260221000005',
-    ticket_status: 'closed',
-    client: 'COMELEC Municipal Office',
-    description_of_problem: 'Weekly backup job failing due to insufficient disk space on NAS.',
-    type_of_service_name: 'Data Backup',
-    assigned_to_name: 'Maria Santos',
-  },
-  {
-    id: 13,
-    file: '/ticket_attachments/2026/02/20/wifi_heatmap_scan.png',
-    uploaded_by: MOCK_USER('Pedro', 'Reyes'),
-    uploaded_at: '2026-02-20T14:15:00Z',
-    is_resolution_proof: true,
-    ticket_id: 68,
-    stf_no: 'STF-MP-20260220000003',
-    ticket_status: 'closed',
-    client: 'Rosario Municipal Hall',
-    description_of_problem: 'Wifi dead spots in 2nd floor offices. Need access point repositioning.',
-    type_of_service_name: 'Wifi Optimization',
-    assigned_to_name: 'Pedro Reyes',
-  },
-  {
-    id: 14,
-    file: '/ticket_attachments/2026/02/19/projector_repair_invoice.pdf',
-    uploaded_by: MOCK_USER('Ana', 'Garcia'),
-    uploaded_at: '2026-02-19T10:50:00Z',
-    is_resolution_proof: true,
-    ticket_id: 65,
-    stf_no: 'STF-MP-20260219000001',
-    ticket_status: 'escalated_external',
-    client: 'Tanauan City Library',
-    description_of_problem: 'Projector lamp burnt out during presentation. Needs urgent replacement.',
-    type_of_service_name: 'Equipment Repair',
-    assigned_to_name: 'Ana Garcia',
-  },
-  {
-    id: 15,
-    file: '/ticket_attachments/2026/02/18/antivirus_deployment_log.docx',
-    uploaded_by: MOCK_USER('Carlos', 'Mendoza'),
-    uploaded_at: '2026-02-18T16:00:00Z',
-    is_resolution_proof: true,
-    ticket_id: 62,
-    stf_no: 'STF-MP-20260218000002',
-    ticket_status: 'closed',
-    client: 'NBI Regional Office',
-    description_of_problem: 'Deploy enterprise antivirus to 30 workstations and configure central management.',
-    type_of_service_name: 'Software Deployment',
-    assigned_to_name: 'Carlos Mendoza',
-  },
-];
-
-const MOCK_SUMMARY: KnowledgeHubSummary = {
-  total_attachments: 42,
-  proof_attachments: 15,
-  recent_7_days: 9,
-  by_ticket_status: {
-    closed: 9,
-    in_progress: 2,
-    pending_closure: 1,
-    escalated: 1,
-    escalated_external: 1,
-    open: 1,
-  },
-};
-
-export default function KnowledgeHub() {
+export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'published' | 'archived' }) {
   const [attachments, setAttachments] = useState<KnowledgeHubAttachment[]>([]);
-  const [summary, setSummary] = useState<KnowledgeHubSummary | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showProofs, setShowProofs] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'' | 'images' | 'videos'>('');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<KnowledgeHubAttachment | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [publishTarget, setPublishTarget] = useState<KnowledgeHubAttachment | null>(null);
+  const [publishTitle, setPublishTitle] = useState('');
+  const [publishSteps, setPublishSteps] = useState<string[]>(['']);
+  const [publishTags, setPublishTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const [editTarget, setEditTarget] = useState<KnowledgeHubAttachment | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editSteps, setEditSteps] = useState<string[]>(['']);
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Build API filter params based on the active filter
+  const getFilterParams = useCallback(() => {
+    const params: Record<string, string | undefined> = {
+      search: search || undefined,
+    };
+    if (filter === 'uploaded') {
+      params.published = 'false';
+      params.archived = 'false';
+    } else if (filter === 'published') {
+      params.published = 'true';
+      params.archived = 'false';
+    } else if (filter === 'archived') {
+      params.archived = 'true';
+    }
+    return params;
+  }, [filter, search]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [items, stats] = await Promise.all([
-        fetchKnowledgeHubAttachments({
-          search: search || undefined,
-          ticket_status: statusFilter || undefined,
-          date_from: dateFrom || undefined,
-          date_to: dateTo || undefined,
-        }),
-        fetchKnowledgeHubSummary(),
-      ]);
-      setAttachments(items.length ? items : MOCK_ATTACHMENTS);
-      setSummary(stats.total_attachments ? stats : MOCK_SUMMARY);
+      const items = await fetchKnowledgeHubAttachments(getFilterParams());
+      setAttachments(items);
     } catch {
-      // Fallback to mock data when backend is unavailable
-      let filtered = [...MOCK_ATTACHMENTS];
-      if (search) {
-        const q = search.toLowerCase();
-        filtered = filtered.filter(
-          (a) =>
-            a.stf_no.toLowerCase().includes(q) ||
-            a.client.toLowerCase().includes(q) ||
-            a.description_of_problem.toLowerCase().includes(q) ||
-            getFileName(a.file).toLowerCase().includes(q)
-        );
-      }
-      if (statusFilter) {
-        filtered = filtered.filter((a) => a.ticket_status === statusFilter);
-      }
-      if (dateFrom) {
-        filtered = filtered.filter((a) => a.uploaded_at.slice(0, 10) >= dateFrom);
-      }
-      if (dateTo) {
-        filtered = filtered.filter((a) => a.uploaded_at.slice(0, 10) <= dateTo);
-      }
-      setAttachments(filtered);
-      setSummary(MOCK_SUMMARY);
+      toast.error('Failed to load attachments.');
+      setAttachments([]);
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, dateFrom, dateTo]);
+  }, [getFilterParams]);
 
   useEffect(() => {
-    if (showProofs) loadData();
-  }, [loadData, showProofs]);
+    loadData();
+  }, [loadData]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this attachment?')) return;
     setDeleting(id);
     try {
       await deleteKnowledgeHubAttachment(id);
+      toast.success('Attachment deleted.');
     } catch {
-      // Mock mode — just remove locally
+      toast.error('Failed to delete attachment.');
     }
-    toast.success('Attachment deleted');
     setAttachments((prev) => prev.filter((a) => a.id !== id));
     if (selected?.id === id) setSelected(null);
     setDeleting(null);
   };
 
+  const handleArchive = async (id: number) => {
+    try {
+      await archiveAttachment(id);
+      toast.success('Attachment archived.');
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      if (selected?.id === id) setSelected(null);
+    } catch {
+      toast.error('Failed to archive attachment.');
+    }
+  };
+
+  const handleUnarchive = async (id: number) => {
+    try {
+      await unarchiveAttachment(id);
+      toast.success('Attachment unarchived.');
+      setAttachments((prev) => prev.filter((a) => a.id !== id));
+      if (selected?.id === id) setSelected(null);
+    } catch {
+      toast.error('Failed to unarchive attachment.');
+    }
+  };
+
+  const parseSteps = (desc: string): string[] => {
+    try {
+      const parsed = JSON.parse(desc);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* plain text fallback */ }
+    return desc ? desc.split('\n').filter((s: string) => s.trim()) : [''];
+  };
+
+  const openEditModal = (att: KnowledgeHubAttachment) => {
+    setEditTarget(att);
+    setEditTitle(att.published_title || '');
+    setEditSteps(parseSteps(att.published_description).length ? parseSteps(att.published_description) : ['']);
+    setEditTags(att.published_tags || []);
+    setEditTagInput('');
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    if (!editTitle.trim()) {
+      toast.error('Title is required.');
+      return;
+    }
+    const steps = editSteps.map((s) => s.trim()).filter(Boolean);
+    if (steps.length === 0) {
+      toast.error('At least one troubleshooting step is required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const updated = await updateKnowledgeHubAttachment(editTarget.id, {
+        published_title: editTitle.trim(),
+        published_description: JSON.stringify(steps),
+        published_tags: editTags,
+      });
+      toast.success('Article updated.');
+      setAttachments((prev) => prev.map((a) => (a.id === editTarget.id ? updated : a)));
+      if (selected?.id === editTarget.id) setSelected(updated);
+      setEditTarget(null);
+    } catch {
+      toast.error('Failed to update article.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openPublishModal = (att: KnowledgeHubAttachment) => {
+    setPublishTarget(att);
+    setPublishTitle('');
+    setPublishSteps(['']);
+    setPublishTags([]);
+    setTagInput('');
+  };
+
+  const handlePublish = async () => {
+    if (!publishTarget) return;
+    if (!publishTitle.trim()) {
+      toast.error('Title is required.');
+      return;
+    }
+    const steps = publishSteps.map((s) => s.trim()).filter(Boolean);
+    if (steps.length === 0) {
+      toast.error('At least one troubleshooting step is required.');
+      return;
+    }
+    setPublishing(true);
+    try {
+      await publishAttachment(publishTarget.id, {
+        published_title: publishTitle.trim(),
+        published_description: JSON.stringify(steps),
+        published_tags: publishTags,
+      });
+      toast.success('Attachment published.');
+      setAttachments((prev) => prev.filter((a) => a.id !== publishTarget.id));
+      if (selected?.id === publishTarget.id) setSelected(null);
+      setPublishTarget(null);
+    } catch {
+      toast.error('Failed to publish attachment.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const FILTER_HEADINGS: Record<string, { title: string; subtitle: string }> = {
+    uploaded: { title: 'Uploaded Attachments', subtitle: 'Proof attachments that have not yet been published or archived' },
+    published: { title: 'Published Attachments', subtitle: 'Attachments published to the employee Knowledge Hub' },
+    archived: { title: 'Archived Attachments', subtitle: 'Attachments that have been archived' },
+  };
+  const heading = filter ? FILTER_HEADINGS[filter] : { title: 'Knowledge Hub', subtitle: 'Proof attachments submitted through STF Ticket forms' };
+
+  // Client-side type filtering
+  const filtered = attachments.filter((att) => {
+    if (typeFilter === 'images') return isImageFile(att.file);
+    if (typeFilter === 'videos') return isVideoFile(att.file);
+    return true;
+  });
+
   // Pagination
-  const totalPages = Math.ceil(attachments.length / ITEMS_PER_PAGE);
-  const paged = attachments.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Knowledge Hub</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{heading.title}</h1>
           <p className="text-gray-500 dark:text-gray-400">
-            Proof attachments submitted through STF Ticket forms
+            {heading.subtitle}
           </p>
         </div>
-        {showProofs && (
         <div className="flex items-center gap-2">
           <button
             onClick={loadData}
@@ -409,65 +287,8 @@ export default function KnowledgeHub() {
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
-
         </div>
-        )}
       </div>
-
-      {/* Landing state — show button before proofs are revealed */}
-      {!showProofs ? (
-        <Card className="p-0 overflow-hidden">
-          <div className="relative bg-gradient-to-br from-[#0E8F79] via-[#0b7a67] to-[#0a0a0a]">
-            <div className="absolute inset-0 opacity-10" style={{ background: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.3), transparent 60%)' }} />
-            <div className="relative flex flex-col items-center text-center py-16 px-6">
-              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center mb-6">
-                <FileCheck className="w-10 h-10 text-white" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Submitted Required Proofs</h2>
-              <p className="text-white/70 text-sm max-w-md mb-8">
-                View all submitted required proof attachments from STF Ticket forms. These include resolution proofs, documentation, photos, and other evidence uploaded by technicals during ticket resolution.
-              </p>
-              <button
-                onClick={() => setShowProofs(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-[#0E8F79] text-sm font-semibold hover:bg-white/90 shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02]"
-              >
-                <Eye className="w-5 h-5" />
-                View Submitted Proofs
-              </button>
-              <p className="text-white/40 text-xs mt-4">{MOCK_ATTACHMENTS.length} proof attachments available</p>
-            </div>
-          </div>
-        </Card>
-      ) : (
-      <>
-      {summary && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Attachments"
-            value={String(summary.total_attachments)}
-            icon={Paperclip}
-            color="blue"
-          />
-          <StatCard
-            title="Proof Attachments"
-            value={String(summary.proof_attachments)}
-            icon={FileCheck}
-            color="green"
-          />
-          <StatCard
-            title="Recent (7 days)"
-            value={String(summary.recent_7_days)}
-            icon={Clock}
-            color="orange"
-          />
-          <StatCard
-            title="From Closed Tickets"
-            value={String(summary.by_ticket_status?.closed || 0)}
-            icon={FileText}
-            color="purple"
-          />
-        </div>
-      )}
 
       {/* Filters */}
       <Card className="p-4">
@@ -485,30 +306,15 @@ export default function KnowledgeHub() {
             <div className="flex items-center gap-1.5">
               <Filter className="w-4 h-4 text-gray-400" />
               <select
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value as '' | 'images' | 'videos'); setPage(1); }}
                 className="px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
               >
-                <option value="">All Statuses</option>
-                {Object.entries(STATUS_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
+                <option value="">All Types</option>
+                <option value="images">Images</option>
+                <option value="videos">Videos</option>
               </select>
             </div>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
-              title="From date"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
-              title="To date"
-            />
           </div>
         </div>
       </Card>
@@ -568,20 +374,27 @@ export default function KnowledgeHub() {
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                   <Eye className="w-6 h-6 text-white" />
                 </div>
-                {/* Status badge */}
-                <span className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${STATUS_COLORS[att.ticket_status] || 'bg-gray-100 text-gray-600'}`}>
-                  {STATUS_LABELS[att.ticket_status] || att.ticket_status}
-                </span>
               </div>
 
               {/* Info */}
               <div className="p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={getFileName(att.file)}>
-                      {getFileName(att.file)}
-                    </p>
-                    <p className="text-xs text-[#0E8F79] font-medium">{att.stf_no}</p>
+                    {filter === 'published' && att.published_title ? (
+                      <>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={att.published_title}>
+                          {att.published_title}
+                        </p>
+                        <p className="text-xs text-[#0E8F79] font-medium">{att.stf_no}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={getFileName(att.file)}>
+                          {getFileName(att.file)}
+                        </p>
+                        <p className="text-xs text-[#0E8F79] font-medium">{att.stf_no}</p>
+                      </>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <a
@@ -594,6 +407,42 @@ export default function KnowledgeHub() {
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
+                    {filter === 'uploaded' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openPublishModal(att); }}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Publish"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {filter === 'published' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEditModal(att); }}
+                        className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 text-gray-400 hover:text-amber-500 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {filter !== 'archived' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleArchive(att.id); }}
+                        className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-gray-400 hover:text-orange-500 transition-colors"
+                        title="Archive"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {filter === 'archived' && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleUnarchive(att.id); }}
+                        className="p-1.5 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/20 text-gray-400 hover:text-green-500 transition-colors"
+                        title="Unarchive"
+                      >
+                        <ArchiveRestore className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(att.id); }}
                       disabled={deleting === att.id}
@@ -604,11 +453,40 @@ export default function KnowledgeHub() {
                     </button>
                   </div>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
-                  {att.client && <p><span className="font-medium">Client:</span> {att.client}</p>}
-                  {att.assigned_to_name && <p><span className="font-medium">Assigned:</span> {att.assigned_to_name}</p>}
-                  {att.type_of_service_name && <p><span className="font-medium">Service:</span> {att.type_of_service_name}</p>}
-                </div>
+                {filter === 'published' ? (
+                  <div className="space-y-2">
+                    {/* Tags */}
+                    {att.published_tags && att.published_tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {att.published_tags.map((tag, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full bg-[#0E8F79]/10 text-[#0E8F79] text-[10px] font-medium">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Steps preview */}
+                    {att.published_description && (() => {
+                      const steps = parseSteps(att.published_description);
+                      return steps.length > 0 ? (
+                        <ol className="list-decimal list-inside text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                          {steps.slice(0, 3).map((step, i) => (
+                            <li key={i} className="truncate">{step}</li>
+                          ))}
+                          {steps.length > 3 && (
+                            <li className="text-gray-400 list-none pl-4">+{steps.length - 3} more steps...</li>
+                          )}
+                        </ol>
+                      ) : null;
+                    })()}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 space-y-0.5">
+                    {att.client && <p><span className="font-medium">Client:</span> {att.client}</p>}
+                    {att.assigned_to_name && <p><span className="font-medium">Assigned:</span> {att.assigned_to_name}</p>}
+                    {att.type_of_service_name && <p><span className="font-medium">Service:</span> {att.type_of_service_name}</p>}
+                  </div>
+                )}
                 <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
                   <span className="text-[10px] text-gray-400">
                     {att.uploaded_by ? `${att.uploaded_by.first_name} ${att.uploaded_by.last_name}` : 'Unknown'}
@@ -627,7 +505,7 @@ export default function KnowledgeHub() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between px-1">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, attachments.length)} of {attachments.length}
+            Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-1">
             <button
@@ -665,8 +543,6 @@ export default function KnowledgeHub() {
             </button>
           </div>
         </div>
-      )}
-      </>
       )}
 
       {/* Detail Modal */}
@@ -775,12 +651,345 @@ export default function KnowledgeHub() {
                 >
                   <ExternalLink className="w-4 h-4" /> Open File
                 </a>
+                {filter === 'uploaded' && (
+                  <button
+                    onClick={() => { setSelected(null); openPublishModal(selected); }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                  >
+                    <Send className="w-4 h-4" /> Publish
+                  </button>
+                )}
+                {filter === 'published' && (
+                  <button
+                    onClick={() => { setSelected(null); openEditModal(selected); }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-sm font-medium hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" /> Edit
+                  </button>
+                )}
+                {filter !== 'archived' && (
+                  <button
+                    onClick={() => handleArchive(selected.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 text-sm font-medium hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
+                  >
+                    <Archive className="w-4 h-4" /> Archive
+                  </button>
+                )}
+                {filter === 'archived' && (
+                  <button
+                    onClick={() => handleUnarchive(selected.id)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
+                  >
+                    <ArchiveRestore className="w-4 h-4" /> Unarchive
+                  </button>
+                )}
                 <button
                   onClick={() => { handleDelete(selected.id); }}
                   disabled={deleting === selected.id}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
                 >
                   <Trash2 className="w-4 h-4" /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish Modal */}
+      {publishTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setPublishTarget(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Publish Attachment</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{getFileName(publishTarget.file)}</p>
+              </div>
+              <button
+                onClick={() => setPublishTarget(null)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title <span className="text-red-500">*</span></label>
+                <input
+                  value={publishTitle}
+                  onChange={(e) => setPublishTitle(e.target.value)}
+                  placeholder="Enter a title for this published attachment..."
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
+                  maxLength={300}
+                />
+              </div>
+
+              {/* Tags Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags <span className="text-xs text-gray-400 font-normal">(max 3)</span></label>
+                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 min-h-[42px]">
+                  {publishTags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0E8F79]/10 text-[#0E8F79] text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setPublishTags((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {publishTags.length < 3 && (
+                    <input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = tagInput.trim();
+                          if (val && !publishTags.includes(val)) {
+                            setPublishTags((prev) => [...prev, val]);
+                            setTagInput('');
+                          }
+                        }
+                      }}
+                      placeholder={publishTags.length === 0 ? 'Type a tag and press Enter...' : 'Add another...'}
+                      className="flex-1 min-w-[120px] bg-transparent text-sm outline-none dark:text-white"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Troubleshooting Steps */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Troubleshooting Steps <span className="text-red-500">*</span></label>
+                <div className="space-y-2">
+                  {publishSteps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-7 h-9 flex items-center justify-center text-xs font-bold text-[#0E8F79]">
+                        {i + 1}.
+                      </span>
+                      <input
+                        value={step}
+                        onChange={(e) => {
+                          const next = [...publishSteps];
+                          next[i] = e.target.value;
+                          setPublishSteps(next);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const next = [...publishSteps];
+                            next.splice(i + 1, 0, '');
+                            setPublishSteps(next);
+                            // Focus next input after render
+                            setTimeout(() => {
+                              const inputs = document.querySelectorAll<HTMLInputElement>('[data-step-input]');
+                              inputs[i + 1]?.focus();
+                            }, 0);
+                          } else if (e.key === 'Backspace' && step === '' && publishSteps.length > 1) {
+                            e.preventDefault();
+                            const next = publishSteps.filter((_, idx) => idx !== i);
+                            setPublishSteps(next);
+                            setTimeout(() => {
+                              const inputs = document.querySelectorAll<HTMLInputElement>('[data-step-input]');
+                              inputs[Math.max(0, i - 1)]?.focus();
+                            }, 0);
+                          }
+                        }}
+                        data-step-input
+                        placeholder={`Step ${i + 1}...`}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
+                      />
+                      {publishSteps.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setPublishSteps((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="flex-shrink-0 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">Press Enter to add a new step. Backspace on an empty step to remove it.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setPublishTarget(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePublish}
+                  disabled={publishing}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0E8F79] text-white text-sm font-medium hover:bg-[#0b7a67] transition-colors disabled:opacity-50"
+                >
+                  <Send className="w-4 h-4" />
+                  {publishing ? 'Publishing...' : 'Publish'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setEditTarget(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Edit Published Article</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{getFileName(editTarget.file)}</p>
+              </div>
+              <button
+                onClick={() => setEditTarget(null)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title <span className="text-red-500">*</span></label>
+                <input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  placeholder="Enter a title..."
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
+                  maxLength={300}
+                />
+              </div>
+
+              {/* Tags Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags <span className="text-xs text-gray-400 font-normal">(max 3)</span></label>
+                <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 min-h-[42px]">
+                  {editTags.map((tag, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0E8F79]/10 text-[#0E8F79] text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setEditTags((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="hover:text-red-500 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {editTags.length < 3 && (
+                    <input
+                      value={editTagInput}
+                      onChange={(e) => setEditTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const val = editTagInput.trim();
+                          if (val && !editTags.includes(val)) {
+                            setEditTags((prev) => [...prev, val]);
+                            setEditTagInput('');
+                          }
+                        }
+                      }}
+                      placeholder={editTags.length === 0 ? 'Type a tag and press Enter...' : 'Add another...'}
+                      className="flex-1 min-w-[120px] bg-transparent text-sm outline-none dark:text-white"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Troubleshooting Steps */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Troubleshooting Steps <span className="text-red-500">*</span></label>
+                <div className="space-y-2">
+                  {editSteps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="flex-shrink-0 w-7 h-9 flex items-center justify-center text-xs font-bold text-[#0E8F79]">
+                        {i + 1}.
+                      </span>
+                      <input
+                        value={step}
+                        onChange={(e) => {
+                          const next = [...editSteps];
+                          next[i] = e.target.value;
+                          setEditSteps(next);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const next = [...editSteps];
+                            next.splice(i + 1, 0, '');
+                            setEditSteps(next);
+                            setTimeout(() => {
+                              const inputs = document.querySelectorAll<HTMLInputElement>('[data-edit-step]');
+                              inputs[i + 1]?.focus();
+                            }, 0);
+                          } else if (e.key === 'Backspace' && step === '' && editSteps.length > 1) {
+                            e.preventDefault();
+                            const next = editSteps.filter((_, idx) => idx !== i);
+                            setEditSteps(next);
+                            setTimeout(() => {
+                              const inputs = document.querySelectorAll<HTMLInputElement>('[data-edit-step]');
+                              inputs[Math.max(0, i - 1)]?.focus();
+                            }, 0);
+                          }
+                        }}
+                        data-edit-step
+                        placeholder={`Step ${i + 1}...`}
+                        className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-[#3BC25B] dark:text-white"
+                      />
+                      {editSteps.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setEditSteps((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="flex-shrink-0 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5">Press Enter to add a new step. Backspace on an empty step to remove it.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setEditTarget(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEdit}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0E8F79] text-white text-sm font-medium hover:bg-[#0b7a67] transition-colors disabled:opacity-50"
+                >
+                  <Pencil className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>

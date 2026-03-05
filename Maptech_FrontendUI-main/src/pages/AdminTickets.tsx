@@ -192,7 +192,25 @@ export function AdminTickets() {
                   <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
                   <td className="px-6 py-4"><StatusBadge status={ticket.status} /></td>
                   <td className="px-6 py-4">
-                    {ticket.status !== 'Resolved' && ticket.status !== 'Closed' && <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />}
+                    {ticket.status === 'Resolved' || ticket.status === 'Closed' ? (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Completed</span>
+                    ) : (
+                      (() => {
+                        const bt = backendTickets.find((b) => b.stf_no === ticket.id);
+                        const progress = bt?.progress_percentage ?? bt?.progressPercentage ?? 0;
+                        return (
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
+                              <span>Progress</span>
+                              <span className="font-bold">{progress}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                              <div className="h-full bg-[#3BC25B] rounded-full transition-all" style={{ width: `${progress}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })()
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     {ticket.assignee ? (
@@ -205,15 +223,8 @@ export function AdminTickets() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{ticket.created}</td>
-                  <td className="px-6 py-4 text-right relative">
-                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === ticket.id ? null : ticket.id); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><MoreHorizontal className="w-5 h-5" /></button>
-                    {openMenuId === ticket.id && (
-                      <div onClick={(e) => e.stopPropagation()} className="absolute right-6 top-12 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl py-1 min-w-[140px]">
-                        <button onClick={() => { setOpenMenuId(null); navigate(`/admin/ticket-details?stf=${ticket.id}`); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"><Eye className="w-4 h-4" /> View</button>
-                        <button onClick={() => openEdit(ticket)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"><Pencil className="w-4 h-4" /> Edit</button>
-                        <button onClick={() => deleteTicket(ticket.id)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /> Delete</button>
-                      </div>
-                    )}
+                  <td className="px-6 py-4 text-right">
+                    <button onClick={() => navigate(`/admin/ticket-details?stf=${ticket.id}`)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"><Eye className="w-5 h-5" /></button>
                   </td>
                 </tr>
               ))}

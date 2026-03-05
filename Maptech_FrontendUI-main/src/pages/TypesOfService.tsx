@@ -46,7 +46,7 @@ export function TypesOfService() {
       const data = await fetchTypesOfService();
       setServices(data);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch types of service';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch types of service.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -103,8 +103,8 @@ export function TypesOfService() {
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.name.trim()) errors.name = 'Name is required';
-    else if (formData.name.trim().length > 200) errors.name = 'Name must be at most 200 characters';
+    if (!formData.name.trim()) errors.name = 'Name is required.';
+    else if (formData.name.trim().length > 200) errors.name = 'Name must be at most 200 characters.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -137,7 +137,7 @@ export function TypesOfService() {
       }
       closeModal();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save type of service';
+      const msg = err instanceof Error ? err.message : 'Failed to save type of service.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -153,7 +153,7 @@ export function TypesOfService() {
       setServices((prev) => prev.filter((s) => s.id !== deleteTarget.id));
       toast.success(`"${deleteTarget.name}" deleted.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete type of service';
+      const msg = err instanceof Error ? err.message : 'Failed to delete type of service.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -172,7 +172,7 @@ export function TypesOfService() {
       );
       toast.success(`"${updated.name}" ${updated.is_active ? 'activated' : 'deactivated'}.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      const msg = err instanceof Error ? err.message : 'Failed to update status.';
       toast.error(msg);
     }
   };

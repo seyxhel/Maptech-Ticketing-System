@@ -33,6 +33,7 @@ import AdminKnowledgeHub from './pages/admin/knowledge-hub';
 import AdminTypesOfService from './pages/admin/types-of-service';
 import AdminProducts from './pages/admin/products';
 import AdminClients from './pages/admin/clients';
+import AdminDeviceEquipment from './pages/admin/device-equipment';
 
 import EmployeeDashboard from './pages/employee/dashboard';
 import EmployeeMyTickets from './pages/employee/my-tickets';
@@ -104,9 +105,13 @@ export function App() {
               <Route path="create-ticket" element={<AdminCreateTicket />} />
               <Route path="ticket-details" element={<AdminTicketDetails />} />
               <Route path="audit-logs" element={<AdminAuditLogs />} />
-              <Route path="knowledge-hub" element={<AdminKnowledgeHub />} />
+              <Route path="knowledge-hub" element={<Navigate to="/admin/knowledge-hub/uploaded" replace />} />
+              <Route path="knowledge-hub/uploaded" element={<AdminKnowledgeHub filter="uploaded" />} />
+              <Route path="knowledge-hub/published" element={<AdminKnowledgeHub filter="published" />} />
+              <Route path="knowledge-hub/archived" element={<AdminKnowledgeHub filter="archived" />} />
               <Route path="types-of-service" element={<AdminTypesOfService />} />
               <Route path="products" element={<AdminProducts />} />
+              <Route path="device-equipment" element={<AdminDeviceEquipment />} />
               <Route path="clients" element={<AdminClients />} />
               <Route path="settings" element={<AdminSettings />} />
             </Route>

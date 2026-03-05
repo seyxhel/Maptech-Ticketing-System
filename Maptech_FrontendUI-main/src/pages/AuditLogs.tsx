@@ -145,7 +145,7 @@ export function AuditLogs() {
       setLogs(logsData);
       setSummary(summaryData);
     } catch (err) {
-      toast.error('Failed to load audit logs');
+      toast.error('Failed to load audit logs.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -184,7 +184,7 @@ export function AuditLogs() {
       });
       toast.success('Audit logs exported successfully');
     } catch (err) {
-      toast.error('Export failed');
+      toast.error('Export failed.');
     } finally {
       setExporting(false);
     }

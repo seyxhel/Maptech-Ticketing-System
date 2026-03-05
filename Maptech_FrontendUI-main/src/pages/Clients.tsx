@@ -69,7 +69,7 @@ export function Clients() {
       const data = await fetchClients();
       setClients(data);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch clients';
+      const msg = err instanceof Error ? err.message : 'Failed to fetch clients.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -90,7 +90,7 @@ export function Clients() {
       );
       setClientTickets(related);
     } catch {
-      toast.error('Failed to load client tickets');
+      toast.error('Failed to load client tickets.');
     } finally {
       setTicketsLoading(false);
     }
@@ -141,7 +141,18 @@ export function Clients() {
 
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!formData.client_name.trim()) errors.client_name = 'Client name is required';
+    if (!formData.client_name.trim()) errors.client_name = 'Client name is required.';
+    if (!formData.contact_person.trim()) errors.contact_person = 'Contact person is required.';
+    if (!formData.designation.trim()) errors.designation = 'Designation is required.';
+    if (!formData.mobile_no.trim()) errors.mobile_no = 'Mobile number is required.';
+    if (!formData.department_organization.trim()) errors.department_organization = 'Department / Organization is required.';
+    if (!formData.email_address.trim()) {
+      errors.email_address = 'Email address is required.';
+    } else {
+      const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.([^<>()[\]\\.,;:\s@\"]+))*)|(\".+\"))@(([^<>()[\]\\.,;:\s@\"]+\.)+[^<>()[\]\\.,;:\s@\"]{2,})$/i;
+      if (!re.test(formData.email_address)) errors.email_address = 'Enter a valid email address.';
+    }
+    if (!formData.address.trim()) errors.address = 'Full address is required.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -173,7 +184,7 @@ export function Clients() {
       }
       closeModal();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to save client';
+      const msg = err instanceof Error ? err.message : 'Failed to save client.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -188,7 +199,7 @@ export function Clients() {
       setClients((prev) => prev.filter((c) => c.id !== deleteTarget.id));
       toast.success(`"${deleteTarget.client_name}" deleted.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to delete client';
+      const msg = err instanceof Error ? err.message : 'Failed to delete client.';
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -202,7 +213,7 @@ export function Clients() {
       setClients((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
       toast.success(`"${updated.client_name}" ${updated.is_active ? 'activated' : 'deactivated'}.`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      const msg = err instanceof Error ? err.message : 'Failed to update status.';
       toast.error(msg);
     }
   };
@@ -454,34 +465,40 @@ export function Clients() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Person</label>
-                  <input type="text" value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Juan Dela Cruz" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Contact Person <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.contact_person ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. Juan Dela Cruz" />
+                  {fieldErrors.contact_person && <p className="mt-1 text-xs text-red-500">{fieldErrors.contact_person}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Designation</label>
-                  <input type="text" value={formData.designation} onChange={(e) => setFormData({ ...formData, designation: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. IT Manager" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Designation <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.designation} onChange={(e) => setFormData({ ...formData, designation: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.designation ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. IT Manager" />
+                  {fieldErrors.designation && <p className="mt-1 text-xs text-red-500">{fieldErrors.designation}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile No.</label>
-                  <input type="text" value={formData.mobile_no} onChange={(e) => setFormData({ ...formData, mobile_no: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. 09171234567" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile No. <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.mobile_no} onChange={(e) => setFormData({ ...formData, mobile_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.mobile_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. 09171234567" />
+                  {fieldErrors.mobile_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.mobile_no}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Landline No.</label>
                   <input type="text" value={formData.landline} onChange={(e) => setFormData({ ...formData, landline: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. (02) 1234-5678" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                  <input type="email" value={formData.email_address} onChange={(e) => setFormData({ ...formData, email_address: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. client@email.com" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address <span className="text-red-500">*</span></label>
+                  <input type="email" value={formData.email_address} onChange={(e) => setFormData({ ...formData, email_address: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.email_address ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. client@email.com" />
+                  {fieldErrors.email_address && <p className="mt-1 text-xs text-red-500">{fieldErrors.email_address}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department / Org</label>
-                  <input type="text" value={formData.department_organization} onChange={(e) => setFormData({ ...formData, department_organization: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Information Technology" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department / Organization <span className="text-red-500">*</span></label>
+                  <input type="text" value={formData.department_organization} onChange={(e) => setFormData({ ...formData, department_organization: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.department_organization ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. Information Technology" />
+                  {fieldErrors.department_organization && <p className="mt-1 text-xs text-red-500">{fieldErrors.department_organization}</p>}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
-                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] resize-none" placeholder="Full address..." />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Address <span className="text-red-500">*</span></label>
+                <textarea value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} rows={2} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] resize-none ${fieldErrors.address ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="Full address..." />
+                {fieldErrors.address && <p className="mt-1 text-xs text-red-500">{fieldErrors.address}</p>}
               </div>
 
               {editingClient && (
