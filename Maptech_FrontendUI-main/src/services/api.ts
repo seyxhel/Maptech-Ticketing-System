@@ -204,9 +204,9 @@ export interface CSATFeedback {
 export interface EscalationLog {
   id: number;
   ticket: number;
-  escalation_type: string;
-  from_user: number;
-  to_user: number | null;
+  escalation_type: 'internal' | 'external';
+  from_user: { id: number; first_name: string; last_name: string; username: string } | null;
+  to_user: { id: number; first_name: string; last_name: string; username: string } | null;
   to_external: string;
   notes: string;
   created_at: string;

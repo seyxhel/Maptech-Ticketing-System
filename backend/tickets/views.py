@@ -167,20 +167,20 @@ class TicketViewSet(viewsets.ModelViewSet):
             'review':                   [IsAuthenticated(), IsAdminLevel()],
             'confirm_ticket':           [IsAuthenticated(), IsAdminLevel()],
             'close_ticket':             [IsAuthenticated(), IsAdminLevel()],
-            # Assigned-employee actions
+            # Assigned-employee-only actions
             'escalate':                 [IsAuthenticated(), IsAssignedEmployee()],
             'pass_ticket':              [IsAuthenticated(), IsAssignedEmployee()],
-            'update_employee_fields':   [IsAuthenticated(), IsAssignedEmployee()],
-            'save_product_details':     [IsAuthenticated(), IsAssignedEmployee()],
             'request_closure':          [IsAuthenticated(), IsAssignedEmployee()],
             # Admin or assigned employee
             'escalate_external':        [IsAuthenticated(), IsAssignedEmployee()],
             'upload_resolution_proof':  [IsAuthenticated(), IsAdminOrAssignedEmployee()],
             'update_task':              [IsAuthenticated(), IsAdminOrAssignedEmployee()],
-            # Employee starts working
-            'start_work':               [IsAuthenticated(), IsAssignedEmployee()],
-            # Employee: submit for observation
-            'submit_for_observation':   [IsAuthenticated(), IsAssignedEmployee()],
+            # Admin or assigned employee — processing actions
+            'start_work':               [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            'submit_for_observation':   [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            'update_employee_fields':   [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            'save_product_details':     [IsAuthenticated(), IsAdminOrAssignedEmployee()],
+            'mark_unresolved':          [IsAuthenticated(), IsAdminOrAssignedEmployee()],
             # Admin: link tickets
             'link_tickets':             [IsAuthenticated(), IsAdminLevel()],
             # Delete attachment (resolution proofs)
@@ -192,8 +192,14 @@ class TicketViewSet(viewsets.ModelViewSet):
     def assign(self, request, pk=None):
         ticket = self.get_object()
 
-        # Block reassignment once the employee has started work
-        if ticket.status != Ticket.STATUS_OPEN:
+        # Block reassignment once the employee has started work,
+        # but allow reassigning escalated tickets back to another employee.
+        reassignable_statuses = [
+            Ticket.STATUS_OPEN,
+            Ticket.STATUS_ESCALATED,
+            Ticket.STATUS_ESCALATED_EXTERNAL,
+        ]
+        if ticket.status not in reassignable_statuses:
             return Response(
                 {'detail': 'Cannot reassign a ticket after the employee has started working on it.'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -710,18 +716,64 @@ class TicketViewSet(viewsets.ModelViewSet):
     # ── Dashboard stats ───────────────────────────────────────────────────
     @action(detail=True, methods=['post'])
     def start_work(self, request, pk=None):
-        """Employee marks they are starting work on a ticket.
+        """Employee or admin marks they are starting work on a ticket.
         Sets time_in and status to in_progress."""
         ticket = self.get_object()
         if not ticket.time_in:
             ticket.time_in = timezone.now()
-        if ticket.status == Ticket.STATUS_OPEN:
+        # Allow transitioning from open OR from any escalated state back to in_progress
+        processable_statuses = [
+            Ticket.STATUS_OPEN,
+            Ticket.STATUS_ESCALATED,
+            Ticket.STATUS_ESCALATED_EXTERNAL,
+        ]
+        if ticket.status in processable_statuses:
             ticket.status = Ticket.STATUS_IN_PROGRESS
         ticket.save()
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
                            f"{request.user.email} started working on ticket {ticket.stf_no}",
                            changes={'time_in': str(ticket.time_in), 'status': ticket.status})
+
+        return Response(self.get_serializer(ticket).data)
+
+    @action(detail=True, methods=['post'], url_path='mark_unresolved')
+    def mark_unresolved(self, request, pk=None):
+        """Mark a ticket as unresolved (admin or assigned employee)."""
+        ticket = self.get_object()
+        user = request.user
+
+        allowed_fields = [
+            'action_taken', 'remarks', 'observation',
+            'job_status', 'signature', 'signed_by_name',
+        ]
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(ticket, field, request.data[field])
+
+        old_status = ticket.status
+        ticket.status = Ticket.STATUS_UNRESOLVED
+        if not ticket.time_out:
+            ticket.time_out = timezone.now()
+        ticket.save()
+
+        sys_content = f"{user.get_full_name() or user.username} marked this ticket as unresolved."
+        notes = request.data.get('notes', '')
+        if notes:
+            sys_content += f" Notes: {notes}"
+        for ch in ['admin_employee']:
+            Message.objects.create(
+                ticket=ticket,
+                channel_type=ch,
+                sender=user,
+                content=sys_content,
+                is_system_message=True,
+            )
+            self._broadcast_system_message(ticket.id, ch, sys_content, user)
+
+        self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
+                           f"{user.email} marked ticket {ticket.stf_no} as unresolved (status: {old_status} → {ticket.status})",
+                           changes={f: request.data[f] for f in allowed_fields if f in request.data})
 
         return Response(self.get_serializer(ticket).data)
 

@@ -688,9 +688,12 @@ export function TicketView() {
   }, [btData]);
 
   // Fields are only editable by the assigned employee AND ticket is not Resolved/Closed
-  // Admins can view but not edit these fields
+  // Admins can also edit fields when the ticket is escalated (to process it like an employee)
   const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
-  const canEdit = isAssignedEmployee && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Unresolved';
+  const isAdminProcessingEscalated = isAdmin && (btData?.status === 'escalated' || btData?.status === 'escalated_external');
+  /** Admin or assigned employee who is actively processing this ticket */
+  const canProcessTicket = isAssignedEmployee || isAdminProcessingEscalated;
+  const canEdit = (canProcessTicket) && ticket.status !== 'Resolved' && ticket.status !== 'Closed' && ticket.status !== 'Unresolved';
 
   const [savingProductDetails, setSavingProductDetails] = useState(false);
   const [submittingObservation, setSubmittingObservation] = useState(false);
@@ -1419,8 +1422,8 @@ export function TicketView() {
               </div>
             </div>
 
-            {/* Product Details & Digital Signature — hidden for employee until Start Work is clicked */}
-            {(!isAssignedEmployee || !!btData?.time_in) && <>
+            {/* Product Details & Digital Signature — hidden for employee until Start Work is clicked; always shown for admin processing escalated */}
+            {(!isAssignedEmployee || !!btData?.time_in || isAdminProcessingEscalated) && <>
             {/* Product Details Section — editable by assigned employee, read-only for others */}
             <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-4 flex items-center gap-2">
@@ -1596,8 +1599,8 @@ export function TicketView() {
 
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Action Taken, Remarks, Required Attachment, Status of Job – hidden for employee until Start Work is clicked */}
-          {(!isAssignedEmployee || !!btData?.time_in) && <>
+          {/* Action Taken, Remarks, Required Attachment, Status of Job – hidden for employee until Start Work is clicked; always shown for admin processing escalated */}
+          {(!isAssignedEmployee || !!btData?.time_in || isAdminProcessingEscalated) && <>
           <Card>
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
               <FileText className="w-4 h-4" /> Action Taken
@@ -1893,8 +1896,8 @@ export function TicketView() {
           {/* ── Action Buttons ── */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
-              {/* Employee: Start Work (only if assigned, status is Assigned/New, no time_in yet) */}
-              {isAssignedEmployee && !btData?.time_in && (ticket.status === 'Assigned' || ticket.status === 'New' || ticket.status === 'In Progress') && (
+              {/* Start Work — shown to assigned employee (status Assigned/New/In Progress) OR admin processing escalated ticket */}
+              {canProcessTicket && !btData?.time_in && (ticket.status === 'Assigned' || ticket.status === 'New' || ticket.status === 'In Progress' || ticket.status === 'Escalated') && (
                 <button
                   type="button"
                   disabled={startingWork}
@@ -1908,8 +1911,8 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Employee: Submit for Observation (only when In Progress — right after Start Work) */}
-              {isAssignedEmployee && !!btData?.time_in && ticket.status === 'In Progress' && (
+              {/* Submit for Observation — shown when In Progress (after Start Work) */}
+              {canProcessTicket && !!btData?.time_in && ticket.status === 'In Progress' && (
                 <button
                   type="button"
                   disabled={submittingObservation}
@@ -1923,8 +1926,8 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Employee: Resolve Ticket (only after observation) */}
-              {isAssignedEmployee && ticket.status === 'For Observation' && (
+              {/* Resolve Ticket — shown when For Observation */}
+              {canProcessTicket && ticket.status === 'For Observation' && (
                 <button
                   type="button"
                   disabled={savingFields}
@@ -1935,6 +1938,22 @@ export function TicketView() {
                     <><Loader2 className="w-4 h-4 animate-spin" /> Resolving...</>
                   ) : (
                     <><CheckCircle className="w-4 h-4" /> Resolve</>
+                  )}
+                </button>
+              )}
+
+              {/* Mark Unresolved — shown to assigned employee or admin processing escalated ticket */}
+              {canProcessTicket && (ticket.status === 'In Progress' || ticket.status === 'For Observation' || ticket.status === 'Escalated') && (
+                <button
+                  type="button"
+                  disabled={markingUnresolved}
+                  onClick={() => setShowUnresolvedModal(true)}
+                  className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-red-400 to-red-500 hover:shadow-lg hover:shadow-red-400/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {markingUnresolved ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Marking...</>
+                  ) : (
+                    <><AlertTriangle className="w-4 h-4" /> Mark Unresolved</>
                   )}
                 </button>
               )}
@@ -2703,6 +2722,54 @@ export function TicketView() {
                 ) : (
                   <><Star className="w-3.5 h-3.5" /> Submit & Close</>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Mark Unresolved Modal ── */}
+      {showUnresolvedModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Mark as Unresolved</h3>
+                  <p className="text-gray-400 dark:text-white/40 text-xs">This ticket could not be resolved at this time</p>
+                </div>
+              </div>
+              <button onClick={() => setShowUnresolvedModal(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-1.5 uppercase tracking-wider">Reason / Notes (Optional)</label>
+                <textarea
+                  value={unresolvedNotes}
+                  onChange={(e) => setUnresolvedNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Describe why this ticket is being marked as unresolved..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-gray-900 dark:text-white text-sm placeholder-gray-300 dark:placeholder-white/20 focus:outline-none focus:border-red-500/60 resize-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setShowUnresolvedModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={markingUnresolved}
+                onClick={handleMarkUnresolved}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-red-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {markingUnresolved ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Marking...</> : <><AlertTriangle className="w-3.5 h-3.5" /> Confirm Unresolved</>}
               </button>
             </div>
           </div>

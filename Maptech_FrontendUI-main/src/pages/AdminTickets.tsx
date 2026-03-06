@@ -194,22 +194,10 @@ export function AdminTickets() {
                   <td className="px-6 py-4">
                     {ticket.status === 'Resolved' || ticket.status === 'Closed' ? (
                       <span className="text-xs text-gray-500 dark:text-gray-400">Completed</span>
+                    ) : ticket.totalSla === 0 ? (
+                      <span className="text-xs text-gray-400 dark:text-gray-500">No SLA</span>
                     ) : (
-                      (() => {
-                        const bt = backendTickets.find((b) => b.stf_no === ticket.id);
-                        const progress = bt?.progress_percentage ?? bt?.progressPercentage ?? 0;
-                        return (
-                          <div>
-                            <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
-                              <span>Progress</span>
-                              <span className="font-bold">{progress}%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                              <div className="h-full bg-[#3BC25B] rounded-full transition-all" style={{ width: `${progress}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })()
+                      <SLATimer hoursRemaining={ticket.sla} totalHours={ticket.totalSla} />
                     )}
                   </td>
                   <td className="px-6 py-4">

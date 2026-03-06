@@ -78,15 +78,10 @@ export interface UITicket {
   created: string;
 }
 
-/** Compute rough SLA hours remaining based on created_at. */
+/** Compute SLA hours remaining based on estimated_resolution days from the backend. */
 function computeSla(ticket: BackendTicket): { sla: number; totalSla: number } {
-  const prioritySlaHours: Record<string, number> = {
-    critical: 4,
-    high: 8,
-    medium: 24,
-    low: 48,
-  };
-  const totalSla = prioritySlaHours[ticket.priority] || 24;
+  const totalSla = (ticket.sla_estimated_days || 0) * 24;
+  if (totalSla === 0) return { sla: 0, totalSla: 0 };
   const created = new Date(ticket.created_at).getTime();
   const elapsed = (Date.now() - created) / (1000 * 60 * 60);
   const remaining = Math.max(0, Math.round(totalSla - elapsed));
