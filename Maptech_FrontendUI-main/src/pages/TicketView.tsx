@@ -1065,6 +1065,8 @@ export function TicketView() {
               </div>
             </div>
 
+            {/* Product Details & Digital Signature — hidden for employee until Start Work is clicked */}
+            {(!isAssignedEmployee || !!btData?.time_in) && <>
             {/* Product Details Section — editable by assigned employee, read-only for others */}
             <div className="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-4 flex items-center gap-2">
@@ -1233,13 +1235,15 @@ export function TicketView() {
                 <p className="text-sm text-gray-400 italic p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">No signature captured yet</p>
               )}
             </div>
+            </>}
 
           </Card>
         </div>
 
         {/* Right Column */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Action Taken */}
+          {/* Action Taken, Remarks, Required Attachment, Status of Job – hidden for employee until Start Work is clicked */}
+          {(!isAssignedEmployee || !!btData?.time_in) && <>
           <Card>
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79] mb-3 flex items-center gap-2">
               <FileText className="w-4 h-4" /> Action Taken
@@ -1473,6 +1477,7 @@ export function TicketView() {
               ))}
             </div>
           </Card>
+          </>}
 
           {/* Employee Performance Rating (visible to admin only) */}
           {isAdmin && <Card>
