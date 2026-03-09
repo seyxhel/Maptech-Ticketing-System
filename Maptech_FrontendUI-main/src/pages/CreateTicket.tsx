@@ -17,6 +17,7 @@ import {
   validateAddress, validateDescription, sanitize,
   MAX_FIELD, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_DESCRIPTION,
 } from '../utils/validation';
+import { createTicket } from '../services/api';
 
 const CONTACT_FIELDS = [
   { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
@@ -47,6 +48,14 @@ export function CreateTicket() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
 
+  const [productInfo, setProductInfo] = useState({
+    product_name: '',
+    brand: '',
+    model_name: '',
+    serial_no: '',
+    sales_no: '',
+  });
+
   const [serviceType, setServiceType] = useState('');
   const [serviceOthersText, setServiceOthersText] = useState('');
   const [supportType, setSupportType] = useState('');
@@ -55,13 +64,14 @@ export function CreateTicket() {
   // Validation
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [errorMsgs, setErrorMsgs] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const setContactField = (name: string, value: string) => {
     setContactValues((prev) => ({ ...prev, [name]: value }));
     if (value.trim()) setErrors((prev) => ({ ...prev, [name]: false }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const newErrors: Record<string, boolean> = {};
@@ -98,10 +108,46 @@ export function CreateTicket() {
       return;
     }
 
-    const now = new Date();
-    toast.success('Service Ticket Submitted Successfully', {
-      description: `Date: ${now.toLocaleDateString()} | STF No.: ${stfNo}`,
-    });
+    const supportTypeMap: Record<string, string> = {
+      'Remote / Online': 'remote_online',
+      'Onsite': 'onsite',
+      'Chat': 'chat',
+      'Call': 'call',
+    };
+
+    setSubmitting(true);
+    try {
+      const payload: Record<string, unknown> = {
+        client: sanitize(contactValues.client),
+        contact_person: sanitize(contactValues.contactPerson),
+        landline: contactValues.landline,
+        mobile_no: contactValues.mobile,
+        designation: sanitize(contactValues.designation),
+        department_organization: sanitize(contactValues.department),
+        email_address: email.trim(),
+        address: sanitize(address),
+        preferred_support_type: supportTypeMap[supportType] || 'remote_online',
+        description_of_problem: sanitize(description),
+        type_of_service_others: serviceType === 'Others' ? sanitize(serviceOthersText) : serviceType,
+      };
+
+      if (productInfo.product_name.trim()) payload.product = sanitize(productInfo.product_name);
+      if (productInfo.brand.trim()) payload.brand = sanitize(productInfo.brand);
+      if (productInfo.model_name.trim()) payload.model_name = sanitize(productInfo.model_name);
+      if (productInfo.serial_no.trim()) payload.serial_no = sanitize(productInfo.serial_no);
+      if (productInfo.sales_no.trim()) payload.sales_no = sanitize(productInfo.sales_no);
+
+      const created = await createTicket(payload as any);
+      toast.success('Service Ticket Submitted Successfully', {
+        description: `STF No.: ${created.stf_no}`,
+      });
+      navigate(`/client/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit ticket.';
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const errorRing = 'ring-2 ring-red-400 border-red-400';
@@ -193,7 +239,69 @@ export function CreateTicket() {
 
         {/* Section 2 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>2. Type of Service <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>2. Product Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className={labelCls}>Product Name</label>
+              <input
+                type="text"
+                placeholder="e.g. Laptop"
+                value={productInfo.product_name}
+                onChange={(e) => setProductInfo((p) => ({ ...p, product_name: e.target.value }))}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Brand</label>
+              <input
+                type="text"
+                placeholder="e.g. Dell"
+                value={productInfo.brand}
+                onChange={(e) => setProductInfo((p) => ({ ...p, brand: e.target.value }))}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Model</label>
+              <input
+                type="text"
+                placeholder="e.g. Latitude 5520"
+                value={productInfo.model_name}
+                onChange={(e) => setProductInfo((p) => ({ ...p, model_name: e.target.value }))}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Serial No.</label>
+              <input
+                type="text"
+                placeholder="e.g. SN123456"
+                value={productInfo.serial_no}
+                onChange={(e) => setProductInfo((p) => ({ ...p, serial_no: e.target.value }))}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Sales / Invoice No.</label>
+              <input
+                type="text"
+                placeholder="e.g. INV-2025-001"
+                value={productInfo.sales_no}
+                onChange={(e) => setProductInfo((p) => ({ ...p, sales_no: e.target.value }))}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 3 */}
+        <Card className="border-l-4 border-l-[#3BC25B]">
+          <h3 className={sectionHeaderCls}>3. Type of Service <span className="text-red-500 ml-1">*</span></h3>
           {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
@@ -267,9 +375,9 @@ export function CreateTicket() {
           </div>
         </Card>
 
-        {/* Section 3 */}
+        {/* Section 4 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>3. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>4. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
           {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a support type</p>}
           <div className="flex flex-wrap gap-4">
             {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) =>
@@ -285,9 +393,9 @@ export function CreateTicket() {
           </div>
         </Card>
 
-        {/* Section 4 */}
+        {/* Section 5 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
           <textarea
             rows={8}
             value={description}
@@ -302,6 +410,8 @@ export function CreateTicket() {
         <div className="pt-4">
           <GreenButton
             fullWidth
+            isLoading={submitting}
+            disabled={submitting}
             className="py-4 text-lg shadow-lg shadow-green-500/20">
 
             Submit Service Ticket

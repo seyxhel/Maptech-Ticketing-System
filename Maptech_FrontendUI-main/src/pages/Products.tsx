@@ -32,7 +32,6 @@ const EMPTY_FORM = {
   device_equipment_id: '' as string | number,
   version_no: '',
   serial_no: '',
-  sales_no: '',
   date_purchased: '',
   has_warranty: false,
   is_active: true,
@@ -107,7 +106,6 @@ export function Products() {
       device_equipment: product.device_equipment || '',
       version_no: product.version_no || '',
       serial_no: product.serial_no || '',
-      sales_no: product.sales_no || '',
       date_purchased: product.date_purchased || '',
       has_warranty: product.has_warranty,
       is_active: product.is_active,
@@ -131,7 +129,6 @@ export function Products() {
     if (!formData.model_name.trim()) errors.model_name = 'Model is required.';
     if (!formData.version_no.trim()) errors.version_no = 'Version number is required.';
     if (!formData.serial_no.trim()) errors.serial_no = 'Serial number is required.';
-    if (!formData.sales_no.trim()) errors.sales_no = 'Sales / Invoice No. is required.';
     if (!formData.date_purchased) errors.date_purchased = 'Date Purchased is required.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -150,7 +147,6 @@ export function Products() {
         device_equipment: formData.device_equipment.trim(),
         version_no: formData.version_no.trim(),
         serial_no: formData.serial_no.trim(),
-        sales_no: formData.sales_no.trim(),
         date_purchased: formData.date_purchased || null,
         has_warranty: formData.has_warranty,
         is_active: formData.is_active,
@@ -423,11 +419,7 @@ export function Products() {
                   <input type="text" value={formData.serial_no} onChange={(e) => setFormData({ ...formData, serial_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.serial_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. SN123456" />
                   {fieldErrors.serial_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.serial_no}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales / Invoice No. <span className="text-red-500">*</span></label>
-                  <input type="text" value={formData.sales_no} onChange={(e) => setFormData({ ...formData, sales_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.sales_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. INV-2025-001" />
-                  {fieldErrors.sales_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.sales_no}</p>}
-                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Purchased <span className="text-red-500">*</span></label>
                   <input type="date" value={formData.date_purchased} onChange={(e) => setFormData({ ...formData, date_purchased: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.date_purchased ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} />

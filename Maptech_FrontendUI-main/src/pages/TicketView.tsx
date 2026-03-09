@@ -71,18 +71,20 @@ function computeTrackerStates(
   backendStatus: string,
   timeIn: string | null,
   wasObserved: boolean,
-  wasEscalated: boolean,
+  wasEscalatedInternal: boolean,
+  wasEscalatedExternal: boolean,
 ): Record<string, TrackerStepState> {
   const s = backendStatus;
-  const started = !!(timeIn || ['in_progress','for_observation','escalated','pending_closure','closed','unresolved'].includes(s));
+  const wasEscalated = wasEscalatedInternal || wasEscalatedExternal;
+  const started = !!(timeIn || ['in_progress','for_observation','escalated','escalated_external','pending_closure','closed','unresolved'].includes(s));
 
   if (!started) return {
     assigned: 'active', in_progress: 'pending', observation: 'pending', escalated: 'pending', resolved: 'pending', closed: 'pending',
   };
   if (s === 'for_observation') return {
-    assigned: 'done', in_progress: 'done', observation: 'active', escalated: 'pending', resolved: 'pending', closed: 'pending',
+    assigned: 'done', in_progress: 'done', observation: 'done', escalated: 'pending', resolved: 'pending', closed: 'pending',
   };
-  if (s === 'escalated') return {
+  if (s === 'escalated' || s === 'escalated_external') return {
     assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', escalated: 'active', resolved: 'pending', closed: 'pending',
   };
   if (s === 'pending_closure') return {
@@ -97,19 +99,9 @@ function computeTrackerStates(
   };
 }
 
-const TRACKER_STEPS: { key: string; label: string }[] = [
-  { key: 'assigned',    label: 'Assigned'         },
-  { key: 'in_progress', label: 'Start Work'        },
-  { key: 'observation', label: 'For Observation'   },
-  { key: 'escalated',   label: 'Escalated'         },
-  { key: 'resolved',    label: 'Resolved'          },
-  { key: 'closed',      label: 'Closed'            },
-];
-
 function stepCircleClass(key: string, state: TrackerStepState): string {
   if (state === 'done') return 'bg-green-500 border-green-500';
   if (state === 'active') {
-    if (key === 'observation') return 'bg-amber-500 border-amber-500 ring-4 ring-amber-100 dark:ring-amber-900/40';
     if (key === 'escalated')   return 'bg-orange-500 border-orange-500 ring-4 ring-orange-100 dark:ring-orange-900/40';
     if (key === 'resolved')    return 'bg-green-500 border-green-500 ring-4 ring-green-100 dark:ring-green-900/40';
     if (key === 'closed')      return 'bg-green-600 border-green-600 ring-4 ring-green-100 dark:ring-green-900/40';
@@ -122,7 +114,6 @@ function stepCircleClass(key: string, state: TrackerStepState): string {
 function stepLabelClass(key: string, state: TrackerStepState): string {
   if (state === 'done') return 'text-green-600 dark:text-green-400 font-semibold';
   if (state === 'active') {
-    if (key === 'observation') return 'text-amber-600 dark:text-amber-400 font-bold';
     if (key === 'escalated')   return 'text-orange-600 dark:text-orange-400 font-bold';
     if (key === 'resolved')    return 'text-green-600 dark:text-green-400 font-bold';
     if (key === 'closed')      return 'text-green-700 dark:text-green-300 font-bold';
@@ -147,14 +138,30 @@ const TicketProgressTracker: React.FC<{
   backendStatus: string;
   timeIn: string | null;
   wasObserved: boolean;
-  wasEscalated: boolean;
-}> = ({ backendStatus, timeIn, wasObserved, wasEscalated }) => {
-  const states = computeTrackerStates(backendStatus, timeIn, wasObserved, wasEscalated);
+  wasEscalatedInternal: boolean;
+  wasEscalatedExternal: boolean;
+}> = ({ backendStatus, timeIn, wasObserved, wasEscalatedInternal, wasEscalatedExternal }) => {
+  const states = computeTrackerStates(backendStatus, timeIn, wasObserved, wasEscalatedInternal, wasEscalatedExternal);
+
+  const escalatedSublabel = wasEscalatedInternal && wasEscalatedExternal ? 'Int + Ext'
+    : wasEscalatedInternal ? 'Internal'
+    : wasEscalatedExternal ? 'External'
+    : undefined;
+
+  const steps: { key: string; label: string; sublabel?: string }[] = [
+    { key: 'assigned',    label: 'Assigned'         },
+    { key: 'in_progress', label: 'Start Work'        },
+    { key: 'observation', label: 'For Observation'   },
+    { key: 'escalated',   label: 'Escalated',        sublabel: escalatedSublabel },
+    { key: 'resolved',    label: 'Resolved'          },
+    { key: 'closed',      label: 'Closed'            },
+  ];
+
   return (
     <div className="flex items-start w-full">
-      {TRACKER_STEPS.map((step, idx) => {
+      {steps.map((step, idx) => {
         const state = states[step.key];
-        const isLast = idx === TRACKER_STEPS.length - 1;
+        const isLast = idx === steps.length - 1;
         return (
           <div key={step.key} className="flex items-start flex-1">
             <div className="flex flex-col items-center flex-1">
@@ -163,6 +170,7 @@ const TicketProgressTracker: React.FC<{
               </div>
               <span className={`text-[10px] mt-1.5 text-center leading-tight max-w-[56px] ${stepLabelClass(step.key, state)}`}>
                 {step.label}
+                {step.sublabel && <span className="block text-[9px] font-normal opacity-80">{step.sublabel}</span>}
                 {state === 'skipped' && <span className="block text-gray-400 dark:text-gray-500">N/A</span>}
               </span>
             </div>
@@ -223,7 +231,7 @@ export function TicketView() {
           designation: btData.designation || 'N/A',
           preferredSupport: ({'remote_online':'Remote / Online','onsite':'Onsite','chat':'Chat','call':'Call'} as Record<string,string>)[btData.preferred_support_type] || btData.preferred_support_type || 'N/A',
           typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
-          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty) ? {
+          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty || btData.sales_no) ? {
             deviceEquipment: btData.device_equipment || '',
             versionNo: btData.version_no || '',
             datePurchased: btData.date_purchased || '',
@@ -232,6 +240,7 @@ export function TicketView() {
             product: btData.product || '',
             brand: btData.brand || '',
             model: btData.model_name || '',
+            salesNo: btData.sales_no || '',
           } : null,
           actionTaken: btData.action_taken || '',
           remarks: btData.remarks || '',
@@ -271,7 +280,7 @@ export function TicketView() {
         designation: '',
         preferredSupport: '',
         typeOfService: '',
-        productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string } | null,
+        productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string; salesNo?: string } | null,
         actionTaken: '',
         remarks: '',
         jobStatus: '',
@@ -636,6 +645,7 @@ export function TicketView() {
   const [pdModel, setPdModel] = useState('');
   const [pdVersionNo, setPdVersionNo] = useState('');
   const [pdSerialNo, setPdSerialNo] = useState('');
+  const [pdSalesNo, setPdSalesNo] = useState('');
   const [pdDatePurchased, setPdDatePurchased] = useState('');
   const [pdHasWarranty, setPdHasWarranty] = useState(false);
 
@@ -674,6 +684,7 @@ export function TicketView() {
       setPdModel(btData.model_name || '');
       setPdVersionNo(btData.version_no || '');
       setPdSerialNo(btData.serial_no || '');
+      setPdSalesNo(btData.sales_no || '');
       setPdDatePurchased(btData.date_purchased || '');
       setPdHasWarranty(btData.has_warranty ?? false);
       setObservation(btData.observation || '');
@@ -695,7 +706,7 @@ export function TicketView() {
   // Fields are only editable by the assigned employee AND ticket is not Resolved/Closed
   // Admins can also edit fields when the ticket is escalated (to process it like an employee)
   const isAssignedEmployee = isEmployee && btData?.assigned_to?.id === user?.id;
-  const isAdminProcessingEscalated = isAdmin && btData?.assigned_to?.id === user?.id;
+  const isAdminProcessingEscalated = isAdmin && (btData?.assigned_to?.id === user?.id || ticket.status === 'Escalated');
   /** Admin or assigned employee who is actively processing this ticket */
   const canProcessTicket = isAssignedEmployee || isAdminProcessingEscalated;
   const canEdit = (canProcessTicket) && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
@@ -716,6 +727,7 @@ export function TicketView() {
         model_name: pdModel,
         version_no: pdVersionNo,
         serial_no: pdSerialNo,
+        sales_no: pdSalesNo,
         date_purchased: pdDatePurchased || null,
         has_warranty: pdHasWarranty,
       });
@@ -1239,7 +1251,7 @@ export function TicketView() {
           {/* Employee or admin: escalate (internal or external) when not already escalated/closed/resolved */}
           {canProcessTicket && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && ticket.status !== 'Resolved' && (
             <button
-              onClick={() => { setEscalateType('internal'); setShowEscalateModal(true); }}
+              onClick={() => { setEscalateType(isAdmin ? 'external' : 'internal'); setShowEscalateModal(true); }}
               title="Escalate Ticket"
               aria-label="Escalate ticket"
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors"
@@ -1309,8 +1321,9 @@ export function TicketView() {
               {React.createElement(TicketProgressTracker, {
                 backendStatus: btData?.status || 'open',
                 timeIn: btData?.time_in || null,
-                wasObserved: !!(btData?.observation),
-                wasEscalated: !!(btData?.escalation_logs?.some((l: any) => l.escalation_type === 'internal')),
+                wasObserved: !!(btData?.was_for_observation),
+                wasEscalatedInternal: !!(btData?.escalation_logs?.some((l: any) => l.escalation_type === 'internal')),
+                wasEscalatedExternal: !!(btData?.external_escalated_to),
               })}
               {ticket.slaEstimatedDays ? (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
@@ -1507,6 +1520,15 @@ export function TicketView() {
                     <input value={pdSerialNo} onChange={(e) => setPdSerialNo(e.target.value)} placeholder="Serial number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdSerialNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Sales / Invoice No. */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Sales / Invoice No.</div>
+                  {canEdit ? (
+                    <input value={pdSalesNo} onChange={(e) => setPdSalesNo(e.target.value)} placeholder="Sales / Invoice number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSalesNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                   )}
                 </div>
                 {/* Date Purchased */}
