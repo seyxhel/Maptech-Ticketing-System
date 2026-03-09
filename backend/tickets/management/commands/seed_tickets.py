@@ -2,13 +2,13 @@ import random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from users.models import User
-from tickets.models import Ticket, TypeOfService
+from tickets.models import Ticket, TypeOfService, Client
 
 
 # ── Realistic ticket data ────────────────────────────────────────────
 SEED_TICKETS = [
     {
-        'client': 'Doe Enterprises',
+        'client_name': 'Doe Enterprises',
         'contact_person': 'John Doe',
         'address': '123 Main St., Sample City',
         'designation': 'IT Manager',
@@ -21,7 +21,7 @@ SEED_TICKETS = [
         'service_name': 'Repair / Service',
     },
     {
-        'client': 'Williams & Associates',
+        'client_name': 'Williams & Associates',
         'contact_person': 'Jessica Williams',
         'address': '456 Oak Ave., Test Town',
         'designation': 'Operations Head',
@@ -34,7 +34,7 @@ SEED_TICKETS = [
         'service_name': 'Migration to HCI',
     },
     {
-        'client': 'Smith Medical Clinic',
+        'client_name': 'Smith Medical Clinic',
         'contact_person': 'Robert Smith',
         'address': '789 Elm Rd., Demo Village',
         'designation': 'Chief Information Officer',
@@ -47,7 +47,7 @@ SEED_TICKETS = [
         'service_name': 'Installation',
     },
     {
-        'client': 'Brown Publishing Co.',
+        'client_name': 'Brown Publishing Co.',
         'contact_person': 'Emily Brown',
         'address': '321 Pine St., Placeholder City',
         'designation': 'Systems Administrator',
@@ -60,7 +60,7 @@ SEED_TICKETS = [
         'service_name': 'Repair / Service',
     },
     {
-        'client': 'Johnson Logistics Inc.',
+        'client_name': 'Johnson Logistics Inc.',
         'contact_person': 'Michael Johnson',
         'address': '654 Maple Blvd., Mockup Town',
         'designation': 'Procurement Head',
@@ -108,19 +108,45 @@ class Command(BaseCommand):
             # Pick a random employee
             employee = random.choice(employees)
 
-            # Check if a ticket with this client + description already exists (idempotent)
+            # Extract client fields from seed data
+            client_fields = {
+                'client_name':             data.pop('client_name', 'Unknown'),
+                'contact_person':          data.pop('contact_person', ''),
+                'address':                 data.pop('address', ''),
+                'designation':             data.pop('designation', ''),
+                'department_organization': data.pop('department_organization', ''),
+                'landline':                data.pop('landline', ''),
+                'mobile_no':               data.pop('mobile_no', ''),
+                'email_address':           data.pop('email_address', ''),
+            }
+
+            # Check if a ticket with this client name + description already exists (idempotent)
             existing = Ticket.objects.filter(
-                client=data['client'],
+                client_record__client_name=client_fields['client_name'],
                 description_of_problem=data['description_of_problem'],
             ).first()
 
             if existing:
                 self.stdout.write(self.style.WARNING(
-                    f'Ticket already exists: {existing.stf_no} — {data["client"]}'
+                    f'Ticket already exists: {existing.stf_no} — {client_fields["client_name"]}'
                 ))
                 # Re-add popped key for idempotency
                 data['service_name'] = service_name
                 continue
+
+            # Get or create the Client record
+            client_record, _ = Client.objects.get_or_create(
+                client_name=client_fields['client_name'],
+                defaults={
+                    'contact_person':          client_fields['contact_person'],
+                    'address':                 client_fields['address'],
+                    'designation':             client_fields['designation'],
+                    'department_organization': client_fields['department_organization'],
+                    'landline':                client_fields['landline'],
+                    'mobile_no':               client_fields['mobile_no'],
+                    'email_address':           client_fields['email_address'],
+                },
+            )
 
             ticket = Ticket.objects.create(
                 created_by=admin,
@@ -135,13 +161,14 @@ class Command(BaseCommand):
                 ]),
                 confirmed_by_admin=True,
                 date=timezone.now().date(),
+                client_record=client_record,
                 **data,
             )
 
             created_count += 1
             self.stdout.write(self.style.SUCCESS(
                 f'[{created_count}] Created ticket {ticket.stf_no} '
-                f'— "{data["client"]}" → assigned to {employee.username}'
+                f'— "{client_fields["client_name"]}" → assigned to {employee.username}'
             ))
 
             # Re-add popped key for idempotency

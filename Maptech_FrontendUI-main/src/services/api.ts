@@ -96,6 +96,7 @@ export interface BackendTicket {
   version_no: string;
   date_purchased: string | null;
   serial_no: string;
+  sales_no: string;
   action_taken: string;
   remarks: string;
   job_status: string;
@@ -114,6 +115,7 @@ export interface BackendTicket {
   product_record_detail: Product | null;
   cascade_type: string;
   observation: string;
+  was_for_observation: boolean;
   signature: string;
   signed_by_name: string;
   estimated_resolution_days_override: number | null;

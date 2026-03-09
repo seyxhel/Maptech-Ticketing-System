@@ -130,6 +130,7 @@ export function AdminCreateTicket() {
   // Product picker
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [salesNo, setSalesNo] = useState('');
 
   // Estimated resolution days override (for "Others")
   const [estimatedDaysOverride, setEstimatedDaysOverride] = useState<number | ''>('');
@@ -372,6 +373,16 @@ export function AdminCreateTicket() {
       }
       if (selectedProductId) {
         ticketData.product_record = selectedProductId;
+        const selectedProduct = products.find((p) => p.id === selectedProductId);
+        if (selectedProduct) {
+          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
+          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
+          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
+          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
+        }
+      }
+      if (salesNo.trim()) {
+        ticketData.sales_no = salesNo.trim();
       }
 
       const created = await createTicket(ticketData as any);
@@ -443,6 +454,16 @@ export function AdminCreateTicket() {
       }
       if (selectedProductId) {
         ticketData.product_record = selectedProductId;
+        const selectedProduct = products.find((p) => p.id === selectedProductId);
+        if (selectedProduct) {
+          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
+          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
+          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
+          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
+        }
+      }
+      if (salesNo.trim()) {
+        ticketData.sales_no = salesNo.trim();
       }
 
       const created = await createTicket(ticketData as any);
@@ -571,9 +592,77 @@ export function AdminCreateTicket() {
           </div>
         </Card>
 
-        {/* Section 2: Type of Service */}
+        {/* Section 2: Product Information */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>2. Type of Service <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>2. Product Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className={labelCls}>Select Product (optional)</label>
+              <select
+                value={selectedProductId || ''}
+                onChange={(e) => setSelectedProductId(e.target.value ? Number(e.target.value) : null)}
+                className={inputCls}
+              >
+                <option value="">— Select a product —</option>
+                {products.filter((p) => p.is_active).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.product_name || p.device_equipment || '—'}
+                    {p.brand ? ` | ${p.brand}` : ''}
+                    {p.model_name ? ` | ${p.model_name}` : ''}
+                    {p.serial_no ? ` | S/N: ${p.serial_no}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedProductId && (() => {
+              const p = products.find((x) => x.id === selectedProductId);
+              if (!p) return null;
+              return (
+                <>
+                  {p.brand && (
+                    <div>
+                      <label className={labelCls}>Brand</label>
+                      <input readOnly value={p.brand} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  {p.model_name && (
+                    <div>
+                      <label className={labelCls}>Model</label>
+                      <input readOnly value={p.model_name} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  {p.serial_no && (
+                    <div>
+                      <label className={labelCls}>Serial No.</label>
+                      <input readOnly value={p.serial_no} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  {p.version_no && (
+                    <div>
+                      <label className={labelCls}>Version No.</label>
+                      <input readOnly value={p.version_no} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            <div className={selectedProductId ? '' : 'md:col-span-2'}>
+              <label className={labelCls}>Sales / Invoice No.</label>
+              <input
+                type="text"
+                placeholder="e.g. INV-2025-001"
+                value={salesNo}
+                onChange={(e) => setSalesNo(e.target.value)}
+                maxLength={MAX_FIELD}
+                className={inputCls}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 3: Type of Service */}
+        <Card className="border-l-4 border-l-[#3BC25B]">
+          <h3 className={sectionHeaderCls}>3. Type of Service <span className="text-red-500 ml-1">*</span></h3>
           {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
           {serviceTypes.length === 0 && (
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
@@ -625,9 +714,9 @@ export function AdminCreateTicket() {
           })()}
         </Card>
 
-        {/* Section 3: Support Type */}
+        {/* Section 4: Support Type */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>3. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>4. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
           {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a support type</p>}
           <div className="flex flex-wrap gap-4">
             {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) => (
@@ -636,9 +725,9 @@ export function AdminCreateTicket() {
           </div>
         </Card>
 
-        {/* Section 4: Description */}
+        {/* Section 5: Description */}
         <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+          <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
           <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
           <div className="flex justify-between mt-1">
             {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}

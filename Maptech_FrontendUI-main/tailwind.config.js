@@ -18,6 +18,18 @@ export default {
           deep: '#0E8F79',
         },
       },
+      keyframes: {
+        heartbeat: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+          '15%': { transform: 'scale(1.12)', opacity: '0.85' },
+          '30%': { transform: 'scale(1)', opacity: '1' },
+          '45%': { transform: 'scale(1.08)', opacity: '0.9' },
+          '60%': { transform: 'scale(1)', opacity: '1' },
+        },
+      },
+      animation: {
+        heartbeat: 'heartbeat 1.8s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

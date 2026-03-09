@@ -55,8 +55,19 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] dark:bg-gray-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-md rounded-xl bg-gray-900 dark:bg-gray-900/90 border border-gray-800 shadow-xl p-8">
+    <div className="min-h-screen bg-[#0a0a0a] dark:bg-gray-950 flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Background video */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none"
+      >
+        <source src="/240968.mp4" type="video/mp4" />
+      </video>
+
+      <div className="relative z-10 w-full max-w-md rounded-xl bg-gray-900/80 dark:bg-gray-900/85 backdrop-blur-md border border-gray-800 shadow-xl p-8">
         {/* Logo above form */}
         <div className="flex justify-center mb-8">
           <img

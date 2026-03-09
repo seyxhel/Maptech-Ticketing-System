@@ -180,14 +180,6 @@ class Ticket(models.Model):
     date = models.DateField(default=timezone.now)  # coerced in save()
     time_in = models.DateTimeField(null=True, blank=True)       # when employee starts working
     time_out = models.DateTimeField(null=True, blank=True)      # when employee clicks resolve
-    client = models.CharField(max_length=200, blank=True)
-    contact_person = models.CharField(max_length=200, blank=True)
-    address = models.TextField(blank=True)
-    designation = models.CharField(max_length=200, blank=True)
-    landline = models.CharField(max_length=30, blank=True)
-    department_organization = models.CharField(max_length=200, blank=True)
-    mobile_no = models.CharField(max_length=11, blank=True)
-    email_address = models.EmailField(blank=True)
     type_of_service = models.ForeignKey(TypeOfService, null=True, blank=True, on_delete=models.SET_NULL, related_name='tickets')
     type_of_service_others = models.CharField(max_length=200, blank=True)
 
@@ -206,16 +198,6 @@ class Ticket(models.Model):
     description_of_problem = models.TextField(blank=True)
 
     # ---- Employee-set fields ----
-    # Product details
-    has_warranty = models.BooleanField(default=False)
-    product = models.CharField(max_length=300, blank=True)
-    brand = models.CharField(max_length=300, blank=True)
-    model_name = models.CharField(max_length=300, blank=True)
-    device_equipment = models.CharField(max_length=300, blank=True)
-    version_no = models.CharField(max_length=100, blank=True)
-    date_purchased = models.DateField(null=True, blank=True)
-    serial_no = models.CharField(max_length=200, blank=True)
-
     action_taken = models.TextField(blank=True)
     remarks = models.TextField(blank=True)
 

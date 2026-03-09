@@ -90,19 +90,44 @@ class TicketViewSet(viewsets.ModelViewSet):
             assign_to_id = serializer.validated_data.pop('assign_to', None) or request.data.get('assign_to')
             is_existing = serializer.validated_data.pop('is_existing_client', False)
 
-            ticket = serializer.save(created_by=user)
+            # Extract write-only client text fields (no longer on the Ticket model)
+            client_text = {
+                'client_name':             serializer.validated_data.pop('client', '') or '',
+                'contact_person':          serializer.validated_data.pop('contact_person', '') or '',
+                'address':                 serializer.validated_data.pop('address', '') or '',
+                'designation':             serializer.validated_data.pop('designation', '') or '',
+                'landline':                serializer.validated_data.pop('landline', '') or '',
+                'department_organization': serializer.validated_data.pop('department_organization', '') or '',
+                'mobile_no':               serializer.validated_data.pop('mobile_no', '') or '',
+                'email_address':           serializer.validated_data.pop('email_address', '') or '',
+            }
 
-            # If existing client, pre-fill client info from the Client record
-            if is_existing and ticket.client_record:
-                cr = ticket.client_record
-                ticket.client = cr.client_name
-                ticket.contact_person = cr.contact_person
-                ticket.landline = cr.landline
-                ticket.mobile_no = cr.mobile_no
-                ticket.designation = cr.designation
-                ticket.department_organization = cr.department_organization
-                ticket.email_address = cr.email_address
-                ticket.address = cr.address
+            # For new (non-existing) clients, auto-create a Client record
+            if not is_existing and not serializer.validated_data.get('client_record'):
+                if any(client_text.values()):
+                    if not client_text['client_name']:
+                        client_text['client_name'] = 'Unknown'
+                    serializer.validated_data['client_record'] = Client.objects.create(**client_text)
+
+            # Extract write-only product text fields (no longer on the Ticket model)
+            product_text = {
+                'product_name':     serializer.validated_data.pop('product', '') or '',
+                'brand':            serializer.validated_data.pop('brand', '') or '',
+                'model_name':       serializer.validated_data.pop('model_name', '') or '',
+                'device_equipment': serializer.validated_data.pop('device_equipment', '') or '',
+                'version_no':       serializer.validated_data.pop('version_no', '') or '',
+                'date_purchased':   serializer.validated_data.pop('date_purchased', None),
+                'serial_no':        serializer.validated_data.pop('serial_no', '') or '',
+                'sales_no':         serializer.validated_data.pop('sales_no', '') or '',
+                'has_warranty':     serializer.validated_data.pop('has_warranty', False) or False,
+            }
+
+            # If no product_record linked and product data present, auto-create a Product record
+            if not serializer.validated_data.get('product_record'):
+                if any(v for v in product_text.values() if v not in (None, '', False)):
+                    serializer.validated_data['product_record'] = Product.objects.create(**product_text)
+
+            ticket = serializer.save(created_by=user)
 
             if priority and priority in dict(Ticket.PRIORITY_CHOICES):
                 ticket.priority = priority
@@ -137,15 +162,36 @@ class TicketViewSet(viewsets.ModelViewSet):
             if ticket.assigned_to != user:
                 return Response({'detail': 'You are not assigned to this ticket.'}, status=status.HTTP_403_FORBIDDEN)
 
-            employee_fields = [
-                'has_warranty', 'product', 'brand', 'model_name',
-                'device_equipment', 'version_no', 'date_purchased', 'serial_no',
-                'action_taken', 'remarks', 'job_status',
-            ]
-            for field in employee_fields:
+            product_field_map = {
+                'has_warranty': 'has_warranty',
+                'product': 'product_name',
+                'brand': 'brand',
+                'model_name': 'model_name',
+                'device_equipment': 'device_equipment',
+                'version_no': 'version_no',
+                'date_purchased': 'date_purchased',
+                'serial_no': 'serial_no',
+            }
+            ticket_fields = ['action_taken', 'remarks', 'job_status']
+
+            product_data = {}
+            for ticket_field, product_attr in product_field_map.items():
+                val = serializer.validated_data.get(ticket_field)
+                if val not in (None, ''):
+                    product_data[product_attr] = val
+
+            for field in ticket_fields:
                 val = serializer.validated_data.get(field)
                 if val not in (None, ''):
                     setattr(ticket, field, val)
+
+            if product_data:
+                if ticket.product_record:
+                    for attr, val in product_data.items():
+                        setattr(ticket.product_record, attr, val)
+                    ticket.product_record.save()
+                else:
+                    ticket.product_record = Product.objects.create(**product_data)
 
             if ticket.status == Ticket.STATUS_OPEN:
                 ticket.status = Ticket.STATUS_IN_PROGRESS
@@ -421,18 +467,31 @@ class TicketViewSet(viewsets.ModelViewSet):
     def save_product_details(self, request, pk=None):
         """Employee saves product detail fields without changing ticket status."""
         ticket = self.get_object()
-        allowed = [
-            'has_warranty', 'product', 'brand', 'model_name',
-            'device_equipment', 'version_no',
-            'date_purchased', 'serial_no',
-        ]
-        changes = {}
-        for field in allowed:
-            if field in request.data:
-                setattr(ticket, field, request.data[field])
-                changes[field] = request.data[field]
+        product_field_map = {
+            'has_warranty': 'has_warranty',
+            'product': 'product_name',
+            'brand': 'brand',
+            'model_name': 'model_name',
+            'device_equipment': 'device_equipment',
+            'version_no': 'version_no',
+            'date_purchased': 'date_purchased',
+            'serial_no': 'serial_no',
+            'sales_no': 'sales_no',
+        }
+        product_data = {}
+        for ticket_field, product_attr in product_field_map.items():
+            if ticket_field in request.data:
+                product_data[product_attr] = request.data[ticket_field]
 
-        ticket.save()
+        changes = {k: v for k, v in request.data.items() if k in product_field_map}
+        if product_data:
+            if ticket.product_record:
+                for attr, val in product_data.items():
+                    setattr(ticket.product_record, attr, val)
+                ticket.product_record.save()
+            else:
+                ticket.product_record = Product.objects.create(**product_data)
+            ticket.save()
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
                            f"{request.user.email} updated product details on ticket {ticket.stf_no}",
@@ -444,16 +503,37 @@ class TicketViewSet(viewsets.ModelViewSet):
     def update_employee_fields(self, request, pk=None):
         """Employee updates their specific fields on a ticket."""
         ticket = self.get_object()
-        allowed = [
-            'has_warranty', 'product', 'brand', 'model_name',
-            'device_equipment', 'version_no',
-            'date_purchased', 'serial_no',
+        product_field_map = {
+            'has_warranty': 'has_warranty',
+            'product': 'product_name',
+            'brand': 'brand',
+            'model_name': 'model_name',
+            'device_equipment': 'device_equipment',
+            'version_no': 'version_no',
+            'date_purchased': 'date_purchased',
+            'serial_no': 'serial_no',
+        }
+        ticket_allowed = [
             'action_taken', 'remarks', 'job_status',
             'cascade_type', 'observation', 'signature', 'signed_by_name',
         ]
-        for field in allowed:
+
+        product_data = {}
+        for ticket_field, product_attr in product_field_map.items():
+            if ticket_field in request.data:
+                product_data[product_attr] = request.data[ticket_field]
+
+        for field in ticket_allowed:
             if field in request.data:
                 setattr(ticket, field, request.data[field])
+
+        if product_data:
+            if ticket.product_record:
+                for attr, val in product_data.items():
+                    setattr(ticket.product_record, attr, val)
+                ticket.product_record.save()
+            else:
+                ticket.product_record = Product.objects.create(**product_data)
 
         # Set status to pending_closure (Resolved) when employee clicks Resolve
         old_status = ticket.status
@@ -466,9 +546,10 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.save()
 
         action_type = AuditLog.ACTION_RESOLVE if ticket.status == Ticket.STATUS_PENDING_CLOSURE else AuditLog.ACTION_UPDATE
+        all_fields = list(product_field_map.keys()) + ticket_allowed
         self._audit_ticket(request, ticket, action_type,
                            f"{request.user.email} updated fields on ticket {ticket.stf_no} (status: {old_status} → {ticket.status})",
-                           changes={f: request.data[f] for f in allowed if f in request.data})
+                           changes={f: request.data[f] for f in all_fields if f in request.data})
 
         return Response(self.get_serializer(ticket).data)
 
