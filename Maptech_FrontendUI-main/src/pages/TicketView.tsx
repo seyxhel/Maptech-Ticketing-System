@@ -1940,8 +1940,8 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Submit for Observation — shown when In Progress (after Start Work) */}
-              {canProcessTicket && !!btData?.time_in && ticket.status === 'In Progress' && (
+              {/* Submit for Observation — shown when In Progress (after Start Work) OR admin processing an Escalated ticket */}
+              {canProcessTicket && !!btData?.time_in && (ticket.status === 'In Progress' || (isAdminProcessingEscalated && ticket.status === 'Escalated')) && (
                 <button
                   type="button"
                   disabled={submittingObservation}

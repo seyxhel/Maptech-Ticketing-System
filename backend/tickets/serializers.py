@@ -287,7 +287,7 @@ class TicketSerializer(serializers.ModelSerializer):
         if obj.observation:
             return True
         return AuditLog.objects.filter(
-            entity='ticket', entity_id=str(obj.id), action=AuditLog.ACTION_OBSERVE
+            entity=AuditLog.ENTITY_TICKET, entity_id=str(obj.id), action=AuditLog.ACTION_OBSERVE
         ).exists()
 
     def _get_allowed_fields(self):
