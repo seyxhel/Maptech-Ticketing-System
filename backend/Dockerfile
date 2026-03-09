@@ -26,5 +26,10 @@ RUN python manage.py collectstatic --noinput
 ENV PORT=8000
 EXPOSE ${PORT}
 
-# Run migrations then start Daphne (ASGI) for WebSocket support
-CMD sh -c "python manage.py migrate --noinput && daphne -b 0.0.0.0 -p $PORT tickets_backend.asgi:application"
+# Run migrations, seed data, then start Daphne (ASGI) for WebSocket support
+CMD sh -c "\
+  python manage.py migrate --noinput && \
+  python manage.py seed_users && \
+  python manage.py seed_services && \
+  python manage.py seed_categories && \
+  daphne -b 0.0.0.0 -p $PORT tickets_backend.asgi:application"
