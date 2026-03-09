@@ -12,6 +12,18 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# Railway provides RAILWAY_PUBLIC_DOMAIN automatically
+_railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
+
+# CSRF trusted origins for production (required for Django 4.x+)
+_csrf_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if _csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_origins.split(',')]
+elif _railway_domain:
+    CSRF_TRUSTED_ORIGINS = [f'https://{_railway_domain}']
+
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -68,12 +80,20 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+import dj_database_url
+
+_db_url = os.environ.get('DATABASE_URL')
+if _db_url:
+    DATABASES = {
+        'default': dj_database_url.parse(_db_url, conn_max_age=600),
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 
@@ -136,7 +156,7 @@ SWAGGER_SETTINGS = {
     'PERSIST_AUTH': True,
     'REFETCH_SCHEMA_WITH_AUTH': True,
     'USE_SESSION_AUTH': False,
-    'DEFAULT_API_URL': 'http://127.0.0.1:8000',
+    'DEFAULT_API_URL': os.environ.get('DEFAULT_API_URL', 'http://127.0.0.1:8000'),
     'TAGS_SORTER': 'alpha',
     'OPERATIONS_SORTER': 'alpha',
     'DEFAULT_AUTO_SCHEMA_CLASS': 'tickets.swagger.TaggedAutoSchema',

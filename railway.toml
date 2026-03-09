@@ -1,0 +1,25 @@
+# Railway configuration – tells Railway how to build each service from this monorepo.
+# Each service references its own Dockerfile via the root directory setting in the
+# Railway dashboard.  This file provides default build/deploy behavior.
+#
+# SETUP IN RAILWAY DASHBOARD:
+#   1. Create a new project
+#   2. Add service "backend"  → Root Directory: /backend
+#   3. Add service "frontend" → Root Directory: /Maptech_FrontendUI-main
+#   4. Set environment variables for each service (see below)
+#
+# BACKEND ENV VARS (set in Railway dashboard):
+#   SECRET_KEY=<generate-a-strong-key>
+#   DEBUG=False
+#   ALLOWED_HOSTS=<your-backend>.up.railway.app
+#   CORS_ALLOWED_ORIGINS=https://<your-frontend>.up.railway.app
+#   CORS_ALLOW_ALL_ORIGINS=False
+#
+# FRONTEND BUILD ARGS (set in Railway dashboard):
+#   VITE_API_URL=https://<your-backend>.up.railway.app/api
+
+[build]
+# Railway auto-detects Dockerfile in each service root directory
+
+[deploy]
+# Railway uses the PORT env var; Daphne/Nginx read their own port config

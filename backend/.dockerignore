@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+db.sqlite3
+.env
+.git/
+.gitignore
+*.md
+staticfiles/
+media/ticket_attachments/
+.venv/
+venv/
