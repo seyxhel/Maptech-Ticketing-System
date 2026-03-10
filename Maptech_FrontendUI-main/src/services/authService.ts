@@ -109,6 +109,20 @@ export async function resetPasswordConfirm(uid: string, token: string, newPasswo
   return data as { detail: string };
 }
 
+/** Reset password using the unique recovery key. */
+export async function resetPasswordByKey(recoveryKey: string, newPassword: string): Promise<{ detail: string }> {
+  const res = await fetch(`${API_BASE}/auth/password-reset-by-key/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recovery_key: recoveryKey, new_password: newPassword }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.detail || 'Password reset failed.');
+  }
+  return data as { detail: string };
+}
+
 /** Change password (authenticated user). */
 export async function changePassword(oldPassword: string, newPassword: string): Promise<{ detail: string }> {
   const res = await fetch(`${API_BASE}/auth/change_password/`, {

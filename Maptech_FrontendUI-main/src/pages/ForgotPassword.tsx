@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
-import { forgotPassword } from '../services/authService';
+import { Key, Loader2, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { resetPasswordByKey } from '../services/authService';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 
 export function ForgotPassword() {
-  const [email, setEmail] = useState('');
+  const [recoveryKey, setRecoveryKey] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const canSubmit = email.trim().length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const keyPattern = /^[a-f0-9]{4}(-[a-f0-9]{4}){7}$/i;
+  const isKeyValid = keyPattern.test(recoveryKey.trim());
+  const isPasswordValid = newPassword.length >= 8;
+  const doPasswordsMatch = newPassword === confirmPassword;
+  const canSubmit = isKeyValid && isPasswordValid && doPasswordsMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,10 +27,10 @@ export function ForgotPassword() {
     setError('');
     setLoading(true);
     try {
-      await forgotPassword(email.trim());
+      await resetPasswordByKey(recoveryKey.trim(), newPassword);
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset email. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -42,9 +50,9 @@ export function ForgotPassword() {
                 <CheckCircle className="w-8 h-8 text-green-400" />
               </div>
             </div>
-            <h1 className="text-xl font-bold text-white">Check Your Email</h1>
+            <h1 className="text-xl font-bold text-white">Password Reset Successful</h1>
             <p className="text-sm text-gray-400 mt-2 mb-6">
-              If an account with that email exists, we've sent password reset instructions to <span className="text-white font-medium">{email}</span>.
+              Your password has been changed. You can now sign in with your new password.
             </p>
             <Link
               to="/login"
@@ -58,7 +66,7 @@ export function ForgotPassword() {
           <>
             <h1 className="text-xl font-bold text-white text-center">Forgot Password</h1>
             <p className="text-sm text-gray-400 text-center mt-1 mb-6">
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your unique recovery key and set a new password.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
@@ -70,20 +78,64 @@ export function ForgotPassword() {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                  Email Address
+                  Recovery Key
                 </label>
                 <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
-                  <Mail className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
+                  <Key className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    className="w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm"
-                    autoComplete="email"
+                    type="text"
+                    value={recoveryKey}
+                    onChange={(e) => setRecoveryKey(e.target.value)}
+                    placeholder="xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx"
+                    className="w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm font-mono"
                     autoFocus
                   />
                 </div>
+                {recoveryKey.trim() && !isKeyValid && (
+                  <p className="text-xs text-red-400 mt-1">Invalid key format. Expected: xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx-xxxx</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                  New Password
+                </label>
+                <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimum 8 characters"
+                    className="w-full bg-transparent border-none py-3 pl-4 pr-10 text-white placeholder-gray-500 focus:outline-none text-sm"
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 text-gray-500 hover:text-gray-300">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {newPassword && !isPasswordValid && (
+                  <p className="text-xs text-red-400 mt-1">Password must be at least 8 characters.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                  Confirm Password
+                </label>
+                <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your new password"
+                    className="w-full bg-transparent border-none py-3 pl-4 pr-10 text-white placeholder-gray-500 focus:outline-none text-sm"
+                  />
+                  <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3 text-gray-500 hover:text-gray-300">
+                    {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {confirmPassword && !doPasswordsMatch && (
+                  <p className="text-xs text-red-400 mt-1">Passwords do not match.</p>
+                )}
               </div>
 
               <button
@@ -94,7 +146,7 @@ export function ForgotPassword() {
                 {loading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  'Send Reset Link'
+                  'Reset Password'
                 )}
               </button>
             </form>

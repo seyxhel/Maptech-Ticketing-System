@@ -11,6 +11,9 @@ import {
   Users,
   Loader2,
   RefreshCw,
+  Key,
+  Copy,
+  CheckCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -110,6 +113,8 @@ export function UserManagement() {
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [recoveryKeyModal, setRecoveryKeyModal] = useState<{ name: string; key: string } | null>(null);
+  const [keyCopied, setKeyCopied] = useState(false);
 
   // ── Fetch users from backend ──
   const loadUsers = useCallback(async () => {
@@ -194,6 +199,8 @@ export function UserManagement() {
         };
         await updateUser(editingUser.id, payload as never);
         toast.success(`Account for ${formData.firstName} ${formData.lastName} updated successfully.`);
+        setIsModalOpen(false);
+        await loadUsers();
       } else {
         // Create new user via API
         const payload: CreateUserPayload = {
@@ -204,13 +211,17 @@ export function UserManagement() {
           phone: formData.contactNumber.trim(),
           role: formData.role.toLowerCase() as 'employee' | 'admin',
         };
-        await createUser(payload);
+        const created = await createUser(payload);
+        setIsModalOpen(false);
+        setRecoveryKeyModal({
+          name: `${formData.firstName} ${formData.lastName}`,
+          key: (created.recovery_key as string) || '',
+        });
+        setKeyCopied(false);
         toast.success(
           `New ${formData.role} account created for ${formData.firstName} ${formData.lastName}.`
         );
       }
-      setIsModalOpen(false);
-      await loadUsers(); // Refresh the list from the backend
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Operation failed.';
       toast.error(msg);
@@ -590,6 +601,60 @@ export function UserManagement() {
                 </GreenButton>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Recovery Key modal — shown after creating a new user */}
+      {recoveryKeyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Key className="w-4 h-4 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recovery Key</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{recoveryKeyModal.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setRecoveryKeyModal(null); loadUsers(); }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
+                <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Important: Save this recovery key!</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">This key is required to reset the password. Please provide it to the user and store it securely. It will not be shown again.</p>
+              </div>
+              <div className="relative">
+                <div className="p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg font-mono text-sm text-gray-900 dark:text-gray-100 text-center tracking-wider select-all break-all">
+                  {recoveryKeyModal.key}
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(recoveryKeyModal.key);
+                    setKeyCopied(true);
+                    setTimeout(() => setKeyCopied(false), 2000);
+                    toast.success('Recovery key copied to clipboard.');
+                  }}
+                  className="absolute top-2 right-2 p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  title="Copy to clipboard"
+                >
+                  {keyCopied ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <button
+                onClick={() => { setRecoveryKeyModal(null); loadUsers(); }}
+                className="w-full py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-[#63D44A] to-[#0E8F79] hover:shadow-lg hover:shadow-[#3BC25B]/20 transition-all text-sm"
+              >
+                I've Saved the Key
+              </button>
+            </div>
           </div>
         </div>
       )}

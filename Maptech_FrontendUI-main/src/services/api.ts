@@ -58,6 +58,7 @@ export interface BackendUser {
   suffix?: string;
   phone?: string;
   is_active: boolean;
+  recovery_key?: string;
   [key: string]: unknown;
 }
 

@@ -161,6 +161,42 @@ class AuthViewSet(viewsets.GenericViewSet):
         # TODO: integrate actual email sending here
         return Response({'detail': generic['detail'], 'reset_url': reset_url, 'uid': uid, 'token': token})
 
+    @action(detail=False, methods=['post'], permission_classes=[], url_path='password-reset-by-key')
+    def password_reset_by_key(self, request):
+        """Reset password using the user's unique recovery key."""
+        recovery_key = (request.data.get('recovery_key') or '').strip()
+        new_password = request.data.get('new_password', '')
+        if not recovery_key or not new_password:
+            return Response(
+                {'detail': 'Recovery key and new password are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            user = User.objects.get(recovery_key=recovery_key)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'Invalid recovery key.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not user.is_active:
+            return Response(
+                {'detail': 'This account has been deactivated. Please contact an administrator.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(new_password) < 8:
+            return Response(
+                {'detail': 'Password must be at least 8 characters.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if _is_password_pwned(new_password):
+            return Response(
+                {'detail': 'This password has been found in a data breach (haveibeenpwned.com). Please choose a different password.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(new_password)
+        user.save()
+        return Response({'detail': 'Password has been reset successfully.'})
+
     @action(detail=False, methods=['post'], permission_classes=[], url_path='password-reset-confirm')
     def password_reset_confirm(self, request):
         """Confirm password reset with uid, token, and new_password."""

@@ -14,6 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
             'first_name', 'middle_name', 'last_name', 'suffix', 'phone',
             'last_login', 'is_active', 'has_usable_password',
             'profile_picture', 'profile_picture_url',
+            'recovery_key',
         ]
         extra_kwargs = {'profile_picture': {'write_only': True, 'required': False}}
 

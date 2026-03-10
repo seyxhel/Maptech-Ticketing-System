@@ -1628,7 +1628,7 @@ export function TicketView() {
                 <Package className="w-4 h-4" /> Product Details
                 {canEdit && <span className="text-[10px] font-normal normal-case text-gray-400">(fill in after assignment)</span>}
               </h3>
-              {canEdit && (
+              {canEdit && !ticket.productDetails && (
                 <div className="mb-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Select Product</div>
                   <select
@@ -1752,7 +1752,7 @@ export function TicketView() {
                 </div>
               </div>
               {/* Save Product Details button (employee only) */}
-              {canEdit && (
+              {canEdit && !ticket.productDetails && (
                 <button
                   type="button"
                   disabled={savingProductDetails}
