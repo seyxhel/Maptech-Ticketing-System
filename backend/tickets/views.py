@@ -237,10 +237,11 @@ class TicketViewSet(viewsets.ModelViewSet):
     def assign(self, request, pk=None):
         ticket = self.get_object()
 
-        # Block reassignment once the employee has started work,
-        # but allow reassigning escalated tickets back to another employee.
+        # Allow reassignment at any active status (open, in_progress, for_observation, escalated).
         reassignable_statuses = [
             Ticket.STATUS_OPEN,
+            Ticket.STATUS_IN_PROGRESS,
+            Ticket.STATUS_FOR_OBSERVATION,
             Ticket.STATUS_ESCALATED,
         ]
         if ticket.status not in reassignable_statuses:

@@ -15,12 +15,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { TicketChatSocket } from '../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation } from '../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees } from '../services/api';
 import type { Product } from '../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../services/api';
 import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
-import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus } from 'lucide-react';
+import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus, UserCheck } from 'lucide-react';
 import { SignaturePad } from '../components/ui/SignaturePad';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -71,38 +71,43 @@ function computeTrackerStates(
   backendStatus: string,
   timeIn: string | null,
   wasObserved: boolean,
-  wasEscalatedInternal: boolean,
-  wasEscalatedExternal: boolean,
+  wasEscalated: boolean,
 ): Record<string, TrackerStepState> {
   const s = backendStatus;
-  const wasEscalated = wasEscalatedInternal || wasEscalatedExternal;
   const started = !!(timeIn || ['in_progress','for_observation','escalated','escalated_external','pending_closure','closed','unresolved'].includes(s));
 
+  // After reassignment following an escalation: time_in is reset to null and status is open.
+  // Since the ticket was previously worked on (evidenced by escalation history), skip
+  // "Assigned" and show "Start Work" as the active step instead.
+  if (!started && wasEscalated) return {
+    assigned: 'done', in_progress: 'active', observation: wasObserved ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
+  };
+
   if (!started) return {
-    assigned: 'active', in_progress: 'pending', observation: 'pending', escalated: 'pending', resolved: 'pending', closed: 'pending',
+    assigned: 'active', in_progress: 'pending', observation: 'pending', resolved: 'pending', closed: 'pending',
   };
   if (s === 'for_observation') return {
-    assigned: 'done', in_progress: 'done', observation: 'done', escalated: 'pending', resolved: 'pending', closed: 'pending',
+    assigned: 'done', in_progress: 'done', observation: 'active', resolved: 'pending', closed: 'pending',
   };
   if (s === 'escalated' || s === 'escalated_external') return {
-    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', escalated: 'active', resolved: 'pending', closed: 'pending',
+    // progress frozen at In Progress while awaiting admin action
+    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
   };
   if (s === 'pending_closure') return {
-    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', escalated: wasEscalated ? 'done' : 'skipped', resolved: 'active', closed: 'pending',
+    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', resolved: 'active', closed: 'pending',
   };
   if (s === 'closed' || s === 'unresolved') return {
-    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', escalated: wasEscalated ? 'done' : 'skipped', resolved: 'done', closed: 'done',
+    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', resolved: 'done', closed: 'done',
   };
-  // in_progress or has time_in
+  // in_progress or open/assigned (possibly reassigned) with time_in
   return {
-    assigned: 'done', in_progress: 'active', observation: wasObserved ? 'done' : 'pending', escalated: wasEscalated ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
+    assigned: 'done', in_progress: 'active', observation: wasObserved ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
   };
 }
 
 function stepCircleClass(key: string, state: TrackerStepState): string {
   if (state === 'done') return 'bg-green-500 border-green-500';
   if (state === 'active') {
-    if (key === 'escalated')   return 'bg-orange-500 border-orange-500 ring-4 ring-orange-100 dark:ring-orange-900/40';
     if (key === 'resolved')    return 'bg-green-500 border-green-500 ring-4 ring-green-100 dark:ring-green-900/40';
     if (key === 'closed')      return 'bg-green-600 border-green-600 ring-4 ring-green-100 dark:ring-green-900/40';
     return 'bg-[#0E8F79] border-[#0E8F79] ring-4 ring-teal-100 dark:ring-teal-900/40';
@@ -114,7 +119,6 @@ function stepCircleClass(key: string, state: TrackerStepState): string {
 function stepLabelClass(key: string, state: TrackerStepState): string {
   if (state === 'done') return 'text-green-600 dark:text-green-400 font-semibold';
   if (state === 'active') {
-    if (key === 'escalated')   return 'text-orange-600 dark:text-orange-400 font-bold';
     if (key === 'resolved')    return 'text-green-600 dark:text-green-400 font-bold';
     if (key === 'closed')      return 'text-green-700 dark:text-green-300 font-bold';
     return 'text-[#0E8F79] dark:text-teal-400 font-bold';
@@ -129,7 +133,6 @@ function renderTrackerIcon(key: string, state: TrackerStepState): React.ReactEle
   if (key === 'assigned')    return <UserIcon className={cls} />;
   if (key === 'in_progress') return <PlayCircle className={cls} />;
   if (key === 'observation') return <Eye className={cls} />;
-  if (key === 'escalated')   return <AlertTriangle className={cls} />;
   if (key === 'resolved')    return <CheckCircle className={cls} />;
   return <CheckCheck className={cls} />;
 }
@@ -141,45 +144,55 @@ const TicketProgressTracker: React.FC<{
   wasEscalatedInternal: boolean;
   wasEscalatedExternal: boolean;
 }> = ({ backendStatus, timeIn, wasObserved, wasEscalatedInternal, wasEscalatedExternal }) => {
-  const states = computeTrackerStates(backendStatus, timeIn, wasObserved, wasEscalatedInternal, wasEscalatedExternal);
+  const wasEscalated = wasEscalatedInternal || wasEscalatedExternal;
+  const states = computeTrackerStates(backendStatus, timeIn, wasObserved, wasEscalated);
 
-  const escalatedSublabel = wasEscalatedInternal && wasEscalatedExternal ? 'Int + Ext'
-    : wasEscalatedInternal ? 'Internal'
-    : wasEscalatedExternal ? 'External'
-    : undefined;
-
-  const steps: { key: string; label: string; sublabel?: string }[] = [
+  const steps: { key: string; label: string }[] = [
     { key: 'assigned',    label: 'Assigned'         },
     { key: 'in_progress', label: 'Start Work'        },
     { key: 'observation', label: 'For Observation'   },
-    { key: 'escalated',   label: 'Escalated',        sublabel: escalatedSublabel },
     { key: 'resolved',    label: 'Resolved'          },
     { key: 'closed',      label: 'Closed'            },
   ];
 
+  const isEscalated = backendStatus === 'escalated' || backendStatus === 'escalated_external';
+  const showEscalationBadge = isEscalated || wasEscalatedInternal || wasEscalatedExternal;
+  const escalationLabel = isEscalated ? 'Currently Escalated' : 'Was Escalated';
+  const escalationSub = wasEscalatedInternal && wasEscalatedExternal ? 'Internal + External'
+    : wasEscalatedInternal ? 'Internal'
+    : wasEscalatedExternal ? 'External' : undefined;
+
   return (
-    <div className="flex items-start w-full">
-      {steps.map((step, idx) => {
-        const state = states[step.key];
-        const isLast = idx === steps.length - 1;
-        return (
-          <div key={step.key} className="flex items-start flex-1">
-            <div className="flex flex-col items-center flex-1">
-              <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${stepCircleClass(step.key, state)}`}>
-                {renderTrackerIcon(step.key, state)}
+    <div>
+      <div className="flex items-start w-full">
+        {steps.map((step, idx) => {
+          const state = states[step.key];
+          const isLast = idx === steps.length - 1;
+          return (
+            <div key={step.key} className="flex items-start flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${stepCircleClass(step.key, state)}`}>
+                  {renderTrackerIcon(step.key, state)}
+                </div>
+                <span className={`text-[10px] mt-1.5 text-center leading-tight max-w-[56px] ${stepLabelClass(step.key, state)}`}>
+                  {step.label}
+                  {state === 'skipped' && <span className="block text-gray-400 dark:text-gray-500">N/A</span>}
+                </span>
               </div>
-              <span className={`text-[10px] mt-1.5 text-center leading-tight max-w-[56px] ${stepLabelClass(step.key, state)}`}>
-                {step.label}
-                {step.sublabel && <span className="block text-[9px] font-normal opacity-80">{step.sublabel}</span>}
-                {state === 'skipped' && <span className="block text-gray-400 dark:text-gray-500">N/A</span>}
-              </span>
+              {!isLast && (
+                <div className={`h-0.5 mt-4 w-full ${state === 'done' ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
+              )}
             </div>
-            {!isLast && (
-              <div className={`h-0.5 mt-4 w-full ${state === 'done' ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700'}`} />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      {showEscalationBadge && (
+        <div className="mt-2.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 text-orange-600 dark:text-orange-400 text-xs font-semibold">
+          <AlertTriangle className="w-3 h-3" />
+          {escalationLabel}
+          {escalationSub && <span className="font-normal opacity-80">— {escalationSub}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -611,6 +624,9 @@ export function TicketView() {
   const [savingFields, setSavingFields] = useState(false);
   const [closingTicket, setClosingTicket] = useState(false);
   const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
+  const [showStartWorkConfirm, setShowStartWorkConfirm] = useState(false);
+  const [showObservationConfirm, setShowObservationConfirm] = useState(false);
+  const [showResolveConfirm, setShowResolveConfirm] = useState(false);
 
   // Admin edit/delete modal state
   const [adminEditOpen, setAdminEditOpen] = useState(false);
@@ -628,6 +644,25 @@ export function TicketView() {
   const [csatRating, setCsatRating] = useState(0);
   const [csatComments, setCsatComments] = useState('');
   const [submittingCsat, setSubmittingCsat] = useState(false);
+
+  // ── Admin reassign (for escalated tickets) ──
+  const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
+  const [reassignEmployeeId, setReassignEmployeeId] = useState('');
+  const [reassigning, setReassigning] = useState(false);
+
+  // Show reassign when: ticket is Escalated (admin handles escalation),
+  // OR the admin themselves is currently assigned (admin started work and wants to hand off).
+  const canAdminReassign = isAdmin &&
+    !['Resolved', 'Closed', 'Unresolved'].includes(ticket.status) && (
+      ticket.status === 'Escalated' ||
+      btData?.assigned_to?.id === user?.id
+    );
+
+  useEffect(() => {
+    if (canAdminReassign) {
+      fetchEmployees().then(setEmployees).catch(() => {});
+    }
+  }, [canAdminReassign]);
 
   // ── Escalation modal state ──
   const [showEscalateModal, setShowEscalateModal] = useState(false);
@@ -829,6 +864,22 @@ export function TicketView() {
       toast.error(err?.message || 'Failed to close ticket.');
     } finally {
       setClosingTicket(false);
+    }
+  };
+
+  /** Admin reassigns escalated ticket to a chosen employee */
+  const handleReassignTicket = async () => {
+    if (!reassignEmployeeId || !backendTicketId) return;
+    setReassigning(true);
+    try {
+      const updated = await assignTicket(backendTicketId, Number(reassignEmployeeId));
+      setBtData(updated);
+      toast.success('Ticket reassigned successfully.');
+      setReassignEmployeeId('');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to reassign ticket.');
+    } finally {
+      setReassigning(false);
     }
   };
 
@@ -1925,12 +1976,50 @@ export function TicketView() {
           {/* ── Action Buttons ── */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
-              {/* Start Work — shown to assigned employee (status Assigned/New/In Progress) OR admin processing escalated ticket */}
-              {canProcessTicket && !btData?.time_in && (ticket.status === 'Assigned' || ticket.status === 'New' || ticket.status === 'In Progress' || ticket.status === 'Escalated') && (
+              {/* Admin: Reassign ticket to another employee (available at any active status) */}
+              {canAdminReassign && (
+                <div className="space-y-2 pb-1">
+                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reassign to Employee</label>
+                  <select
+                    value={reassignEmployeeId}
+                    onChange={(e) => setReassignEmployeeId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                  >
+                    <option value="">Select an employee...</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {`${emp.first_name} ${emp.last_name}`.trim() || emp.username} ({emp.active_ticket_count} active)
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!reassignEmployeeId || reassigning}
+                    onClick={handleReassignTicket}
+                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                  >
+                    {reassigning ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Reassigning...</>
+                    ) : (
+                      <><UserCheck className="w-4 h-4" /> Reassign to Employee</>
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2 pt-1">
+                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                    <span className="text-xs text-gray-400">or handle yourself</span>
+                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  </div>
+                </div>
+              )}
+              {/* Start Work — only shown when no time_in yet (work has not begun) */}
+              {canProcessTicket && !btData?.time_in && (
+                ticket.status === 'Assigned' || ticket.status === 'New' ||
+                ticket.status === 'Escalated'
+              ) && (
                 <button
                   type="button"
                   disabled={startingWork}
-                  onClick={handleStartWork}
+                  onClick={() => setShowStartWorkConfirm(true)}
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg hover:shadow-blue-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
                 >
                   {startingWork ? (
@@ -1940,12 +2029,15 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Submit for Observation — shown when In Progress (after Start Work) OR admin processing an Escalated ticket */}
-              {canProcessTicket && !!btData?.time_in && (ticket.status === 'In Progress' || (isAdminProcessingEscalated && ticket.status === 'Escalated')) && (
+              {/* Submit for Observation — work started (time_in set), not yet observed */}
+              {canProcessTicket && !btData?.was_for_observation && !!btData?.time_in && (
+                ticket.status === 'In Progress' || ticket.status === 'Assigned' ||
+                (isAdminProcessingEscalated && ticket.status === 'Escalated')
+              ) && (
                 <button
                   type="button"
                   disabled={submittingObservation}
-                  onClick={handleSubmitForObservation}
+                  onClick={() => setShowObservationConfirm(true)}
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-indigo-500 to-indigo-600 hover:shadow-lg hover:shadow-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
                 >
                   {submittingObservation ? (
@@ -1955,12 +2047,16 @@ export function TicketView() {
                   )}
                 </button>
               )}
-              {/* Resolve Ticket — shown when For Observation */}
-              {canProcessTicket && ticket.status === 'For Observation' && (
+              {/* Resolve Ticket — observation already submitted; shown at For Observation, or after reassignment with time_in preserved */}
+              {canProcessTicket && (
+                ticket.status === 'For Observation' ||
+                (isAdminProcessingEscalated && ticket.status === 'Escalated' && !!btData?.was_for_observation) ||
+                (isAssignedEmployee && !!btData?.was_for_observation && (ticket.status === 'In Progress' || ticket.status === 'Assigned'))
+              ) && (
                 <button
                   type="button"
                   disabled={savingFields}
-                  onClick={handleSaveFields}
+                  onClick={() => setShowResolveConfirm(true)}
                   className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#0E8F79] to-[#0b7a67] hover:shadow-lg hover:shadow-[#0E8F79]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
                 >
                   {savingFields ? (
@@ -2647,6 +2743,108 @@ export function TicketView() {
             <Download className="w-4 h-4" /> Download
           </a>
         </div>
+      )}
+
+      {/* ── Start Work Confirm Modal ── */}
+      {showStartWorkConfirm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <PlayCircle className="w-4 h-4 text-blue-500" />
+                </div>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Start Work</h3>
+              </div>
+              <button onClick={() => setShowStartWorkConfirm(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Are you sure you want to start working on this ticket? This will record your start time.</p>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setShowStartWorkConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
+              <button
+                type="button"
+                disabled={startingWork}
+                onClick={() => { setShowStartWorkConfirm(false); handleStartWork(); }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {startingWork ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Starting...</> : <><PlayCircle className="w-3.5 h-3.5" /> Start Work</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Submit for Observation Confirm Modal ── */}
+      {showObservationConfirm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                  <Eye className="w-4 h-4 text-indigo-500" />
+                </div>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Submit for Observation</h3>
+              </div>
+              <button onClick={() => setShowObservationConfirm(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Are you sure you want to submit this ticket for observation? The client will be notified to review the resolution.</p>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setShowObservationConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
+              <button
+                type="button"
+                disabled={submittingObservation}
+                onClick={() => { setShowObservationConfirm(false); handleSubmitForObservation(); }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {submittingObservation ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Submitting...</> : <><Eye className="w-3.5 h-3.5" /> Submit</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Resolve Ticket Confirm Modal ── */}
+      {showResolveConfirm && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-teal-500" />
+                </div>
+                <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Resolve Ticket</h3>
+              </div>
+              <button onClick={() => setShowResolveConfirm(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Are you sure you want to mark this ticket as resolved? Make sure all required fields and attachments are completed before proceeding.</p>
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6">
+              <button type="button" onClick={() => setShowResolveConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
+              <button
+                type="button"
+                disabled={savingFields}
+                onClick={() => { setShowResolveConfirm(false); handleSaveFields(); }}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#0E8F79] to-[#0b7a67] text-white text-sm font-semibold hover:shadow-lg hover:shadow-[#0E8F79]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+              >
+                {savingFields ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Resolving...</> : <><CheckCircle className="w-3.5 h-3.5" /> Resolve</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ── CSAT Rating Modal (Admin – before closing) ── */}
