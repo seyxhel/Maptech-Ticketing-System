@@ -10,3 +10,4 @@ drf-yasg==1.21.15
 whitenoise==6.12.0
 Pillow==12.1.1
 psycopg[binary]
+twisted[tls,http2]

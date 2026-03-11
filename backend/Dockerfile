@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         libffi-dev \
         libjpeg-dev \
-        zlib1g-dev \
+    zlib1g-dev \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

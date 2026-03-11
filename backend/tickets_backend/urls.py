@@ -31,8 +31,15 @@ def api_root(request):
         'redoc': request.build_absolute_uri('/redoc/'),
     })
 
+
+@api_view(['GET'])
+def healthz(request):
+    # Lightweight readiness probe used by platform health checks.
+    return Response({'status': 'ok'})
+
 urlpatterns = [
     path('', api_root, name='api-root'),
+    path('healthz', healthz, name='healthz'),
     path('admin/', admin.site.urls),
     path('api/', include('tickets.urls')),
     path('api-auth/', include('rest_framework.urls')),  # DRF browsable API login
