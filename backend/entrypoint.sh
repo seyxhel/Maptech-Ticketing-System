@@ -40,12 +40,14 @@ echo "==> Starting Daphne (ASGI server)..."
 # Daphne can optionally serve TLS/HTTP2 if certificate paths are provided.
 if [ -n "${SSL_CERT_FILE}" ] && [ -n "${SSL_KEY_FILE}" ]; then
     echo "==> Starting Daphne with TLS support"
-    DAPHNE_CMD=(daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application \
-        --ssl-certfile "${SSL_CERT_FILE}" --ssl-keyfile "${SSL_KEY_FILE}")
-    if [ "${ENABLE_HTTP2}" = "1" ] || [ "${ENABLE_HTTP2^^}" = "TRUE" ]; then
-        DAPHNE_CMD+=(--http2)
+    # POSIX-compatible execution (avoid Bash arrays and expansions)
+    if [ "${ENABLE_HTTP2}" = "1" ] || [ "${ENABLE_HTTP2}" = "true" ] || [ "${ENABLE_HTTP2}" = "TRUE" ] || [ "${ENABLE_HTTP2}" = "True" ]; then
+        exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application \
+            --ssl-certfile "${SSL_CERT_FILE}" --ssl-keyfile "${SSL_KEY_FILE}" --http2
+    else
+        exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application \
+            --ssl-certfile "${SSL_CERT_FILE}" --ssl-keyfile "${SSL_KEY_FILE}"
     fi
-    exec "${DAPHNE_CMD[@]}"
 else
     exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application
 fi
