@@ -52,17 +52,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 
 ## 20.3 Medium-Term Enhancements (3–6 Months)
 
-### ENH-05: Client Portal
-
-| Attribute | Detail |
-|-----------|--------|
-| **Priority** | High |
-| **Effort** | High (4–8 weeks) |
-| **Description** | Build a dedicated client-facing portal for ticket submission, tracking, and communication. The `Client` model and `ClientLayout` already exist as foundation. |
-| **Features** | Ticket submission form, ticket status tracking, communication thread with support, CSAT feedback submission, knowledge base access. |
-| **Dependencies** | Client authentication flow, client-specific permissions, client dashboard views. |
-
-### ENH-06: Email Integration
+### ENH-05: Email Integration
 
 | Attribute | Detail |
 |-----------|--------|
@@ -72,7 +62,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Features** | Email notifications on ticket creation/assignment/escalation/closure, email-based ticket creation (parse incoming emails to create tickets), email reply integration for ticket messages. |
 | **Tools** | Django `send_mail`, django-post-office, or third-party email service (SendGrid, AWS SES). |
 
-### ENH-07: Cloud File Storage
+### ENH-06: Cloud File Storage
 
 | Attribute | Detail |
 |-----------|--------|
@@ -82,7 +72,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Implementation** | Install `django-storages` and `boto3` (AWS S3) or `azure-storage-blob` (Azure). Update `DEFAULT_FILE_STORAGE` in settings. |
 | **Benefits** | Automatic redundancy, CDN integration, unlimited storage scaling, multi-server file access. |
 
-### ENH-08: Advanced Reporting and Analytics
+### ENH-07: Advanced Reporting and Analytics
 
 | Attribute | Detail |
 |-----------|--------|
@@ -92,7 +82,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Features** | SLA compliance trending, technician performance metrics, category/service type analysis, peak hour analysis, first-response time tracking, resolution time trends, CSAT score analytics. |
 | **Current Foundation** | Recharts integration exists in SuperAdmin/Admin dashboards, basic statistics endpoints available. |
 
-### ENH-09: Mobile Application
+### ENH-08: Mobile Application
 
 | Attribute | Detail |
 |-----------|--------|
@@ -106,7 +96,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 
 ## 20.4 Long-Term Enhancements (6–12 Months)
 
-### ENH-10: Single Sign-On (SSO) Integration
+### ENH-09: Single Sign-On (SSO) Integration
 
 | Attribute | Detail |
 |-----------|--------|
@@ -116,7 +106,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Providers** | Microsoft Entra ID (Azure AD), Google Workspace, SAML 2.0 generic. |
 | **Implementation** | `django-allauth` or `python-social-auth` for backend. Port existing MSAL/Google OAuth code from legacy frontend. |
 
-### ENH-11: Knowledge Base System
+### ENH-10: Knowledge Base System
 
 | Attribute | Detail |
 |-----------|--------|
@@ -126,7 +116,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Features** | Article creation and editing (Markdown/rich text), category organization, search functionality, article rating and feedback, automatic suggestion based on ticket content, FAQ section. |
 | **Current Foundation** | `knowledge.py` views exist with basic knowledge base endpoints. |
 
-### ENH-12: AI-Powered Ticket Classification
+### ENH-11: AI-Powered Ticket Classification
 
 | Attribute | Detail |
 |-----------|--------|
@@ -136,7 +126,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Features** | Auto-categorize tickets based on description, suggest priority level, recommend best-suited technician based on expertise and workload, auto-suggest knowledge base articles. |
 | **Tools** | scikit-learn (basic), OpenAI API (advanced), or Hugging Face transformers. |
 
-### ENH-13: Multi-Tenant Architecture
+### ENH-12: Multi-Tenant Architecture
 
 | Attribute | Detail |
 |-----------|--------|
@@ -146,7 +136,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Implementation** | Schema-based multi-tenancy (`django-tenants`) or row-level multi-tenancy with organization foreign keys. |
 | **Benefits** | SaaS deployment model, shared infrastructure cost, centralized management. |
 
-### ENH-14: Webhook and External API Integration
+### ENH-13: Webhook and External API Integration
 
 | Attribute | Detail |
 |-----------|--------|
@@ -165,16 +155,15 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | ENH-02: Redis Channel Layer | Critical | Low | Medium | High |
 | ENH-03: Test Suite | High | Medium | Medium | High |
 | ENH-04: JWT Token Lifetime | High | Low | Low | High |
-| ENH-05: Client Portal | High | High | High | Low |
-| ENH-06: Email Integration | High | Medium | High | Low |
-| ENH-07: Cloud Storage | Medium | Low | Medium | Medium |
-| ENH-08: Advanced Analytics | Medium | Medium | High | Low |
-| ENH-09: Mobile App | Medium | High | High | Low |
-| ENH-10: SSO Integration | Medium | Medium | Medium | Medium |
-| ENH-11: Knowledge Base | Medium | Medium | Medium | Low |
-| ENH-12: AI Classification | Low | High | High | Low |
-| ENH-13: Multi-Tenant | Low | High | Medium | Low |
-| ENH-14: Webhooks | Low | Medium | Medium | Low |
+| ENH-05: Email Integration | High | Medium | High | Low |
+| ENH-06: Cloud Storage | Medium | Low | Medium | Medium |
+| ENH-07: Advanced Analytics | Medium | Medium | High | Low |
+| ENH-08: Mobile App | Medium | High | High | Low |
+| ENH-09: SSO Integration | Medium | Medium | Medium | Medium |
+| ENH-10: Knowledge Base | Medium | Medium | Medium | Low |
+| ENH-11: AI Classification | Low | High | High | Low |
+| ENH-12: Multi-Tenant | Low | High | Medium | Low |
+| ENH-13: Webhooks | Low | Medium | Medium | Low |
 
 ---
 

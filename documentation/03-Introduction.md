@@ -98,7 +98,6 @@ The following are explicitly outside the scope of this documentation:
 | **Admin/Supervisor** | A user role with privileges to create, assign, and manage tickets and monitor operations |
 | **Employee/Technician** | A user role assigned to resolve tickets and perform field service tasks |
 | **Superadmin** | The highest-privilege user role with full system administration capabilities |
-| **Client** | An external party that submits support requests (frontend role planned) |
 | **Escalation** | The process of transferring a ticket to a higher-skill technician (internal) or external vendor (external) |
 | **Knowledge Hub** | A repository of published resolution documents accessible to all authenticated users |
 

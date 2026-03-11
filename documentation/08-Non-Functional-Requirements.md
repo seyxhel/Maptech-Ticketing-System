@@ -47,7 +47,7 @@
 
 | Requirement | Implementation |
 |-------------|---------------|
-| **Access Control Model** | Role-Based Access Control (RBAC) with four roles: superadmin, admin, employee, client |
+| **Access Control Model** | Role-Based Access Control (RBAC) with three roles: superadmin, admin, employee |
 | **Permission Classes** | Six custom DRF permission classes enforcing role-based access at the API level |
 | **Object-Level Permissions** | ViewSets filter querysets by user role (e.g., employees see only assigned tickets) |
 | **WebSocket Access Control** | Chat consumers validate that users are ticket participants before allowing connection |

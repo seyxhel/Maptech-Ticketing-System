@@ -6,7 +6,7 @@ The Maptech Ticketing System frontend follows these design principles:
 
 | Principle | Implementation |
 |-----------|---------------|
-| **Role-Based Layouts** | Each user role (Superadmin, Admin, Employee, Client) has a dedicated layout with role-appropriate navigation and features |
+| **Role-Based Layouts** | Each user role (Superadmin, Admin, Employee) has a dedicated layout with role-appropriate navigation and features |
 | **Responsive Design** | Tailwind CSS utility classes ensure the interface adapts across desktop, tablet, and mobile viewports |
 | **Dark/Light Theme** | User-selectable theme with persistence (ThemeContext + localStorage + Tailwind dark mode) |
 | **Consistent Navigation** | Left sidebar navigation with icon + label for all primary sections; top header with notifications and profile |
@@ -55,15 +55,6 @@ The Maptech Ticketing System frontend follows these design principles:
 📊 Dashboard
 🎫 My Tickets
 📚 Knowledge Hub
-⚙️ Settings
-```
-
-### Client Navigation (Planned)
-
-```
-📊 Dashboard
-🎫 My Tickets
-➕ Create Ticket
 ⚙️ Settings
 ```
 
@@ -123,16 +114,6 @@ The Maptech Ticketing System frontend follows these design principles:
 | **Knowledge Hub** | Read-only searchable list of published knowledge articles |
 | **Escalation** | View escalation history for own tickets |
 | **Settings** | Profile editing, password change |
-
-### Client Pages (Planned)
-
-| Screen | Description |
-|--------|-------------|
-| **Dashboard** | Summary of submitted tickets and their statuses |
-| **My Tickets** | List of tickets created by the client |
-| **Create Ticket** | Simple ticket submission form |
-| **Ticket Details** | View ticket status, updates, and communication |
-| **Settings** | Profile management |
 
 ### Authentication Pages
 

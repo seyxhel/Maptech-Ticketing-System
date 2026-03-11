@@ -35,7 +35,7 @@ The Maptech Ticketing System delivers measurable business value across several d
 | Capability | Description |
 |------------|-------------|
 | **Ticket Lifecycle Management** | Create, assign, track, escalate, resolve, and close support tickets with full status workflow |
-| **Role-Based Access Control** | Four user tiers (Superadmin, Admin/Supervisor, Employee/Technician, Client) with granular permissions |
+| **Role-Based Access Control** | Three user tiers (Superadmin, Admin/Supervisor, Employee/Technician) with granular permissions |
 | **Real-Time Chat** | WebSocket-based live messaging between admins and assigned technicians per ticket |
 | **Real-Time Notifications** | Instant push notifications for ticket assignments, status changes, escalations, and messages |
 | **SLA Tracking** | Automated estimated resolution days based on service type, with progress percentage calculation |

@@ -26,21 +26,21 @@ The Maptech Ticketing System operates within the following context:
 ┌─────────────────────────────────────────────────────────────┐
 │                    EXTERNAL ENTITIES                        │
 │                                                             │
-│  ┌──────────┐  ┌──────────┐  ┌───────────────────────────┐ │
-│  │  Clients  │  │ External │  │  Administrator Browsers   │ │
-│  │ (Future)  │  │ Vendors  │  │  (Chrome, Firefox, Edge)  │ │
-│  └─────┬─────┘  └────┬─────┘  └────────────┬──────────────┘ │
-│        │              │                      │               │
-└────────┼──────────────┼──────────────────────┼───────────────┘
-         │              │                      │
-         ▼              ▼                      ▼
+│  ┌──────────┐  ┌───────────────────────────┐                │
+│  │ External │  │  Administrator Browsers   │                │
+│  │ Vendors  │  │  (Chrome, Firefox, Edge)  │                │
+│  └────┬─────┘  └────────────┬──────────────┘                │
+│       │                      │                              │
+└───────┼──────────────────────┼──────────────────────────────┘
+        │                      │
+        ▼                      ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              MAPTECH TICKETING SYSTEM                        │
 │                                                             │
 │  ┌───────────────────────────────────────────────────────┐  │
 │  │          Frontend (React SPA)                         │  │
 │  │   • Admin Dashboard    • Employee Dashboard           │  │
-│  │   • Superadmin Panel   • Client Portal (Planned)      │  │
+│  │   • Superadmin Panel                                  │  │
 │  └───────────────────────┬───────────────────────────────┘  │
 │                          │ HTTP/WebSocket                    │
 │  ┌───────────────────────▼───────────────────────────────┐  │
@@ -77,7 +77,7 @@ The Maptech Ticketing System operates within the following context:
 | Supervisors (Admins) | Primary System Users | Create and manage tickets, assign technicians, monitor SLAs, close tickets |
 | Technicians (Employees) | Field Service Workers | Receive assignments, perform diagnostics, resolve issues, submit proofs |
 | Superadmins | System Administrators | Manage user accounts, configure system settings, review audit logs |
-| Clients | Service Recipients | Report issues, track ticket status (future: via client portal) |
+| Clients (External) | Service Recipients | Report issues via phone/email; tracked in system by supervisors |
 | QA Team | Quality Assurance | Validates system functionality and performance through testing |
 
 ---
@@ -89,9 +89,8 @@ The system implements a role-based access control (RBAC) model with the followin
 | Role | Description | Access Level |
 |------|-------------|-------------|
 | **Superadmin** | Highest-privilege system administrator. Full access to all features including user management, system configuration, audit logs, and retention policies. | Full system access |
-| **Admin (Supervisor)** | Manages day-to-day ticket operations. Creates tickets, assigns technicians, reviews resolutions, confirms clients, manages products/clients/categories, and closes tickets. Can view audit logs scoped to employee actions. | Full ticket management, catalog management, knowledge hub management |
+| **Admin (Supervisor)** | Manages day-to-day ticket operations. Creates tickets on behalf of clients, assigns technicians, reviews resolutions, manages products/clients/categories, and closes tickets. Can view audit logs scoped to employee actions. | Full ticket management, catalog management, knowledge hub management |
 | **Employee (Technician)** | Field service technician assigned to tickets. Can view assigned tickets, start work, update findings, escalate internally, pass tickets, submit for observation, request closure, and upload resolution proofs. | Limited to assigned tickets and own profile |
-| **Client** | External service recipient. Can view own tickets and track status. *(Client portal is in frontend development — backend support is planned.)* | View-only access to own tickets (planned) |
 
 ### Role Hierarchy
 
@@ -99,44 +98,43 @@ The system implements a role-based access control (RBAC) model with the followin
 Superadmin (Full System Access)
     └── Admin / Supervisor (Ticket & Catalog Management)
             └── Employee / Technician (Assigned Ticket Operations)
-                    └── Client (View Own Tickets — Planned)
 ```
 
 ### Detailed Role Permissions
 
-| Feature | Superadmin | Admin | Employee | Client |
-|---------|:----------:|:-----:|:--------:|:------:|
-| View Dashboard & Stats | ✅ | ✅ | ✅ (own) | ✅ (own) |
-| Create Tickets | ✅ | ✅ | ❌ | ✅ (planned) |
-| Assign Tickets | ✅ | ✅ | ❌ | ❌ |
-| Start Work on Ticket | ✅ | ✅ | ✅ | ❌ |
-| Update Ticket Fields | ✅ | ✅ | ✅ (limited) | ❌ |
-| Escalate Internally | ❌ | ❌ | ✅ | ❌ |
-| Pass Ticket | ❌ | ❌ | ✅ | ❌ |
-| Escalate Externally | ✅ | ✅ | ✅ | ❌ |
-| Request Closure | ❌ | ❌ | ✅ | ❌ |
-| Close Ticket | ✅ | ✅ | ❌ | ❌ |
-| Confirm Ticket | ✅ | ✅ | ❌ | ❌ |
-| Review Ticket | ✅ | ✅ | ❌ | ❌ |
-| Link Tickets | ✅ | ✅ | ❌ | ❌ |
-| Manage Knowledge Hub | ✅ | ✅ | ❌ | ❌ |
-| View Knowledge Hub | ✅ | ✅ | ✅ | ❌ |
-| Manage Products | ✅ | ✅ | ❌ | ❌ |
-| Manage Clients | ✅ | ✅ | ❌ | ❌ |
-| Manage Categories | ✅ | ✅ | ❌ | ❌ |
-| Manage Types of Service | ✅ | ✅ | ❌ | ❌ |
-| Manage Call Logs | ✅ | ✅ | ❌ | ❌ |
-| Submit CSAT Feedback | ✅ | ✅ | ❌ | ❌ |
-| View Audit Logs | ✅ | ✅ (scoped) | ❌ | ❌ |
-| Export Audit Logs | ✅ | ✅ | ❌ | ❌ |
-| Manage Users | ✅ | ❌ | ❌ | ❌ |
-| Manage Announcements | ✅ | ❌ | ❌ | ❌ |
-| Manage Retention Policy | ✅ | ❌ | ❌ | ❌ |
-| View Announcements | ✅ | ✅ | ✅ | ❌ |
-| Chat (Admin ↔ Employee) | ✅ | ✅ | ✅ | ❌ |
-| Receive Notifications | ✅ | ✅ | ✅ | ❌ |
-| Update Profile | ✅ | ✅ | ✅ | ✅ |
-| Change Password | ✅ | ✅ | ✅ | ✅ |
+| Feature | Superadmin | Admin (Supervisor) | Employee (Technician) |
+|---------|:----------:|:------------------:|:---------------------:|
+| View Dashboard & Stats | ✅ | ✅ | ✅ (own) |
+| Create Tickets | ✅ | ✅ | ❌ |
+| Assign Tickets | ✅ | ✅ | ❌ |
+| Start Work on Ticket | ✅ | ✅ | ✅ |
+| Update Ticket Fields | ✅ | ✅ | ✅ (limited) |
+| Escalate Internally | ❌ | ❌ | ✅ |
+| Pass Ticket | ❌ | ❌ | ✅ |
+| Escalate Externally | ✅ | ✅ | ✅ |
+| Request Closure | ❌ | ❌ | ✅ |
+| Close Ticket | ✅ | ✅ | ❌ |
+| Confirm Ticket | ✅ | ✅ | ❌ |
+| Review Ticket | ✅ | ✅ | ❌ |
+| Link Tickets | ✅ | ✅ | ❌ |
+| Manage Knowledge Hub | ✅ | ✅ | ❌ |
+| View Knowledge Hub | ✅ | ✅ | ✅ |
+| Manage Products | ✅ | ✅ | ❌ |
+| Manage Clients | ✅ | ✅ | ❌ |
+| Manage Categories | ✅ | ✅ | ❌ |
+| Manage Types of Service | ✅ | ✅ | ❌ |
+| Manage Call Logs | ✅ | ✅ | ❌ |
+| Submit CSAT Feedback | ✅ | ✅ | ❌ |
+| View Audit Logs | ✅ | ✅ (scoped) | ❌ |
+| Export Audit Logs | ✅ | ✅ | ❌ |
+| Manage Users | ✅ | ❌ | ❌ |
+| Manage Announcements | ✅ | ❌ | ❌ |
+| Manage Retention Policy | ✅ | ❌ | ❌ |
+| View Announcements | ✅ | ✅ | ✅ |
+| Chat (Admin ↔ Employee) | ✅ | ✅ | ✅ |
+| Receive Notifications | ✅ | ✅ | ✅ |
+| Update Profile | ✅ | ✅ | ✅ |
+| Change Password | ✅ | ✅ | ✅ |
 
 ---
 

@@ -21,7 +21,7 @@ The Maptech Ticketing System implements a defense-in-depth security model with t
 
 ### Role-Based Access Control (RBAC)
 
-The system implements RBAC with four hierarchical roles:
+The system implements RBAC with three hierarchical roles:
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -36,9 +36,6 @@ The system implements RBAC with four hierarchical roles:
 │                   EMPLOYEE                        │
 │  View/work on assigned tickets only, escalate,   │
 │  submit for observation, request closure          │
-├─────────────────────────────────────────────────┤
-│                    CLIENT                         │
-│  View own tickets, submit new tickets (planned)  │
 └─────────────────────────────────────────────────┘
 ```
 
