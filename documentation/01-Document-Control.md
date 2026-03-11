@@ -9,7 +9,11 @@
 | **Version** | 1.0 |
 | **Date Created** | March 11, 2026 |
 | **Last Updated** | March 11, 2026 |
-| **Prepared By** | Maptech Information Solutions Inc. — Development Team |
+| **Prepared By** | Cuadra, Gerard R. — FullStack |
+| | Pelagio, Sealtiel Joseph B. — FullStack |
+| | Quieta, Kianshane B. — Quality Assurance |
+| | Sulaiman, Carmela M. — UI/UX Designer |
+| | Vebayo, Rivo M. — FullStack |
 | **Reviewed By** | *[To be filled]* |
 | **Approved By** | *[To be filled]* |
 
@@ -19,7 +23,7 @@
 
 | Version | Date | Author | Changes Made |
 |---------|------|--------|--------------|
-| 1.0 | March 11, 2026 | Maptech Development Team | Initial comprehensive documentation release covering all system modules, architecture, data models, API design, security architecture, and deployment specifications. |
+| 1.0 | March 11, 2026 | Cuadra, G., Pelagio, S., Quieta, K., Sulaiman, C., Vebayo, R. | Initial comprehensive documentation release covering all system modules, architecture, data models, API design, security architecture, and deployment specifications. |
 | | | | |
 | | | | |
 
@@ -29,10 +33,13 @@
 
 | Recipient | Role | Copy Type |
 |-----------|------|-----------|
-| Development Team | System Developers | Electronic |
+| Cuadra, Gerard R. | FullStack Developer | Electronic |
+| Pelagio, Sealtiel Joseph B. | FullStack Developer | Electronic |
+| Quieta, Kianshane B. | Quality Assurance | Electronic |
+| Sulaiman, Carmela M. | UI/UX Designer | Electronic |
+| Vebayo, Rivo M. | FullStack Developer | Electronic |
 | IT Operations | System Administrators | Electronic |
 | Project Manager | Project Oversight | Electronic |
-| Quality Assurance | Testing & Validation | Electronic |
 | Management | Executive Oversight | Electronic |
 
 ---

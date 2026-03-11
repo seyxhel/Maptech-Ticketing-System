@@ -2,6 +2,20 @@
 
 ## Enterprise System Documentation
 
+---
+
+### Prepared by:
+
+| Name | Role |
+|------|------|
+| Cuadra, Gerard R. | FullStack Developer |
+| Pelagio, Sealtiel Joseph B. | FullStack Developer |
+| Quieta, Kianshane B. | Quality Assurance |
+| Sulaiman, Carmela M. | UI/UX Designer |
+| Vebayo, Rivo M. | FullStack Developer |
+
+---
+
 Welcome to the official system documentation for the **Maptech Information Solutions Inc. Ticketing System**. This documentation serves as the authoritative reference for all aspects of the system — from architecture and design to deployment and maintenance.
 
 ---
