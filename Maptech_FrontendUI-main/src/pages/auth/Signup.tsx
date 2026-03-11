@@ -1,13 +1,13 @@
-import React, { useState, useRef, useCallback } from 'react';
+﻿import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, User, Phone, AtSign, ChevronDown, Loader2, Eye, EyeOff, X } from 'lucide-react';
 import {
   validateEmail, validatePhone, validateName, validateUsername,
   validatePassword, validateConfirmPassword, checkPasswordPwned,
   MAX_NAME, MAX_EMAIL, MAX_PHONE, MAX_USERNAME, MAX_PASSWORD,
   type PasswordRules,
-} from '../utils/validation';
+} from '../../utils/validation';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 

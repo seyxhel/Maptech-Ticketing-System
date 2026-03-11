@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useNavigate, Navigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
-import { validateEmail, MAX_EMAIL, MAX_PASSWORD } from '../utils/validation';
+import { validateEmail, MAX_EMAIL, MAX_PASSWORD } from '../../utils/validation';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 

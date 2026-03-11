@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card } from '../components/ui/Card';
+﻿import React, { useState, useEffect, useCallback } from 'react';
+import { Card } from '../../components/ui/Card';
 import {
   Search,
   Paperclip,
@@ -21,7 +21,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { KnowledgeHubAttachment } from '../services/api';
+import type { KnowledgeHubAttachment } from '../../services/api';
 import {
   fetchKnowledgeHubAttachments,
   deleteKnowledgeHubAttachment,
@@ -29,7 +29,7 @@ import {
   unarchiveAttachment,
   publishAttachment,
   updateKnowledgeHubAttachment,
-} from '../services/api';
+} from '../../services/api';
 
 const ITEMS_PER_PAGE = 12;
 

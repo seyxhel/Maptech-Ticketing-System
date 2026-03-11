@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
-import { Card } from '../components/ui/Card';
-import { StatCard } from '../components/ui/StatCard';
-import { GreenButton } from '../components/ui/GreenButton';
+﻿import { useRef, useEffect, useState } from 'react';
+import { Card } from '../../components/ui/Card';
+import { StatCard } from '../../components/ui/StatCard';
+import { GreenButton } from '../../components/ui/GreenButton';
 import {
   BarChart3,
   TrendingUp,
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 // @ts-ignore
 import XLSXStyle from 'xlsx-js-style';
-import { buildPdfDocument, openPrintWindow } from '../utils/pdfTemplate';
+import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 import {
   BarChart,
   Bar,
@@ -26,8 +26,8 @@ import {
   Line,
   Legend,
 } from 'recharts';
-import { fetchTickets, fetchTicketStats } from '../services/api';
-import type { BackendTicket, TicketStats } from '../services/api';
+import { fetchTickets, fetchTicketStats } from '../../services/api';
+import type { BackendTicket, TicketStats } from '../../services/api';
 
 // Placeholders until data loads
 const emptyMonthly: { name: string; tickets: number; resolved: number }[] = [];

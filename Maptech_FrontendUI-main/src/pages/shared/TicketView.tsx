@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { PriorityBadge } from '../components/ui/PriorityBadge';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { SLATimer } from '../components/ui/SLATimer';
-import { GreenButton } from '../components/ui/GreenButton';
+import { Card } from '../../components/ui/Card';
+import { PriorityBadge } from '../../components/ui/PriorityBadge';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SLATimer } from '../../components/ui/SLATimer';
+import { GreenButton } from '../../components/ui/GreenButton';
 import {
   MessageSquare, ArrowLeft, Camera, Video, Upload, FileText, ClipboardList, Package,
   Paperclip, CheckCircle, Wifi, WifiOff, Send, X, Smile, Reply, ChevronDown,
@@ -13,20 +13,20 @@ import {
   User as UserIcon, Shield, Image, Film, File, Download, Play, ArrowUpRight, Share2,
   FileDown, FileSpreadsheet
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { TicketChatSocket } from '../services/chatService';
-import type { ChatMessage, ChatEvent, ChatAttachment } from '../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees } from '../services/api';
-import type { Product } from '../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { TicketChatSocket } from '../../services/chatService';
+import type { ChatMessage, ChatEvent, ChatAttachment } from '../../services/chatService';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createCSATFeedback, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees } from '../../services/api';
+import type { Product } from '../../services/api';
 import { toast } from 'sonner';
-import type { BackendTicket } from '../services/api';
-import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../services/ticketMapper';
+import type { BackendTicket } from '../../services/api';
+import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority } from '../../services/ticketMapper';
 import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus, UserCheck } from 'lucide-react';
-import { SignaturePad } from '../components/ui/SignaturePad';
+import { SignaturePad } from '../../components/ui/SignaturePad';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import XLSXStyle from 'xlsx-js-style';
-import { buildPdfDocument, openPrintWindow } from '../utils/pdfTemplate';
+import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
 

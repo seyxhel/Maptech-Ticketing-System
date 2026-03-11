@@ -1,6 +1,6 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { EmployeeDashboard } from '../EmployeeDashboard';
+import { EmployeeDashboard } from './EmployeeDashboard';
 
 export default function EmployeeDashboardPage() {
   const navigate = useNavigate();

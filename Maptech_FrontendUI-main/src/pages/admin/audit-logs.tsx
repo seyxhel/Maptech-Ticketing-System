@@ -1,1 +1,1 @@
-export { AuditLogs as default } from '../AuditLogs';
+﻿export { AuditLogs as default } from '../shared/AuditLogs';

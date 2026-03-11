@@ -1,1 +1,1 @@
-export { DeviceEquipment as default } from '../Categories';
+﻿export { default } from './device-equipment';

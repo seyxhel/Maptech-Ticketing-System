@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { StatCard } from '../components/ui/StatCard';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { PriorityBadge } from '../components/ui/PriorityBadge';
-import { SLATimer } from '../components/ui/SLATimer';
-import { fetchTickets, fetchTicketStats } from '../services/api';
-import type { TicketStats } from '../services/api';
-import { mapBackendTicketToEmployee } from '../services/ticketMapper';
-import type { UIEmployeeTicket } from '../services/ticketMapper';
-import { useAuth } from '../context/AuthContext';
-import { AnnouncementBanner } from '../components/ui/AnnouncementBanner';
+import { Card } from '../../components/ui/Card';
+import { StatCard } from '../../components/ui/StatCard';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { PriorityBadge } from '../../components/ui/PriorityBadge';
+import { SLATimer } from '../../components/ui/SLATimer';
+import { fetchTickets, fetchTicketStats } from '../../services/api';
+import type { TicketStats } from '../../services/api';
+import { mapBackendTicketToEmployee } from '../../services/ticketMapper';
+import type { UIEmployeeTicket } from '../../services/ticketMapper';
+import { useAuth } from '../../context/AuthContext';
+import { AnnouncementBanner } from '../../components/ui/AnnouncementBanner';
 import {
   CheckCircle,
   Clock,

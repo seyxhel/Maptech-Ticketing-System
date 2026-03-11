@@ -1,1 +1,1 @@
-export { Reports as default } from '../Reports';
+﻿export { Reports as default } from '../shared/Reports';

@@ -1,1 +1,1 @@
-export { TicketView as default } from '../TicketView';
+﻿export { TicketView as default } from '../shared/TicketView';

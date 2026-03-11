@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Key, Mail, Loader2, ArrowLeft, CheckCircle, Eye, EyeOff } from 'lucide-react';
-import { resetPasswordByKey } from '../services/authService';
+import { resetPasswordByKey } from '../../services/authService';
 
 const LOGO_SRC = '/Maptech%20Official%20Logo%20version2%20(1).png';
 
