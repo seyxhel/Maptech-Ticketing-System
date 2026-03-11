@@ -1,0 +1,52 @@
+services:
+
+  # ── Django / Daphne backend ─────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # !! Override SECRET_KEY with a long random value in production !!
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-use-a-long-random-string}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      # Allow the Nginx frontend container to reach the API
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-False}
+      # SQLite is stored in the named volume mounted at /app/data
+      DB_PATH: /app/data/db.sqlite3
+    volumes:
+      # Persist the SQLite database file across container rebuilds
+      - backend_db:/app/data
+      # Persist uploaded media files (profile pictures, ticket attachments, …)
+      - backend_media:/app/media
+    expose:
+      # Only reachable by other Docker services; not published to the host
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')\" 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── React / Nginx frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./Maptech_FrontendUI-main
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      # Expose to the host — change to "443:443" and add SSL certs for HTTPS
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+# ── Named volumes ────────────────────────────────────────────────────────────
+volumes:
+  # SQLite database directory — survives container rebuilds
+  backend_db:
+  # User-uploaded files — survives container rebuilds
+  backend_media:

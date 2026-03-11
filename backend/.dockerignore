@@ -1,0 +1,37 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Django development files
+db.sqlite3
+*.sqlite3
+local_settings.py
+.env
+
+# Collected static / media (managed by volumes)
+staticfiles/
+media/
+
+# Build artefacts
+*.egg-info/
+dist/
+build/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/

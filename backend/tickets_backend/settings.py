@@ -71,7 +71,8 @@ CHANNEL_LAYERS = {
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # DB_PATH can be overridden via environment variable (e.g. inside Docker)
+        'NAME': os.environ.get('DB_PATH', str(BASE_DIR / 'db.sqlite3')),
     }
 }
 
