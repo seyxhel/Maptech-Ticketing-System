@@ -38,6 +38,9 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     swagger_tags = ['Announcements']
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return Announcement.objects.none()
+
         user = self.request.user
         qs = Announcement.objects.all()
 
