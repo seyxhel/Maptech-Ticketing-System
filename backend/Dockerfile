@@ -47,7 +47,7 @@ RUN mkdir -p /app/media /app/staticfiles
 # (WhiteNoise will serve them; no DB access needed for collectstatic)
 RUN SECRET_KEY=build-time-dummy-key python manage.py collectstatic --noinput
 
-COPY entrypoint.sh /entrypoint.sh
+COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 8000

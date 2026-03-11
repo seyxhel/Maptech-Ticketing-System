@@ -68,13 +68,45 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        # DB_PATH can be overridden via environment variable (e.g. inside Docker)
-        'NAME': os.environ.get('DB_PATH', str(BASE_DIR / 'db.sqlite3')),
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    from urllib.parse import urlparse, parse_qs
+
+    _parsed = urlparse(DATABASE_URL)
+    _qs = parse_qs(_parsed.query)
+
+    scheme = _parsed.scheme or ''
+    if scheme.startswith('postgres') or scheme in ('psql', 'postgres'):
+        engine = 'django.db.backends.postgresql'
+    elif scheme.startswith('mysql'):
+        engine = 'django.db.backends.mysql'
+    else:
+        engine = 'django.db.backends.postgresql'
+
+    DATABASES = {
+        'default': {
+            'ENGINE': engine,
+            'NAME': _parsed.path.lstrip('/'),
+            'USER': _parsed.username,
+            'PASSWORD': _parsed.password,
+            'HOST': _parsed.hostname,
+            'PORT': _parsed.port,
+        }
     }
-}
+
+    # support sslmode in query string (e.g. ?sslmode=require)
+    sslmodes = _qs.get('sslmode')
+    if sslmodes:
+        DATABASES['default'].setdefault('OPTIONS', {})['sslmode'] = sslmodes[0]
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            # DB_PATH can be overridden via environment variable (e.g. inside Docker)
+            'NAME': os.environ.get('DB_PATH', str(BASE_DIR / 'db.sqlite3')),
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = []
 

@@ -16,6 +16,10 @@ services:
       CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-False}
       # SQLite is stored in the named volume mounted at /app/data
       DB_PATH: /app/data/db.sqlite3
+      # Optional: use an external Postgres (e.g. Railway). Set DATABASE_URL in your environment or .env file.
+      DATABASE_URL: ${DATABASE_URL:-}
+      # How long to wait for the DB host:port to be reachable (seconds)
+      WAIT_FOR_DB_SECONDS: ${WAIT_FOR_DB_SECONDS:-30}
     volumes:
       # Persist the SQLite database file across container rebuilds
       - backend_db:/app/data
@@ -43,6 +47,10 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      # By default, frontend proxies to the backend service in the same compose network.
+      # In production (Railway), set BACKEND_URL to your backend's public URL (no trailing slash).
+      BACKEND_URL: ${BACKEND_URL:-http://backend:8000}
 
 # ── Named volumes ────────────────────────────────────────────────────────────
 volumes:
