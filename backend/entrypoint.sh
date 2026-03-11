@@ -37,17 +37,20 @@ echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
 echo "==> Starting Daphne (ASGI server)..."
+# Allow the platform to override the listen port via the PORT env var (Railway uses this).
+# Fall back to 8000 for local/docker-compose runs.
+LISTEN_PORT=${PORT:-8000}
+
 # Daphne can optionally serve TLS/HTTP2 if certificate paths are provided.
 if [ -n "${SSL_CERT_FILE}" ] && [ -n "${SSL_KEY_FILE}" ]; then
-    echo "==> Starting Daphne with TLS support"
-    # POSIX-compatible execution (avoid Bash arrays and expansions)
+    echo "==> Starting Daphne with TLS support on port ${LISTEN_PORT}"
     if [ "${ENABLE_HTTP2}" = "1" ] || [ "${ENABLE_HTTP2}" = "true" ] || [ "${ENABLE_HTTP2}" = "TRUE" ] || [ "${ENABLE_HTTP2}" = "True" ]; then
-        exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application \
+        exec daphne -b 0.0.0.0 -p "${LISTEN_PORT}" tickets_backend.asgi:application \
             --ssl-certfile "${SSL_CERT_FILE}" --ssl-keyfile "${SSL_KEY_FILE}" --http2
     else
-        exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application \
+        exec daphne -b 0.0.0.0 -p "${LISTEN_PORT}" tickets_backend.asgi:application \
             --ssl-certfile "${SSL_CERT_FILE}" --ssl-keyfile "${SSL_KEY_FILE}"
     fi
 else
-    exec daphne -b 0.0.0.0 -p 8000 tickets_backend.asgi:application
+    exec daphne -b 0.0.0.0 -p "${LISTEN_PORT}" tickets_backend.asgi:application
 fi
