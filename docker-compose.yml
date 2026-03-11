@@ -20,6 +20,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:-}
       # How long to wait for the DB host:port to be reachable (seconds)
       WAIT_FOR_DB_SECONDS: ${WAIT_FOR_DB_SECONDS:-30}
+      # If set to 1/true, backend will run seed management commands after migrations
+      AUTO_SEED: ${AUTO_SEED:-False}
     volumes:
       # Persist the SQLite database file across container rebuilds
       - backend_db:/app/data

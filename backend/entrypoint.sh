@@ -36,6 +36,17 @@ fi
 echo "==> Running database migrations..."
 python manage.py migrate --noinput
 
+# Optional: run project seeders when AUTO_SEED is enabled (set AUTO_SEED=1 in env)
+if [ "${AUTO_SEED}" = "1" ] || [ "${AUTO_SEED}" = "true" ] || [ "${AUTO_SEED}" = "TRUE" ]; then
+    echo "==> AUTO_SEED enabled — running seed management commands"
+    # run seeders; commands are idempotent and errors should not stop the container
+    python manage.py seed_users || true
+    python manage.py seed_services || true
+    python manage.py seed_categories || true
+    python manage.py seed_tickets || true
+    echo "==> Seeder tasks finished"
+fi
+
 echo "==> Starting Daphne (ASGI server)..."
 # Allow the platform to override the listen port via the PORT env var (Railway uses this).
 # Fall back to 8000 for local/docker-compose runs.
