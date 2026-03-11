@@ -29,9 +29,9 @@ WORKDIR /app
 
 # Runtime-only system libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libjpeg62-turbo \
-    zlib1g \
-    netcat \
+        libjpeg62-turbo \
+        zlib1g \
+        netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder
