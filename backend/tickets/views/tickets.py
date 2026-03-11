@@ -1,41 +1,25 @@
 from rest_framework import viewsets, status
-from django.db.models import Count, Avg, Q, F
+from django.db.models import Count, Q
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-User = get_user_model()
 from django.utils import timezone
-from .models import (
-    Ticket, TicketTask, TypeOfService, TicketAttachment,
-    AssignmentSession, Message, EscalationLog, AuditLog,
-    Product, Client, CallLog, CSATFeedback, Notification, Category,
-    RetentionPolicy, Announcement,
+
+from ..models import (
+    Ticket, TicketTask, TicketAttachment, AssignmentSession,
+    Message, EscalationLog, AuditLog, Product, Client,
 )
-from .serializers import (
-    TicketSerializer, TypeOfServiceSerializer,
-    TicketAttachmentSerializer, EscalationLogSerializer,
-    MessageSerializer, AssignmentSessionSerializer,
-    AdminCreateTicketSerializer,
-    EmployeeTicketActionSerializer,
-    AuditLogSerializer,
-    KnowledgeHubAttachmentSerializer,
-    PublishedArticleSerializer,
-    ProductSerializer, ClientSerializer,
-    CallLogSerializer, CSATFeedbackSerializer,
-    NotificationSerializer, CategorySerializer,
-    RetentionPolicySerializer, AnnouncementSerializer,
+from ..serializers import (
+    TicketSerializer, TypeOfServiceSerializer, TicketAttachmentSerializer,
+    EscalationLogSerializer, MessageSerializer, AssignmentSessionSerializer,
+    AdminCreateTicketSerializer, EmployeeTicketActionSerializer,
 )
-from .permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant, IsSuperAdmin
+from ..permissions import IsAdminLevel, IsAssignedEmployee, IsAdminOrAssignedEmployee, IsTicketParticipant
 from users.serializers import UserSerializer
+from ._helpers import _get_client_ip
 
-
-def _get_client_ip(request):
-    """Extract the client IP address from the request."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR')
+User = get_user_model()
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -239,7 +223,6 @@ class TicketViewSet(viewsets.ModelViewSet):
     def assign(self, request, pk=None):
         ticket = self.get_object()
 
-        # Allow reassignment at any active status (open, in_progress, for_observation, escalated).
         reassignable_statuses = [
             Ticket.STATUS_OPEN,
             Ticket.STATUS_IN_PROGRESS,
@@ -281,7 +264,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket.status = Ticket.STATUS_OPEN
         ticket.save()
 
-        # Create system message about reassignment (in both channels)
+        # Create system message about reassignment
         if old_employee and old_employee.id != emp.id:
             sys_content = f"Employee changed from {old_employee.get_full_name() or old_employee.username} to {emp.get_full_name() or emp.username}"
             for ch in ['admin_employee']:
@@ -293,7 +276,6 @@ class TicketViewSet(viewsets.ModelViewSet):
                     content=sys_content,
                     is_system_message=True,
                 )
-                # Broadcast system message via channel layer
                 self._broadcast_system_message(ticket.id, ch, sys_content, request.user)
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_ASSIGN,
@@ -342,7 +324,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def escalate(self, request, pk=None):
-        """Employee escalates ticket internally — logs escalation, keeps ticket for supervisor to reassign."""
+        """Employee escalates ticket internally."""
         ticket = self.get_object()
         user = request.user
         notes = request.data.get('notes', '')
@@ -393,7 +375,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def pass_ticket(self, request, pk=None):
-        """Employee passes ticket to another employee — full session management."""
+        """Employee passes ticket to another employee."""
         ticket = self.get_object()
         user = request.user
         to_emp_id = request.data.get('employee_id')
@@ -411,7 +393,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             prev_session.is_active = False
             prev_session.ended_at = timezone.now()
             prev_session.save()
-            # Force-disconnect old employee from WebSocket
             self._send_force_disconnect(ticket.id, user)
 
         # Create new assignment session
@@ -538,10 +519,8 @@ class TicketViewSet(viewsets.ModelViewSet):
             else:
                 ticket.product_record = Product.objects.create(**product_data)
 
-        # Set status to pending_closure (Resolved) when employee clicks Resolve
         old_status = ticket.status
 
-        # Time Out: set when employee resolves the ticket
         ticket.status = Ticket.STATUS_PENDING_CLOSURE
         if not ticket.time_out:
             ticket.time_out = timezone.now()
@@ -587,7 +566,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             self._broadcast_system_message(ticket.id, ch, sys_content, user)
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_OBSERVE,
-                           f"{user.email} submitted ticket {ticket.stf_no} for observation (status: {old_status} \u2192 {ticket.status})",
+                           f"{user.email} submitted ticket {ticket.stf_no} for observation (status: {old_status} → {ticket.status})",
                            changes={f: request.data[f] for f in allowed if f in request.data})
 
         return Response(self.get_serializer(ticket).data)
@@ -627,8 +606,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def escalate_external(self, request, pk=None):
-        """Admin or assigned employee escalates to distributor/principal (external).
-        The ticket is tagged as externally escalated but continues normal processing."""
+        """Admin or assigned employee escalates to distributor/principal (external)."""
         user = request.user
         ticket = self.get_object()
 
@@ -645,13 +623,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             notes=notes,
         )
 
-        # Tag as externally escalated but keep current status unchanged
         ticket.external_escalated_to = escalated_to
         ticket.external_escalation_notes = notes
         ticket.external_escalated_at = timezone.now()
         ticket.save()
 
-        # System message
         sys_content = f"Ticket escalated externally to {escalated_to} by {user.get_full_name() or user.username}."
         if notes:
             sys_content += f" Notes: {notes}"
@@ -678,8 +654,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         # Require CSAT feedback before closing
         if not hasattr(ticket, 'csat_feedback') or not ticket.csat_feedback:
-            # Allow closing without CSAT if no employee is assigned
-            # or if the admin processed the ticket themselves (assigned_to is the closer)
             if ticket.assigned_to and ticket.assigned_to != request.user:
                 return Response(
                     {'detail': 'Please submit CSAT feedback for the employee before closing this ticket.'},
@@ -697,7 +671,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             ticket.time_out = timezone.now()
         ticket.save()
 
-        # System message
         sys_content = f"Ticket closed by {request.user.get_full_name() or request.user.username}."
         if ticket.current_session:
             for ch in ['admin_employee']:
@@ -722,7 +695,6 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket = self.get_object()
         user = request.user
 
-        # Check resolution proof
         has_proof = ticket.attachments.filter(is_resolution_proof=True).exists()
         if not has_proof:
             return Response({'detail': 'You must upload resolution proof before requesting closure.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -787,7 +759,6 @@ class TicketViewSet(viewsets.ModelViewSet):
             att = TicketAttachment.objects.get(id=att_id, ticket=ticket)
         except TicketAttachment.DoesNotExist:
             return Response({'detail': 'Attachment not found.'}, status=status.HTTP_404_NOT_FOUND)
-        # Only the uploader or an admin can delete
         if not request.user.is_admin_level and att.uploaded_by != request.user:
             return Response({'detail': 'You can only delete your own attachments.'}, status=status.HTTP_403_FORBIDDEN)
         file_name = att.file.name if att.file else 'unknown'
@@ -800,15 +771,12 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    # ── Dashboard stats ───────────────────────────────────────────────────
     @action(detail=True, methods=['post'])
     def start_work(self, request, pk=None):
-        """Employee or admin marks they are starting work on a ticket.
-        Sets time_in and status to in_progress."""
+        """Employee or admin marks they are starting work on a ticket."""
         ticket = self.get_object()
         if not ticket.time_in:
             ticket.time_in = timezone.now()
-        # Allow transitioning from open OR from escalated state back to in_progress
         processable_statuses = [
             Ticket.STATUS_OPEN,
             Ticket.STATUS_ESCALATED,
@@ -826,6 +794,7 @@ class TicketViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Dashboard statistics scoped to user role."""
+        from django.db.models import Avg, F, ExpressionWrapper, DurationField
         qs = self.get_queryset()
         by_status = dict(qs.values_list('status').annotate(c=Count('id')).values_list('status', 'c'))
         by_priority = dict(qs.exclude(priority='').values_list('priority').annotate(c=Count('id')).values_list('priority', 'c'))
@@ -836,11 +805,9 @@ class TicketViewSet(viewsets.ModelViewSet):
         escalated = by_status.get(Ticket.STATUS_ESCALATED, 0) + by_status.get(Ticket.STATUS_ESCALATED_EXTERNAL, 0)
         pending = by_status.get(Ticket.STATUS_PENDING_CLOSURE, 0)
 
-        # Average resolution time (closed tickets that have time_in and time_out)
         closed_with_times = qs.filter(status=Ticket.STATUS_CLOSED, time_in__isnull=False, time_out__isnull=False)
         avg_resolution = None
         if closed_with_times.exists():
-            from django.db.models import ExpressionWrapper, DurationField
             durations = closed_with_times.annotate(
                 duration=ExpressionWrapper(F('time_out') - F('time_in'), output_field=DurationField())
             ).aggregate(avg=Avg('duration'))
@@ -859,27 +826,21 @@ class TicketViewSet(viewsets.ModelViewSet):
             'avg_resolution_time': avg_resolution,
         })
 
-    # ── REST message history ────────────────────────────────────────────
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
-        """Return message history for the ticket (scoped by channel_type param).
-        Employees see only messages from their current assignment session.
-        Admins see all messages across all sessions."""
+        """Return message history for the ticket (scoped by channel_type param)."""
         ticket = self.get_object()
         user = request.user
 
-        # Verify participant
         if not (user.is_admin_level or ticket.assigned_to == user):
             return Response({'detail': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
 
         qs = Message.objects.filter(ticket=ticket).order_by('created_at')
 
-        # Filter by channel if specified
         channel = request.query_params.get('channel')
         if channel in ('admin_employee',):
             qs = qs.filter(channel_type=channel)
 
-        # Employees only see messages from their current assignment session
         if getattr(user, 'role', None) == User.ROLE_EMPLOYEE:
             if ticket.current_session:
                 qs = qs.filter(assignment_session=ticket.current_session)
@@ -888,7 +849,6 @@ class TicketViewSet(viewsets.ModelViewSet):
 
         return Response(MessageSerializer(qs, many=True).data)
 
-    # ── Assignment session history ────────────────────────────────────
     @action(detail=True, methods=['get'], url_path='assignment_history')
     def assignment_history(self, request, pk=None):
         """Return all assignment sessions for this ticket (admin/employee only)."""
@@ -900,7 +860,9 @@ class TicketViewSet(viewsets.ModelViewSet):
         return Response(AssignmentSessionSerializer(sessions, many=True).data)
 
 
-
+from ..models import TypeOfService
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view, permission_classes
 
 
 class TypeOfServiceViewSet(viewsets.ModelViewSet):
@@ -911,7 +873,7 @@ class TypeOfServiceViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]  # all roles need the dropdown
+            return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdminLevel()]
 
     def get_queryset(self):
@@ -941,9 +903,6 @@ class EscalationLogViewSet(viewsets.ReadOnlyModelViewSet):
         return EscalationLog.objects.none()
 
 
-from drf_yasg.utils import swagger_auto_schema
-
-
 @swagger_auto_schema(method='get', tags=['Employees'])
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -960,610 +919,7 @@ def list_employees(request):
         )
     ).order_by('active_ticket_count', 'first_name', 'last_name')
     data = UserSerializer(employees, many=True).data
-    # Attach ticket counts
     emp_counts = {e.id: e.active_ticket_count for e in employees}
     for d in data:
         d['active_ticket_count'] = emp_counts.get(d['id'], 0)
     return Response(data)
-
-
-class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    """Read-only viewset for audit logs.
-    - Superadmin sees audit logs of both admin and employee actors.
-    - Admin sees audit logs of employee actors only.
-    """
-    serializer_class = AuditLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminLevel]
-    swagger_tags = ['Audit Logs']
-
-    def _role_filtered_qs(self):
-        """Return base queryset filtered by the requesting user's role."""
-        qs = AuditLog.objects.all().order_by('-timestamp')
-        user = self.request.user
-        if user.role == User.ROLE_SUPERADMIN:
-            # Superadmin sees admin + employee logs (exclude superadmin's own & system)
-            qs = qs.filter(
-                Q(actor__role__in=[User.ROLE_ADMIN, User.ROLE_EMPLOYEE]) |
-                Q(actor__isnull=True)  # system-generated logs
-            )
-        elif user.role == User.ROLE_ADMIN:
-            # Admin sees only employee logs
-            qs = qs.filter(actor__role=User.ROLE_EMPLOYEE)
-        else:
-            qs = qs.none()
-        return qs
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return AuditLog.objects.none()
-        qs = self._role_filtered_qs()
-
-        # Filter by entity type
-        entity = self.request.query_params.get('entity')
-        if entity:
-            qs = qs.filter(entity=entity)
-
-        # Filter by action type
-        action_filter = self.request.query_params.get('action')
-        if action_filter:
-            qs = qs.filter(action=action_filter)
-
-        # Filter by actor email
-        actor_email = self.request.query_params.get('actor_email')
-        if actor_email:
-            qs = qs.filter(actor_email__icontains=actor_email)
-
-        # Search across activity text
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(activity__icontains=search) |
-                Q(actor_email__icontains=search) |
-                Q(entity__icontains=search)
-            )
-
-        # Filter by date range
-        date_from = self.request.query_params.get('date_from')
-        date_to = self.request.query_params.get('date_to')
-        if date_from:
-            qs = qs.filter(timestamp__date__gte=date_from)
-        if date_to:
-            qs = qs.filter(timestamp__date__lte=date_to)
-
-        return qs
-
-    @action(detail=False, methods=['get'])
-    def summary(self, request):
-        """Return audit log summary stats for dashboard cards."""
-        qs = self._role_filtered_qs()
-        total = qs.count()
-        by_entity = dict(qs.values_list('entity').annotate(c=Count('id')).values_list('entity', 'c'))
-        by_action = dict(qs.values_list('action').annotate(c=Count('id')).values_list('action', 'c'))
-
-        # Recent 24h count
-        last_24h = qs.filter(timestamp__gte=timezone.now() - timezone.timedelta(hours=24)).count()
-
-        return Response({
-            'total': total,
-            'last_24h': last_24h,
-            'by_entity': by_entity,
-            'by_action': by_action,
-        })
-
-    @action(detail=False, methods=['get'])
-    def export(self, request):
-        """Export audit logs as CSV."""
-        import csv, json
-        from django.http import HttpResponse as DjangoHttpResponse
-
-        qs = self.get_queryset().select_related('actor')
-        response = DjangoHttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="audit_logs_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-
-        writer = csv.writer(response)
-        writer.writerow(['Timestamp', 'Entity', 'Entity ID', 'Activity', 'Action', 'Actor Name', 'Actor Email', 'IP Address', 'Changes'])
-        for log in qs[:5000]:  # Limit export to 5000 rows
-            # Resolve actor name the same way the serializer does
-            actor_name = ''
-            if log.actor:
-                full = log.actor.get_full_name()
-                actor_name = full if full.strip() else log.actor.username
-            else:
-                actor_name = log.actor_email or 'System'
-
-            writer.writerow([
-                log.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                log.entity,
-                log.entity_id or '',
-                log.activity,
-                log.action,
-                actor_name,
-                log.actor_email,
-                log.ip_address or '',
-                json.dumps(log.changes) if log.changes else '',
-            ])
-
-        return response
-
-
-# ────────────────────────────────────────────
-# Knowledge Hub – Admin CRUD + Employee published view
-# ────────────────────────────────────────────
-
-class KnowledgeHubViewSet(viewsets.ModelViewSet):
-    """
-    Admin-side CRUD for proof attachments submitted through STF ticket forms.
-    • list      – all proof attachments with parent ticket context
-    • retrieve  – single attachment detail
-    • publish   – set title + description and mark as published
-    • unpublish – remove from employee Knowledge Hub
-    • update    – edit published title/description
-    • delete    – remove an attachment
-    """
-    serializer_class = KnowledgeHubAttachmentSerializer
-    permission_classes = [IsAuthenticated, IsAdminLevel]
-    swagger_tags = ['Knowledge Hub']
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return TicketAttachment.objects.none()
-
-        qs = TicketAttachment.objects.select_related(
-            'ticket', 'ticket__type_of_service', 'ticket__assigned_to',
-            'uploaded_by', 'published_by',
-        ).order_by('-uploaded_at')
-
-        # Only proof attachments by default; pass ?all=true to see everything
-        show_all = self.request.query_params.get('all', '').lower() in ('true', '1')
-        if not show_all:
-            qs = qs.filter(is_resolution_proof=True)
-
-        # Filter by published status
-        pub = self.request.query_params.get('published')
-        if pub is not None and pub != '':
-            qs = qs.filter(is_published=pub.lower() in ('true', '1'))
-
-        # Filter by archived status
-        archived = self.request.query_params.get('archived')
-        if archived is not None and archived != '':
-            qs = qs.filter(is_archived=archived.lower() in ('true', '1'))
-
-        # Filter by ticket STF number
-        stf = self.request.query_params.get('stf_no')
-        if stf:
-            qs = qs.filter(ticket__stf_no__icontains=stf)
-
-        # Filter by ticket status
-        ticket_status = self.request.query_params.get('ticket_status')
-        if ticket_status:
-            qs = qs.filter(ticket__status=ticket_status)
-
-        # Search across multiple fields
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(ticket__stf_no__icontains=search) |
-                Q(ticket__client__icontains=search) |
-                Q(ticket__description_of_problem__icontains=search) |
-                Q(published_title__icontains=search) |
-                Q(published_description__icontains=search) |
-                Q(file__icontains=search)
-            )
-
-        return qs
-
-    def partial_update(self, request, *args, **kwargs):
-        """Update published title/description on a proof attachment."""
-        instance = self.get_object()
-        title = request.data.get('published_title')
-        desc = request.data.get('published_description')
-        if title is not None:
-            instance.published_title = title
-        if desc is not None:
-            instance.published_description = desc
-        instance.save(update_fields=['published_title', 'published_description'])
-        return Response(self.get_serializer(instance).data)
-
-    @action(detail=True, methods=['post'])
-    def publish(self, request, pk=None):
-        """Publish an attachment to the employee Knowledge Hub."""
-        instance = self.get_object()
-        title = request.data.get('published_title', '').strip()
-        description = request.data.get('published_description', '').strip()
-        tags = request.data.get('published_tags', [])
-        if not title:
-            return Response({'detail': 'published_title is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        if not isinstance(tags, list):
-            tags = []
-        tags = [str(t).strip() for t in tags[:3] if str(t).strip()]
-        instance.is_published = True
-        instance.published_title = title
-        instance.published_description = description
-        instance.published_tags = tags
-        instance.published_by = request.user
-        instance.published_at = timezone.now()
-        instance.save(update_fields=[
-            'is_published', 'published_title', 'published_description',
-            'published_tags', 'published_by', 'published_at',
-        ])
-        return Response(self.get_serializer(instance).data)
-
-    @action(detail=True, methods=['post'])
-    def unpublish(self, request, pk=None):
-        """Remove an attachment from the employee Knowledge Hub."""
-        instance = self.get_object()
-        instance.is_published = False
-        instance.save(update_fields=['is_published'])
-        return Response(self.get_serializer(instance).data)
-
-    @action(detail=True, methods=['post'])
-    def archive(self, request, pk=None):
-        """Move an attachment to the archived section."""
-        instance = self.get_object()
-        instance.is_archived = True
-        instance.save(update_fields=['is_archived'])
-        return Response(self.get_serializer(instance).data)
-
-    @action(detail=True, methods=['post'])
-    def unarchive(self, request, pk=None):
-        """Restore an attachment from the archived section."""
-        instance = self.get_object()
-        instance.is_archived = False
-        instance.save(update_fields=['is_archived'])
-        return Response(self.get_serializer(instance).data)
-
-    @action(detail=False, methods=['get'])
-    def summary(self, request):
-        """Summary stats for the Knowledge Hub dashboard."""
-        qs = TicketAttachment.objects.select_related('ticket')
-        total = qs.filter(is_resolution_proof=True).count()
-        published_count = qs.filter(is_resolution_proof=True, is_published=True).count()
-        unpublished_count = total - published_count
-        archived_count = qs.filter(is_resolution_proof=True, is_archived=True).count()
-        by_status = dict(
-            qs.filter(is_resolution_proof=True)
-            .values_list('ticket__status')
-            .annotate(c=Count('id'))
-            .values_list('ticket__status', 'c')
-        )
-
-        return Response({
-            'total_proofs': total,
-            'published': published_count,
-            'unpublished': unpublished_count,
-            'archived': archived_count,
-            'by_ticket_status': by_status,
-        })
-
-
-class PublishedArticleViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    Employee-facing read-only endpoint: returns only published Knowledge Hub items.
-    Accessible by any authenticated user.
-    """
-    serializer_class = PublishedArticleSerializer
-    permission_classes = [IsAuthenticated]
-    swagger_tags = ['Knowledge Hub']
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return TicketAttachment.objects.none()
-
-        qs = TicketAttachment.objects.filter(
-            is_published=True,
-        ).select_related(
-            'ticket', 'uploaded_by', 'published_by',
-        ).order_by('-published_at')
-
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(published_title__icontains=search) |
-                Q(published_description__icontains=search)
-            )
-
-        return qs
-
-
-# ────────────────────────────────────────────
-# Product CRUD ViewSet
-# ────────────────────────────────────────────
-
-class CategoryViewSet(viewsets.ModelViewSet):
-    """CRUD for product categories. Admin manages, all authenticated can list."""
-    queryset = Category.objects.all().order_by('name')
-    serializer_class = CategorySerializer
-    swagger_tags = ['Categories']
-
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
-        return [IsAuthenticated(), IsAdminLevel()]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Category.objects.none()
-        qs = Category.objects.all().order_by('name')
-        if not self.request.user.is_admin_level:
-            qs = qs.filter(is_active=True)
-
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(name__icontains=search) |
-                Q(description__icontains=search)
-            )
-        return qs
-
-
-class ProductViewSet(viewsets.ModelViewSet):
-    """CRUD for global Product catalog. Admin manages, all authenticated can list."""
-    queryset = Product.objects.all().order_by('-created_at')
-    serializer_class = ProductSerializer
-    swagger_tags = ['Products']
-
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
-        return [IsAuthenticated(), IsAdminLevel()]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Product.objects.none()
-        qs = Product.objects.all().order_by('-created_at')
-        if not self.request.user.is_admin_level:
-            qs = qs.filter(is_active=True)
-
-        # Search
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(product_name__icontains=search) |
-                Q(brand__icontains=search) |
-                Q(model_name__icontains=search) |
-                Q(serial_no__icontains=search) |
-                Q(device_equipment__icontains=search) |
-                Q(sales_no__icontains=search)
-            )
-        return qs
-
-
-# ────────────────────────────────────────────
-# Client CRUD ViewSet
-# ────────────────────────────────────────────
-
-class ClientViewSet(viewsets.ModelViewSet):
-    """CRUD for Client master data. Admin manages, all authenticated can list."""
-    queryset = Client.objects.all().order_by('client_name')
-    serializer_class = ClientSerializer
-    swagger_tags = ['Clients']
-
-    def get_permissions(self):
-        if self.action in ['list', 'retrieve']:
-            return [IsAuthenticated()]
-        return [IsAuthenticated(), IsAdminLevel()]
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Client.objects.none()
-        qs = Client.objects.all().order_by('client_name')
-        if not self.request.user.is_admin_level:
-            qs = qs.filter(is_active=True)
-
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(client_name__icontains=search) |
-                Q(contact_person__icontains=search) |
-                Q(email_address__icontains=search) |
-                Q(department_organization__icontains=search)
-            )
-        return qs
-
-    @action(detail=True, methods=['get'])
-    def tickets(self, request, pk=None):
-        """Return all tickets linked to this client."""
-        client = self.get_object()
-        tickets = Ticket.objects.filter(
-            Q(client_record=client) | Q(client__iexact=client.client_name)
-        ).order_by('-created_at')
-        return Response(TicketSerializer(tickets, many=True, context={'request': request}).data)
-
-
-# ────────────────────────────────────────────
-# Call Log ViewSet
-# ────────────────────────────────────────────
-
-class CallLogViewSet(viewsets.ModelViewSet):
-    """CRUD for call logs. Admin creates, all admin-level can list."""
-    queryset = CallLog.objects.all().order_by('-call_start')
-    serializer_class = CallLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminLevel]
-    swagger_tags = ['Call Logs']
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return CallLog.objects.none()
-        qs = CallLog.objects.all().order_by('-call_start')
-
-        # Filter by ticket
-        ticket_id = self.request.query_params.get('ticket')
-        if ticket_id:
-            qs = qs.filter(ticket_id=ticket_id)
-
-        search = self.request.query_params.get('search')
-        if search:
-            qs = qs.filter(
-                Q(client_name__icontains=search) |
-                Q(phone_number__icontains=search) |
-                Q(notes__icontains=search)
-            )
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(admin=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def end_call(self, request, pk=None):
-        """End an active call (sets call_end to now)."""
-        call_log = self.get_object()
-        if call_log.call_end:
-            return Response({'detail': 'Call already ended.'}, status=status.HTTP_400_BAD_REQUEST)
-        call_log.call_end = timezone.now()
-        notes = request.data.get('notes')
-        if notes:
-            call_log.notes = notes
-        call_log.save()
-        return Response(CallLogSerializer(call_log).data)
-
-
-# ────────────────────────────────────────────
-# CSAT Feedback ViewSet
-# ────────────────────────────────────────────
-
-class CSATFeedbackViewSet(viewsets.ModelViewSet):
-    """Admin submits CSAT feedback on employee performance before closing a ticket."""
-    queryset = CSATFeedback.objects.all().order_by('-created_at')
-    serializer_class = CSATFeedbackSerializer
-    permission_classes = [IsAuthenticated, IsAdminLevel]
-    swagger_tags = ['CSAT Feedback']
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return CSATFeedback.objects.none()
-        qs = CSATFeedback.objects.all().order_by('-created_at')
-
-        ticket_id = self.request.query_params.get('ticket')
-        if ticket_id:
-            qs = qs.filter(ticket_id=ticket_id)
-
-        employee_id = self.request.query_params.get('employee')
-        if employee_id:
-            qs = qs.filter(employee_id=employee_id)
-
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(admin=self.request.user)
-
-
-# ────────────────────────────────────────────
-# Notification ViewSet
-# ────────────────────────────────────────────
-
-class NotificationViewSet(viewsets.ModelViewSet):
-    """Notifications for the authenticated user.
-
-    GET /notifications/          → list (most recent first)
-    GET /notifications/unread_count/ → {"count": N}
-    POST /notifications/mark_read/   → {"notification_ids": [1,2,3]}
-    POST /notifications/mark_all_read/ → marks everything as read
-    DELETE /notifications/<id>/  → delete single notification
-    POST /notifications/clear_all/ → delete all notifications for user
-    """
-    serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticated]
-    swagger_tags = ['Notifications']
-
-    def get_queryset(self):
-        if getattr(self, 'swagger_fake_view', False):
-            return Notification.objects.none()
-        return Notification.objects.filter(recipient=self.request.user).order_by('-created_at')
-
-    def list(self, request, *args, **kwargs):
-        qs = self.get_queryset()
-        # Optional filter
-        is_read = request.query_params.get('is_read')
-        if is_read is not None:
-            qs = qs.filter(is_read=is_read.lower() in ('true', '1', 'yes'))
-        serializer = self.get_serializer(qs[:100], many=True)  # Cap at 100
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['get'])
-    def unread_count(self, request):
-        count = Notification.objects.filter(recipient=request.user, is_read=False).count()
-        return Response({'count': count})
-
-    @action(detail=False, methods=['post'])
-    def mark_read(self, request):
-        ids = request.data.get('notification_ids', [])
-        if not ids:
-            return Response({'detail': 'notification_ids required.'}, status=status.HTTP_400_BAD_REQUEST)
-        updated = Notification.objects.filter(recipient=request.user, id__in=ids, is_read=False).update(is_read=True)
-        return Response({'updated': updated})
-
-    @action(detail=False, methods=['post'])
-    def mark_all_read(self, request):
-        updated = Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
-        return Response({'updated': updated})
-
-    @action(detail=False, methods=['post'])
-    def clear_all(self, request):
-        deleted, _ = Notification.objects.filter(recipient=request.user).delete()
-        return Response({'deleted': deleted})
-
-
-# ────────────────────────────────────────────
-# Retention Policy ViewSet
-# ────────────────────────────────────────────
-
-class RetentionPolicyViewSet(viewsets.ViewSet):
-    """Singleton retention policy — superadmin can view and update."""
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
-    swagger_tags = ['Retention Policy']
-
-    def list(self, request):
-        """Return the current retention policy."""
-        policy = RetentionPolicy.get_policy()
-        return Response(RetentionPolicySerializer(policy).data)
-
-    def create(self, request):
-        """Update the singleton retention policy (uses POST for simplicity)."""
-        policy = RetentionPolicy.get_policy()
-        serializer = RetentionPolicySerializer(policy, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(updated_by=request.user)
-        return Response(serializer.data)
-
-
-# ────────────────────────────────────────────
-# Announcement ViewSet
-# ────────────────────────────────────────────
-
-class AnnouncementViewSet(viewsets.ModelViewSet):
-    """
-    Superadmin: full CRUD.
-    Admin / Employee: list only (filtered by visibility & active date range).
-    """
-    serializer_class = AnnouncementSerializer
-    permission_classes = [IsAuthenticated]
-    swagger_tags = ['Announcements']
-
-    def get_queryset(self):
-        user = self.request.user
-        qs = Announcement.objects.all()
-
-        if user.role == 'superadmin':
-            return qs
-
-        # Non-superadmin users only see active announcements within date range
-        now = timezone.now()
-        qs = qs.filter(is_active=True, start_date__lte=now).filter(
-            Q(end_date__isnull=True) | Q(end_date__gte=now)
-        )
-
-        if user.role == 'admin':
-            return qs.filter(visibility__in=['all', 'admin'])
-        elif user.role == 'employee':
-            return qs.filter(visibility__in=['all', 'employee'])
-
-        return qs.none()
-
-    def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
-
-    def check_permissions(self, request):
-        super().check_permissions(request)
-        # Only superadmin can create/update/delete
-        if self.action not in ('list', 'retrieve') and request.user.role != 'superadmin':
-            self.permission_denied(request, message='Only superadmin can manage announcements.')
