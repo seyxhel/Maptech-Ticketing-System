@@ -18,6 +18,7 @@ class Product(models.Model):
     brand = models.CharField(max_length=300, blank=True, help_text='Brand (optional)')
     model_name = models.CharField(max_length=300, blank=True, help_text='Model (optional)')
     sales_no = models.CharField(max_length=200, blank=True, help_text='Sales/invoice number')
+    others = models.TextField(blank=True, help_text='Additional product details')
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

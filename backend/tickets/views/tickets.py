@@ -95,7 +95,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                         client_text['client_name'] = 'Unknown'
                     serializer.validated_data['client_record'] = Client.objects.create(**client_text)
 
-            # Extract write-only product text fields (no longer on the Ticket model)
+            # Extract write-only product text fields
             product_text = {
                 'product_name':     serializer.validated_data.pop('product', '') or '',
                 'brand':            serializer.validated_data.pop('brand', '') or '',
@@ -106,12 +106,18 @@ class TicketViewSet(viewsets.ModelViewSet):
                 'serial_no':        serializer.validated_data.pop('serial_no', '') or '',
                 'sales_no':         serializer.validated_data.pop('sales_no', '') or '',
                 'has_warranty':     serializer.validated_data.pop('has_warranty', False) or False,
+                'others':           serializer.validated_data.pop('others', '') or '',
             }
 
             # If no product_record linked and product data present, auto-create a Product record
             if not serializer.validated_data.get('product_record'):
                 if any(v for v in product_text.values() if v not in (None, '', False)):
                     serializer.validated_data['product_record'] = Product.objects.create(**product_text)
+
+            # Store product details directly on the ticket as well
+            for field, val in product_text.items():
+                if val not in (None, '', False):
+                    serializer.validated_data[field] = val
 
             ticket = serializer.save(created_by=user)
 
@@ -157,27 +163,19 @@ class TicketViewSet(viewsets.ModelViewSet):
                 'version_no': 'version_no',
                 'date_purchased': 'date_purchased',
                 'serial_no': 'serial_no',
+                'others': 'others',
             }
             ticket_fields = ['action_taken', 'remarks', 'job_status']
 
-            product_data = {}
-            for ticket_field, product_attr in product_field_map.items():
-                val = serializer.validated_data.get(ticket_field)
+            for req_field, model_field in product_field_map.items():
+                val = serializer.validated_data.get(req_field)
                 if val not in (None, ''):
-                    product_data[product_attr] = val
+                    setattr(ticket, model_field, val)
 
             for field in ticket_fields:
                 val = serializer.validated_data.get(field)
                 if val not in (None, ''):
                     setattr(ticket, field, val)
-
-            if product_data:
-                if ticket.product_record:
-                    for attr, val in product_data.items():
-                        setattr(ticket.product_record, attr, val)
-                    ticket.product_record.save()
-                else:
-                    ticket.product_record = Product.objects.create(**product_data)
 
             if ticket.status == Ticket.STATUS_OPEN:
                 ticket.status = Ticket.STATUS_IN_PROGRESS
@@ -449,7 +447,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'])
     def save_product_details(self, request, pk=None):
-        """Employee saves product detail fields without changing ticket status."""
+        """Employee saves product detail fields directly on the ticket."""
         ticket = self.get_object()
         product_field_map = {
             'has_warranty': 'has_warranty',
@@ -461,20 +459,16 @@ class TicketViewSet(viewsets.ModelViewSet):
             'date_purchased': 'date_purchased',
             'serial_no': 'serial_no',
             'sales_no': 'sales_no',
+            'others': 'others',
         }
-        product_data = {}
-        for ticket_field, product_attr in product_field_map.items():
-            if ticket_field in request.data:
-                product_data[product_attr] = request.data[ticket_field]
 
-        changes = {k: v for k, v in request.data.items() if k in product_field_map}
-        if product_data:
-            if ticket.product_record:
-                for attr, val in product_data.items():
-                    setattr(ticket.product_record, attr, val)
-                ticket.product_record.save()
-            else:
-                ticket.product_record = Product.objects.create(**product_data)
+        changes = {}
+        for req_field, model_field in product_field_map.items():
+            if req_field in request.data:
+                setattr(ticket, model_field, request.data[req_field])
+                changes[req_field] = request.data[req_field]
+
+        if changes:
             ticket.save()
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
@@ -496,28 +490,20 @@ class TicketViewSet(viewsets.ModelViewSet):
             'version_no': 'version_no',
             'date_purchased': 'date_purchased',
             'serial_no': 'serial_no',
+            'others': 'others',
         }
         ticket_allowed = [
             'action_taken', 'remarks', 'job_status',
             'cascade_type', 'observation', 'signature', 'signed_by_name',
         ]
 
-        product_data = {}
-        for ticket_field, product_attr in product_field_map.items():
-            if ticket_field in request.data:
-                product_data[product_attr] = request.data[ticket_field]
+        for req_field, model_field in product_field_map.items():
+            if req_field in request.data:
+                setattr(ticket, model_field, request.data[req_field])
 
         for field in ticket_allowed:
             if field in request.data:
                 setattr(ticket, field, request.data[field])
-
-        if product_data:
-            if ticket.product_record:
-                for attr, val in product_data.items():
-                    setattr(ticket.product_record, attr, val)
-                ticket.product_record.save()
-            else:
-                ticket.product_record = Product.objects.create(**product_data)
 
         old_status = ticket.status
 

@@ -11,5 +11,5 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'category', 'category_detail', 'device_equipment', 'version_no', 'date_purchased',
             'serial_no', 'has_warranty', 'product_name', 'brand',
-            'model_name', 'sales_no', 'is_active', 'created_at', 'updated_at',
+            'model_name', 'sales_no', 'others', 'is_active', 'created_at', 'updated_at',
         ]

@@ -1,13 +1,6 @@
-# Tickets Frontend
+# Maptech Frontend UI
 
-Frontend using Vite + React + TypeScript.
+## Getting Started
 
-Install and run:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The dev server proxies `/api` to `http://localhost:8000` by default.
+1. Run `npm install`
+2. Run `npm run dev`

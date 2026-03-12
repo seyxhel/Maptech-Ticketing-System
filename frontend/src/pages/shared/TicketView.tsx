@@ -246,7 +246,7 @@ export function TicketView() {
           designation: btData.designation || 'N/A',
           preferredSupport: ({'remote_online':'Remote / Online','onsite':'Onsite','chat':'Chat','call':'Call'} as Record<string,string>)[btData.preferred_support_type] || btData.preferred_support_type || 'N/A',
           typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
-          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty || btData.sales_no) ? {
+          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty || btData.sales_no || btData.others) ? {
             deviceEquipment: btData.device_equipment || '',
             versionNo: btData.version_no || '',
             datePurchased: btData.date_purchased || '',
@@ -256,6 +256,7 @@ export function TicketView() {
             brand: btData.brand || '',
             model: btData.model_name || '',
             salesNo: btData.sales_no || '',
+            others: btData.others || '',
           } : null,
           actionTaken: btData.action_taken || '',
           remarks: btData.remarks || '',
@@ -295,7 +296,7 @@ export function TicketView() {
         designation: '',
         preferredSupport: '',
         typeOfService: '',
-        productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string; salesNo?: string } | null,
+        productDetails: null as { deviceEquipment: string; versionNo: string; datePurchased: string; serialNo: string; warranty: string; product?: string; brand?: string; model?: string; salesNo?: string; others?: string } | null,
         actionTaken: '',
         remarks: '',
         jobStatus: '',
@@ -685,6 +686,7 @@ export function TicketView() {
   const [pdSalesNo, setPdSalesNo] = useState('');
   const [pdDatePurchased, setPdDatePurchased] = useState('');
   const [pdHasWarranty, setPdHasWarranty] = useState(false);
+  const [pdOthers, setPdOthers] = useState('');
 
   // ── Product catalog dropdown ──
   const [productCatalog, setProductCatalog] = useState<Product[]>([]);
@@ -707,6 +709,7 @@ export function TicketView() {
     setPdSerialNo(product.serial_no || '');
     setPdDatePurchased(product.date_purchased || '');
     setPdHasWarranty(product.has_warranty ?? false);
+    setPdOthers(product.others || '');
   };
 
   // Sync form state when backend data loads or updates
@@ -724,6 +727,7 @@ export function TicketView() {
       setPdSalesNo(btData.sales_no || '');
       setPdDatePurchased(btData.date_purchased || '');
       setPdHasWarranty(btData.has_warranty ?? false);
+      setPdOthers(btData.others || '');
       setObservation(btData.observation || '');
       setSignatureData(btData.signature || null);
       setSignedByName(btData.signed_by_name || '');
@@ -767,6 +771,7 @@ export function TicketView() {
         sales_no: pdSalesNo,
         date_purchased: pdDatePurchased || null,
         has_warranty: pdHasWarranty,
+        others: pdOthers,
       });
       setBtData(updated);
       toast.success('Product details saved successfully.');
@@ -1083,6 +1088,7 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Serial No:</span><span class="info-value">${pd.serialNo}</span></div>
         <div class="info-row"><span class="info-label">Warranty:</span><span class="info-value">${pd.warranty}</span></div>
         <div class="info-row"><span class="info-label">Date Purchased:</span><span class="info-value">${pd.datePurchased}</span></div>
+        ${pd.others ? `<div class="info-row"><span class="info-label">Others:</span><span class="info-value">${pd.others}</span></div>` : ''}
       </div>` : ''}
       ${(ticket.actionTaken || ticket.remarks || ticket.jobStatus || ticket.timeIn !== 'N/A') ? `<h2>Work Details</h2>
       <div class="info-grid">
@@ -1250,6 +1256,7 @@ export function TicketView() {
         detailRow(R, 'Product', pd.product ?? '', 'Model', pd.model ?? ''); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Version No', pd.versionNo, 'Serial No', pd.serialNo); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Warranty', pd.warranty, 'Date Purchased', pd.datePurchased); rowHeights[R] = { hpt: 22 }; R++;
+        if (pd.others) { detailRow(R, 'Others', pd.others); rowHeights[R] = { hpt: Math.max(22, Math.ceil(pd.others.length / 40) * 14) }; R++; }
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
@@ -1592,7 +1599,7 @@ export function TicketView() {
                 <Package className="w-4 h-4" /> Product Details
                 {canEdit && <span className="text-[10px] font-normal normal-case text-gray-400">(fill in after assignment)</span>}
               </h3>
-              {canEdit && !ticket.productDetails && (
+              {canEdit && (
                 <div className="mb-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Select Product</div>
                   <select
@@ -1714,9 +1721,18 @@ export function TicketView() {
                     <div className="text-gray-900 dark:text-gray-100">{pdHasWarranty ? 'With Warranty' : 'Without Warranty'}</div>
                   )}
                 </div>
+                {/* Others */}
+                <div className="col-span-2">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Others</div>
+                  {canEdit ? (
+                    <textarea value={pdOthers} onChange={(e) => setPdOthers(e.target.value)} placeholder="Additional product details" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] resize-vertical" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdOthers || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
               </div>
               {/* Save Product Details button (employee only) */}
-              {canEdit && !ticket.productDetails && (
+              {canEdit && (
                 <button
                   type="button"
                   disabled={savingProductDetails}

@@ -100,6 +100,18 @@ class Ticket(models.Model):
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, blank=True, default='')
     confirmed_by_admin = models.BooleanField(default=False)
 
+    # ---- Product detail fields (per-ticket snapshot) ----
+    product_name = models.CharField(max_length=300, blank=True, default='')
+    brand = models.CharField(max_length=300, blank=True, default='')
+    model_name = models.CharField(max_length=300, blank=True, default='')
+    device_equipment = models.CharField(max_length=300, blank=True, default='')
+    version_no = models.CharField(max_length=100, blank=True, default='')
+    date_purchased = models.DateField(null=True, blank=True)
+    serial_no = models.CharField(max_length=200, blank=True, default='')
+    sales_no = models.CharField(max_length=200, blank=True, default='')
+    has_warranty = models.BooleanField(default=False)
+    others = models.TextField(blank=True, default='')
+
     # ---- Client-set fields (support preference & problem) ----
     preferred_support_type = models.CharField(max_length=20, choices=SUPPORT_TYPE_CHOICES, blank=True, default='')
     description_of_problem = models.TextField(blank=True)

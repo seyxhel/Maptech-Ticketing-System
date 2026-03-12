@@ -78,43 +78,9 @@ class TicketSerializer(serializers.ModelSerializer):
     def get_email_address(self, obj):
         return obj.client_record.email_address if obj.client_record else ''
 
-    # ── Product fields: read-only virtual fields from product_record FK ──
-    has_warranty = serializers.SerializerMethodField()
-    product = serializers.SerializerMethodField()
-    brand = serializers.SerializerMethodField()
-    model_name = serializers.SerializerMethodField()
-    device_equipment = serializers.SerializerMethodField()
-    version_no = serializers.SerializerMethodField()
-    date_purchased = serializers.SerializerMethodField()
-    serial_no = serializers.SerializerMethodField()
-    sales_no = serializers.SerializerMethodField()
-
-    def get_has_warranty(self, obj):
-        return obj.product_record.has_warranty if obj.product_record else False
-
-    def get_product(self, obj):
-        return obj.product_record.product_name if obj.product_record else ''
-
-    def get_brand(self, obj):
-        return obj.product_record.brand if obj.product_record else ''
-
-    def get_model_name(self, obj):
-        return obj.product_record.model_name if obj.product_record else ''
-
-    def get_device_equipment(self, obj):
-        return obj.product_record.device_equipment if obj.product_record else ''
-
-    def get_version_no(self, obj):
-        return obj.product_record.version_no if obj.product_record else ''
-
-    def get_date_purchased(self, obj):
-        return obj.product_record.date_purchased if obj.product_record else None
-
-    def get_serial_no(self, obj):
-        return obj.product_record.serial_no if obj.product_record else ''
-
-    def get_sales_no(self, obj):
-        return obj.product_record.sales_no if obj.product_record else ''
+    # ── Product fields: now stored directly on the Ticket model ──
+    # 'product' is an alias for the model's product_name field
+    product = serializers.CharField(source='product_name', required=False, allow_blank=True, default='')
 
     # Role-based writable fields
     TICKET_FIELDS = {
@@ -122,6 +88,11 @@ class TicketSerializer(serializers.ModelSerializer):
         'preferred_support_type', 'description_of_problem',
         'priority', 'client_record', 'product_record',
         'estimated_resolution_days_override',
+    }
+    PRODUCT_FIELDS = {
+        'product_name', 'brand', 'model_name', 'device_equipment',
+        'version_no', 'date_purchased', 'serial_no', 'sales_no',
+        'has_warranty', 'others',
     }
     EMPLOYEE_FIELDS = {
         'action_taken', 'remarks', 'job_status',
@@ -142,7 +113,7 @@ class TicketSerializer(serializers.ModelSerializer):
             'priority', 'confirmed_by_admin',
             'preferred_support_type', 'description_of_problem',
             'has_warranty', 'product', 'brand', 'model_name',
-            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no',
+            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others',
             'action_taken', 'remarks',
             'job_status',
             'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',

@@ -35,6 +35,7 @@ const EMPTY_FORM = {
   date_purchased: '',
   has_warranty: false,
   is_active: true,
+  others: '',
 };
 
 export default function Products() {
@@ -110,6 +111,7 @@ export default function Products() {
       has_warranty: product.has_warranty,
       is_active: product.is_active,
       device_equipment_id: product.category || '',
+      others: product.others || '',
     });
     setFieldErrors({});
     setIsModalOpen(true);
@@ -151,6 +153,7 @@ export default function Products() {
         has_warranty: formData.has_warranty,
         is_active: formData.is_active,
         category: formData.device_equipment_id ? Number(formData.device_equipment_id) : null,
+        others: formData.others.trim(),
       };
 
       const selectedDevice = formData.device_equipment_id
@@ -425,6 +428,12 @@ export default function Products() {
                   <input type="date" value={formData.date_purchased} onChange={(e) => setFormData({ ...formData, date_purchased: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.date_purchased ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} />
                   {fieldErrors.date_purchased && <p className="mt-1 text-xs text-red-500">{fieldErrors.date_purchased}</p>}
                 </div>
+              </div>
+
+              {/* Others */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Others</label>
+                <textarea value={formData.others} onChange={(e) => setFormData({ ...formData, others: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] resize-vertical" placeholder="Additional product details" />
               </div>
 
               {/* Warranty toggle */}
