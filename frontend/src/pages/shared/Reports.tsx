@@ -47,7 +47,7 @@ export function Reports() {
   // ── Computed stat values (shared by both export paths) ──
   const totalTicketsVal = stats?.total ?? (tickets ? tickets.length : 0);
   const resolvedVal = stats?.pending_closure ?? (tickets ? tickets.filter((t) => ['pending_closure', 'closed', 'resolved'].includes(t.status)).length : 0);
-  const avgResVal = stats?.avg_resolution_time ? `${Math.round(stats.avg_resolution_time)}h` : 'N/A';
+  const avgResVal = stats?.avg_resolution_time != null ? `${Math.round(stats.avg_resolution_time)}h` : 'N/A';
   const slaComplianceVal = slaData.length ? `${Math.round(slaData.reduce((s, x) => s + x.withinSla, 0) / slaData.length)}%` : 'N/A';
 
   const handleExportPDF = () => {

@@ -52,7 +52,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
   }, []);
 
   const inProgressCount = stats?.in_progress ?? tickets.filter((t) => t.status === 'In Progress').length;
-  const avgResolution = stats?.avg_resolution_time != null ? `${stats.avg_resolution_time.toFixed(1)}h` : 'N/A';
+  const avgResolution = stats?.avg_resolution_time != null ? `${stats.avg_resolution_time.toFixed(1)}h` : '0h';
 
   if (loading) {
     return (

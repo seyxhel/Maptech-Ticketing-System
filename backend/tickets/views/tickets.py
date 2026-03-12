@@ -792,7 +792,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         pending = by_status.get(Ticket.STATUS_PENDING_CLOSURE, 0)
 
         closed_with_times = qs.filter(status=Ticket.STATUS_CLOSED, time_in__isnull=False, time_out__isnull=False)
-        avg_resolution = None
+        avg_resolution = 0
         if closed_with_times.exists():
             durations = closed_with_times.annotate(
                 duration=ExpressionWrapper(F('time_out') - F('time_in'), output_field=DurationField())
