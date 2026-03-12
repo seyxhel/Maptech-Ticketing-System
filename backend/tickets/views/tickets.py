@@ -809,7 +809,7 @@ class TicketViewSet(viewsets.ModelViewSet):
             'closed': closed,
             'escalated': escalated,
             'pending': pending,
-            'avg_resolution_time': avg_resolution,
+            'avg_resolution_hours': avg_resolution,
         })
 
     @action(detail=True, methods=['get'])
