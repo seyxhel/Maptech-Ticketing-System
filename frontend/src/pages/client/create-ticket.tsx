@@ -36,7 +36,7 @@ export default function CreateTicket() {
     const day = String(d.getDate()).padStart(2, '0');
     const yyyymmdd = `${y}${m}${day}`;
     const suffix = String(Math.floor(Math.random() * 900000) + 100000); // 6 digits
-    return `STF-MP-${yyyymmdd}${suffix}`;
+    return `STF-MT-${yyyymmdd}${suffix}`;
   };
   const [stfNo] = useState(getStfNo);
   const navigate = useNavigate();

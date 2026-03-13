@@ -193,10 +193,10 @@ class Ticket(models.Model):
 
     @staticmethod
     def _generate_stf_no():
-        """Generate STF-MP-YYYYMMDDXXXXXX where XXXXXX is zero-padded sequence."""
+        """Generate STF-MT-YYYYMMDDXXXXXX where XXXXXX is zero-padded sequence."""
         today = timezone.now()
         date_str = today.strftime('%Y%m%d')
-        prefix = f'STF-MP-{date_str}'
+        prefix = f'STF-MT-{date_str}'
         last = Ticket.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
         if last:
             try:
