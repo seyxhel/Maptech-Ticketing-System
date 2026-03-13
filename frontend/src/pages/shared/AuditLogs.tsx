@@ -579,7 +579,7 @@ export function AuditLogs() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-gray-900 dark:bg-gray-700 text-white rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Shield className="w-4 h-4 opacity-70" />
@@ -662,7 +662,7 @@ export function AuditLogs() {
 
         {/* Expanded Filters */}
         {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                 Entity
@@ -718,7 +718,7 @@ export function AuditLogs() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full min-w-[980px] text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
                 <th className="px-4 py-4 font-semibold">Time</th>
@@ -782,10 +782,10 @@ export function AuditLogs() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col">
-                        <span className="text-gray-900 dark:text-gray-100 text-sm font-medium truncate max-w-[160px]" title={log.actor_name}>
+                        <span className="text-gray-900 dark:text-gray-100 text-sm font-medium truncate max-w-[120px] sm:max-w-[180px]" title={log.actor_name}>
                           {log.actor_name}
                         </span>
-                        <span className="text-gray-400 dark:text-gray-500 text-xs truncate max-w-[160px]" title={log.actor_email}>
+                        <span className="text-gray-400 dark:text-gray-500 text-xs truncate max-w-[120px] sm:max-w-[180px]" title={log.actor_email}>
                           {log.actor_email}
                         </span>
                       </div>
@@ -811,7 +811,7 @@ export function AuditLogs() {
 
         {/* Pagination */}
         {!loading && logs.length > 0 && (
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
             <span className="text-sm text-gray-500 dark:text-gray-400">
               Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, logs.length)} of {logs.length} logs
             </span>
@@ -864,7 +864,7 @@ export function AuditLogs() {
       {selectedLog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#63D44A]/10 to-[#0E8F79]/10 dark:from-[#63D44A]/5 dark:to-[#0E8F79]/5">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-[#63D44A]/10 to-[#0E8F79]/10 dark:from-[#63D44A]/5 dark:to-[#0E8F79]/5">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Audit Log Details</h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Log #{selectedLog.id}</p>
@@ -876,8 +876,8 @@ export function AuditLogs() {
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-            <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="px-4 sm:px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Timestamp</p>
                   <p className="text-sm text-gray-900 dark:text-gray-100">{formatDate(selectedLog.timestamp)}</p>
@@ -924,7 +924,7 @@ export function AuditLogs() {
                 </div>
               )}
             </div>
-            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
               <button
                 onClick={() => setSelectedLog(null)}
                 className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"

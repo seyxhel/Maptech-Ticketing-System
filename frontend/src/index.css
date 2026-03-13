@@ -15,6 +15,7 @@
   }
   body {
     @apply bg-gray-50 text-gray-900 transition-colors duration-200;
+    overflow-x: hidden;
   }
   html.dark body {
     @apply bg-gray-950 text-gray-100;
@@ -23,6 +24,18 @@
     color-scheme: dark;
   }
 }
+
+#root {
+  min-height: 100vh;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -37,4 +50,10 @@ html.dark ::-webkit-scrollbar-thumb { background: #374151; }
   background: linear-gradient(135deg, #63D44A 0%, #0E8F79 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+@media (max-width: 640px) {
+  .overflow-x-auto > table {
+    min-width: 700px;
+  }
 }

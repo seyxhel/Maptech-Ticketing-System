@@ -503,7 +503,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
           </p>
@@ -556,7 +556,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700">
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">Attachment Details</h2>
                 <p className="text-sm text-[#0E8F79] font-medium">{selected.stf_no}</p>
@@ -570,7 +570,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 space-y-5">
+            <div className="p-4 sm:p-5 space-y-5">
               {/* Preview */}
               <div className="rounded-xl overflow-hidden bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
                 {isImageFile(selected.file) ? (
@@ -601,7 +601,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
               </div>
 
               {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DetailRow label="File Name" value={getFileName(selected.file)} />
                 <DetailRow label="STF Number" value={selected.stf_no} />
                 <DetailRow label="Client" value={selected.client || '—'} />
@@ -642,7 +642,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
               )}
 
               {/* Actions */}
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
                 <a
                   href={selected.file}
                   target="_blank"
@@ -703,7 +703,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
           onClick={() => setPublishTarget(null)}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-gray-700">

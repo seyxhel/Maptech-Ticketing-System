@@ -1115,6 +1115,12 @@ export function TicketView() {
     if (!btData) return;
     const dateTag = new Date().toISOString().slice(0, 10);
     const pd = ticket.productDetails;
+    const ticketIdValue = ticket.id || 'N/A';
+    const jobStatusValue = ticket.jobStatus || 'N/A';
+    const signedByValue = ticket.signedByName || 'N/A';
+    const signatureHtml = ticket.signature
+      ? `<img src="${ticket.signature}" alt="Signature" style="max-height:62px;max-width:220px;border:1px solid #d1fae5;border-radius:6px;background:#ffffff;padding:4px;object-fit:contain;" />`
+      : '<span class="info-value">N/A</span>';
     const escLogs = btData.escalation_logs || [];
     const atts = btData.attachments || [];
     const body = `
@@ -1126,6 +1132,7 @@ export function TicketView() {
       </div>
       <h2>Client Information</h2>
       <div class="info-grid">
+        <div class="info-row"><span class="info-label">Ticket ID:</span><span class="info-value">${ticketIdValue}</span></div>
         <div class="info-row"><span class="info-label">Client:</span><span class="info-value">${ticket.client}</span></div>
         <div class="info-row"><span class="info-label">Contact Person:</span><span class="info-value">${ticket.contact}</span></div>
         <div class="info-row"><span class="info-label">Email:</span><span class="info-value">${ticket.emailAddress}</span></div>
@@ -1147,11 +1154,12 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Serial No:</span><span class="info-value">${pd.serialNo}</span></div>
         <div class="info-row"><span class="info-label">Warranty:</span><span class="info-value">${pd.warranty}</span></div>
         <div class="info-row"><span class="info-label">Date Purchased:</span><span class="info-value">${pd.datePurchased}</span></div>
-        ${pd.others ? `<div class="info-row"><span class="info-label">Others:</span><span class="info-value">${pd.others}</span></div>` : ''}
+        <div class="info-row"><span class="info-label">Sales / Invoice No:</span><span class="info-value">${pd.salesNo || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Others:</span><span class="info-value">${pd.others || 'N/A'}</span></div>
       </div>` : ''}
-      ${(ticket.actionTaken || ticket.remarks || ticket.jobStatus || ticket.timeIn !== 'N/A') ? `<h2>Work Details</h2>
+      <h2>Work Details</h2>
       <div class="info-grid">
-        <div class="info-row"><span class="info-label">Job Status:</span><span class="info-value">${ticket.jobStatus}</span></div>
+        <div class="info-row"><span class="info-label">Job Status:</span><span class="info-value">${jobStatusValue}</span></div>
         <div class="info-row"><span class="info-label">Progress:</span><span class="info-value">${ticket.progressPercentage}%</span></div>
         <div class="info-row"><span class="info-label">Time In:</span><span class="info-value">${ticket.timeIn}</span></div>
         <div class="info-row"><span class="info-label">Time Out:</span><span class="info-value">${ticket.timeOut}</span></div>
@@ -1159,7 +1167,8 @@ export function TicketView() {
       ${ticket.actionTaken ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Action Taken:</span><span class="info-value">${ticket.actionTaken}</span></div>` : ''}
       ${ticket.remarks ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Remarks:</span><span class="info-value">${ticket.remarks}</span></div>` : ''}
       ${ticket.observation ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Observation:</span><span class="info-value">${ticket.observation}</span></div>` : ''}
-      ${ticket.signedByName ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signed By:</span><span class="info-value">${ticket.signedByName}</span></div>` : ''}` : ''}
+      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signed By:</span><span class="info-value">${signedByValue}</span></div>
+      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signature:</span><span class="info-value">${signatureHtml}</span></div>
       ${escLogs.length > 0 ? `<h2>Escalation History</h2>
       <table><thead><tr><th>Date</th><th>From</th><th>To</th><th>Type</th><th>Notes</th></tr></thead>
       <tbody>${escLogs.map((esc: any) => `<tr><td>${esc.created_at ? new Date(esc.created_at).toLocaleString() : ''}</td><td>${esc.from_user_name || ''}</td><td>${esc.to_user_name || esc.external_escalated_to || ''}</td><td>${esc.cascade_type || ''}</td><td>${esc.notes || ''}</td></tr>`).join('')}</tbody></table>` : ''}
@@ -1186,6 +1195,10 @@ export function TicketView() {
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10);
       const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const ticketIdValue = String(ticket.id || 'N/A');
+      const jobStatusValue = ticket.jobStatus || 'N/A';
+      const signatureValue = ticket.signature ? 'Attached' : 'N/A';
+      const signedByValue = ticket.signedByName || 'N/A';
 
       // Color palette
       const C = {
@@ -1288,6 +1301,8 @@ export function TicketView() {
       rowHeights[R] = { hpt: 22 }; R++;
       detailRow(R, 'Support Type', ticket.preferredSupport);
       rowHeights[R] = { hpt: 22 }; R++;
+      detailRow(R, 'Ticket ID', ticketIdValue);
+      rowHeights[R] = { hpt: 22 }; R++;
 
       // Spacer
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
@@ -1320,29 +1335,26 @@ export function TicketView() {
         detailRow(R, 'Product', pd.product ?? '', 'Model', pd.model ?? ''); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Version No', pd.versionNo, 'Serial No', pd.serialNo); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Warranty', pd.warranty, 'Date Purchased', pd.datePurchased); rowHeights[R] = { hpt: 22 }; R++;
-        if (pd.others) { detailRow(R, 'Others', pd.others); rowHeights[R] = { hpt: Math.max(22, Math.ceil(pd.others.length / 40) * 14) }; R++; }
+        detailRow(R, 'Sales / Invoice No', pd.salesNo || 'N/A', 'Others', pd.others || 'N/A');
+        rowHeights[R] = { hpt: Math.max(22, Math.ceil((pd.others || '').length / 40) * 14) }; R++;
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
       // ─── WORK DETAILS ───
-      if (ticket.actionTaken || ticket.remarks || ticket.jobStatus || ticket.timeIn !== 'N/A') {
-        sectionHeader(R, 'WORK DETAILS'); R++;
-        detailRow(R, 'Job Status', ticket.jobStatus, 'Progress', `${ticket.progressPercentage}%`); rowHeights[R] = { hpt: 22 }; R++;
-        detailRow(R, 'Time In', ticket.timeIn, 'Time Out', ticket.timeOut); rowHeights[R] = { hpt: 22 }; R++;
-        if (ticket.actionTaken) {
-          detailRow(R, 'Action Taken', ticket.actionTaken); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.actionTaken.length / 40) * 14) }; R++;
-        }
-        if (ticket.remarks) {
-          detailRow(R, 'Remarks', ticket.remarks); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.remarks.length / 40) * 14) }; R++;
-        }
-        if (ticket.observation) {
-          detailRow(R, 'Observation', ticket.observation); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.observation.length / 40) * 14) }; R++;
-        }
-        if (ticket.signedByName) {
-          detailRow(R, 'Signed By', ticket.signedByName); rowHeights[R] = { hpt: 22 }; R++;
-        }
-        mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
+      sectionHeader(R, 'WORK DETAILS'); R++;
+      detailRow(R, 'Job Status', jobStatusValue, 'Progress', `${ticket.progressPercentage}%`); rowHeights[R] = { hpt: 22 }; R++;
+      detailRow(R, 'Time In', ticket.timeIn, 'Time Out', ticket.timeOut); rowHeights[R] = { hpt: 22 }; R++;
+      if (ticket.actionTaken) {
+        detailRow(R, 'Action Taken', ticket.actionTaken); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.actionTaken.length / 40) * 14) }; R++;
       }
+      if (ticket.remarks) {
+        detailRow(R, 'Remarks', ticket.remarks); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.remarks.length / 40) * 14) }; R++;
+      }
+      if (ticket.observation) {
+        detailRow(R, 'Observation', ticket.observation); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.observation.length / 40) * 14) }; R++;
+      }
+      detailRow(R, 'Signed By', signedByValue, 'Signature', signatureValue); rowHeights[R] = { hpt: 22 }; R++;
+      mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
       // ─── ESCALATION (if any) ───
       if (btData.escalation_logs && btData.escalation_logs.length > 0) {
@@ -1429,14 +1441,14 @@ export function TicketView() {
       ) : (
       <>
       {/* Back + Messages */}
-      <div className="mb-4 flex items-center justify-between sticky top-0 z-30 bg-gray-50 dark:bg-gray-950 py-2 -mx-1 px-1">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 bg-gray-50 dark:bg-gray-950 py-2 -mx-1 px-1">
         <div>
           <GreenButton variant="ghost" className="px-2 py-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </GreenButton>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
           {/* Employee or admin: escalate (internal or external) when not already escalated/closed/resolved */}
           {canProcessTicket && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && ticket.status !== 'Resolved' && (
             <button
@@ -1507,7 +1519,7 @@ export function TicketView() {
         <div className="lg:col-span-3">
           <Card>
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
                 <PriorityBadge priority={ticket.priority} />
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">{ticket.id}</h2>
@@ -1592,7 +1604,7 @@ export function TicketView() {
             )}
 
             {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Client</div>
                 <div className="text-gray-900 dark:text-gray-100">{ticket.client}</div>
@@ -1634,7 +1646,7 @@ export function TicketView() {
                 <div className="text-gray-900 dark:text-gray-100">{ticket.preferredSupport}</div>
               </div>
               {/* Description - Full Width */}
-              <div className="col-span-2 mt-2">
+              <div className="sm:col-span-2 mt-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Description</div>
                 <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
                   {ticket.description}
@@ -1680,7 +1692,7 @@ export function TicketView() {
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 {/* Device / Equipment */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Device / Equipment</div>
@@ -2009,7 +2021,7 @@ export function TicketView() {
             {uploadedAttachments.length > 0 && (
               <div className="mt-3 space-y-2">
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uploaded Files</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {uploadedAttachments.map((att) => (
                     <div key={att.id} className="relative group rounded-lg overflow-hidden border border-green-100 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
                       {att.type === 'screenshot' && att.url ? (
@@ -2317,7 +2329,7 @@ export function TicketView() {
           className={`fixed z-50 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
             chatExpanded
               ? 'right-4 bottom-4 top-4 left-4 lg:left-[calc(50%-24rem)] lg:right-4 lg:top-4 lg:bottom-4'
-              : 'right-6 bottom-6 w-[420px] max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-6rem)]'
+              : 'right-2 sm:right-6 bottom-2 sm:bottom-6 w-[calc(100vw-1rem)] sm:w-[420px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-3rem)] h-[70vh] sm:h-[600px] max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-6rem)]'
           }`}
         >
           {/* ── Chat Header ── */}
@@ -2415,7 +2427,7 @@ export function TicketView() {
             {chatMessages.length === 0 && (
               <div className="flex flex-col items-center text-center pt-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between supervisor and technical here.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[240px] sm:max-w-[200px]">Start the conversation between supervisor and technical here.</p>
               </div>
             )}
 
@@ -2525,7 +2537,7 @@ export function TicketView() {
                             >
                               {/* Attachments inside bubble */}
                               {m.attachments && m.attachments.length > 0 && (
-                                <div className={`${m.content ? '' : ''} ${m.attachments.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''}`}>
+                                <div className={`${m.content ? '' : ''} ${m.attachments.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 gap-0.5' : ''}`}>
                                   {m.attachments.map((att, ai) => {
                                     const attType = att.file_type?.startsWith('image') ? 'image' : att.file_type?.startsWith('video') ? 'video' : (att.file_type as string);
                                     if (attType === 'image') {
@@ -3245,7 +3257,7 @@ export function TicketView() {
               ) : (
               <div>
                 <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-2 uppercase tracking-wider">Escalation Type</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => { setEscalateType('internal'); setEscalateToErr(''); }}

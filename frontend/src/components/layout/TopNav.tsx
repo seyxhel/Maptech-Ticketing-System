@@ -141,10 +141,15 @@ export function TopNav({
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const badgeLabel = unreadCount > 99 ? '99+' : unreadCount > 0 ? String(unreadCount) : null;
+  const goToSettings = () => {
+    const rolePathMap: Record<string, string> = { 'Technical Staff': 'employee', SuperAdmin: 'superadmin', Admin: 'admin', Employee: 'employee', Client: 'client' };
+    const segment = rolePathMap[role] || role.toLowerCase();
+    onNavigate?.(`/${segment}/settings`);
+  };
 
   return (
     <>
-    <header className={`h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 ${isSidebarExpanded ? 'lg:left-64' : 'lg:left-20'} z-40 px-6 flex items-center justify-between shadow-sm transition-all duration-300`}>
+    <header className={`h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700/60 fixed top-0 right-0 left-0 ${isSidebarExpanded ? 'lg:left-64' : 'lg:left-20'} z-40 px-3 sm:px-4 lg:px-6 flex items-center justify-between shadow-sm transition-all duration-300`}>
       {/* Left: hamburger */}
       <div className="flex items-center gap-4">
         <button
@@ -156,7 +161,7 @@ export function TopNav({
       </div>
 
       {/* Right: dark toggle, notifications, user */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
         {/* Dark / Light toggle */}
         <button
           onClick={onToggleDark}
@@ -197,8 +202,8 @@ export function TopNav({
         </div>
 
         {/* User info */}
-        <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700 ml-1">
-          <div className="text-right hidden md:block">
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 border-l border-gray-200 dark:border-gray-700 ml-1 min-w-0">
+          <div className="text-right hidden lg:block min-w-0">
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-tight">
               {getDisplayName(authUser, role)}
             </p>
@@ -206,12 +211,14 @@ export function TopNav({
               {getRoleLabel(authUser, role)}
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#63D44A] to-[#0E8F79] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative">
-              {/* Initials always rendered as fallback */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <button
+              onClick={goToSettings}
+              className="w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[#63D44A] to-[#0E8F79] flex items-center justify-center text-white text-xs font-bold flex-shrink-0 relative hover:opacity-90"
+              title="Profile settings"
+              aria-label="Profile settings"
+            >
               {getInitials(authUser, role)}
-              {/* Photo overlaid on top; hides itself on error revealing initials.
-                  key forces remount when URL changes, so a previous onError display:none is cleared. */}
               {authUser?.profile_picture_url && (
                 <img
                   key={authUser.profile_picture_url}
@@ -221,14 +228,10 @@ export function TopNav({
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                 />
               )}
-            </div>
+            </button>
             <button
-              onClick={() => {
-                const rolePathMap: Record<string, string> = { 'Technical Staff': 'employee', SuperAdmin: 'superadmin', Admin: 'admin', Employee: 'employee', Client: 'client' };
-                const segment = rolePathMap[role] || role.toLowerCase();
-                onNavigate?.(`/${segment}/settings`);
-              }}
-              className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              onClick={goToSettings}
+              className="inline-flex p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Settings"
             >
               <Settings className="w-4 h-4" />

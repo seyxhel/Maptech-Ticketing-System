@@ -85,7 +85,7 @@ export default function EmployeeMyTickets() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Assigned Tickets</h1>
           <p className="text-gray-500 dark:text-gray-400">Tickets assigned to you</p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <div className="flex-1 md:w-72">
             <input
               placeholder="Search ticket id or issue..."
@@ -97,7 +97,7 @@ export default function EmployeeMyTickets() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="w-40 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none"
+            className="w-full sm:w-40 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm outline-none"
           >
             <option value="All">All Statuses</option>
             <option value="In Progress">In Progress</option>
@@ -110,7 +110,7 @@ export default function EmployeeMyTickets() {
       </div>
       <Card accent>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full min-w-[940px] text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
                 <th className="px-4 py-3">Ticket</th>

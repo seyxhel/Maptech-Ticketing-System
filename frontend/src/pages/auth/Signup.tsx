@@ -165,7 +165,7 @@ function PolicyModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-xl bg-gray-900 border border-gray-700 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-700">
           <h2 className="text-base font-semibold text-white">
             {step === 'privacy' ? 'Privacy Policy' : 'Terms and Conditions'}
           </h2>
@@ -178,13 +178,13 @@ function PolicyModal({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-6 py-4 custom-scrollbar"
+          className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 custom-scrollbar"
         >
           {step === 'privacy' ? PRIVACY_POLICY : TERMS_CONDITIONS}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-700">
+        <div className="flex flex-wrap items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-gray-700">
           {step === 'privacy' ? (
             <>
               <button
@@ -325,8 +325,8 @@ export function Signup() {
   const wrapperClass = "relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] transition-all";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] dark:bg-gray-950 flex items-center justify-center p-6">
-      <div className="w-full max-w-lg rounded-xl bg-gray-900 dark:bg-gray-900/90 border border-gray-800 shadow-xl p-8">
+    <div className="min-h-screen bg-[#0a0a0a] dark:bg-gray-950 flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-lg rounded-xl bg-gray-900 dark:bg-gray-900/90 border border-gray-800 shadow-xl p-5 sm:p-8">
         <div className="flex justify-center mb-6">
           <img src={LOGO_SRC} alt="Maptech" className="h-16 w-auto object-contain" />
         </div>
@@ -342,7 +342,7 @@ export function Signup() {
           )}
 
           {/* Name Row: First / Middle / Last */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">First Name <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
@@ -369,7 +369,7 @@ export function Signup() {
           </div>
 
           {/* Suffix + Phone Number row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Suffix</label>
               <div className={wrapperClass}>
@@ -397,7 +397,7 @@ export function Signup() {
           </div>
 
           {/* Username + Email row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Username <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
@@ -417,7 +417,7 @@ export function Signup() {
           </div>
 
           {/* Password + Confirm Password row */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Password <span className="text-red-400">*</span></label>
               <div className={wrapperClass}>
