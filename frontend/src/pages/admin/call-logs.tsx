@@ -401,7 +401,7 @@ export default function CallLogs() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-gray-900 dark:bg-gray-700 text-white rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Phone className="w-4 h-4 opacity-70" />
@@ -523,7 +523,7 @@ export default function CallLogs() {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full min-w-[950px] text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
                 <th className="px-4 py-4 font-semibold">Status</th>
@@ -589,7 +589,7 @@ export default function CallLogs() {
                           <div className="w-7 h-7 rounded-full bg-[#0E8F79]/10 flex items-center justify-center flex-shrink-0">
                             <User className="w-3.5 h-3.5 text-[#0E8F79]" />
                           </div>
-                          <span className="text-gray-900 dark:text-gray-100 text-sm font-medium truncate max-w-[120px]" title={log.admin_name}>
+                          <span className="text-gray-900 dark:text-gray-100 text-sm font-medium truncate max-w-[100px] sm:max-w-[140px]" title={log.admin_name}>
                             {log.admin_name || '—'}
                           </span>
                         </div>
@@ -645,8 +645,8 @@ export default function CallLogs() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of{' '}
               {filtered.length} records
             </p>

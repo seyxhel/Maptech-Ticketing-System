@@ -28,11 +28,11 @@ export function Card({
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#63D44A] to-[#0E8F79]" />
       }
       {title && (
-        <div className="px-6 pt-5 pb-0">
+        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-0">
           <h3 className="text-base font-semibold text-gray-900 dark:text-white">{title}</h3>
         </div>
       )}
-      <div className={noPadding ? '' : 'p-6'}>{children}</div>
+      <div className={noPadding ? '' : 'p-4 sm:p-6'}>{children}</div>
     </div>);
 
 }

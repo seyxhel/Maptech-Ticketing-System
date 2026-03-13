@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { useAuth } from '../../context/AuthContext';
@@ -25,6 +25,32 @@ export function Layout({
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const { user: authUser } = useAuth();
+
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [currentPage]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth < 1024) {
+      document.body.style.overflow = isSidebarOpen ? 'hidden' : '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isSidebarOpen]);
+
   return (
     <div className="min-h-screen bg-[#f8f9fa] dark:bg-gray-950 transition-colors duration-200">
       {/* Mobile overlay */}
@@ -45,6 +71,8 @@ export function Layout({
           currentPage={currentPage}
           navItems={navItems}
           onExpandChange={setIsSidebarExpanded}
+          isMobileOpen={isSidebarOpen}
+          onNavigateItem={() => setIsSidebarOpen(false)}
         />
 
       </div>
@@ -60,8 +88,8 @@ export function Layout({
           user={authUser}
           isSidebarExpanded={isSidebarExpanded} />
 
-        <main className="flex-1 p-6 mt-16 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-6">{children}</div>
+        <main className="flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6 mt-16 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto space-y-6 w-full">{children}</div>
         </main>
       </div>
     </div>);

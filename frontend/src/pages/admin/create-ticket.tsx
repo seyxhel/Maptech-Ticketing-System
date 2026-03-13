@@ -796,7 +796,7 @@ export default function AdminCreateTicket() {
                 {/* Priority selector */}
                 <div className={`${!callCompleted ? 'opacity-40 pointer-events-none' : ''}`}>
                   <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Priority Level {!callCompleted && <span className="text-xs font-normal text-gray-400 ml-1">(complete a call first)</span>}</p>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {[
                       { label: 'Low', color: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300', active: 'bg-blue-500 text-white border-blue-500 ring-2 ring-blue-300 dark:ring-blue-700' },
                       { label: 'Medium', color: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300', active: 'bg-yellow-500 text-white border-yellow-500 ring-2 ring-yellow-300 dark:ring-yellow-700' },
@@ -889,7 +889,7 @@ export default function AdminCreateTicket() {
                 </div>
 
                 {/* Ticket + Priority summary */}
-                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 flex gap-6 text-sm">
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6 text-sm">
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Ticket: </span>
                     <span className="font-bold text-gray-900 dark:text-white">{stfNo}</span>

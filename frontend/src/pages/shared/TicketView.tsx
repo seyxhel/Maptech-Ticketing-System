@@ -1383,14 +1383,14 @@ export function TicketView() {
       ) : (
       <>
       {/* Back + Messages */}
-      <div className="mb-4 flex items-center justify-between sticky top-0 z-30 bg-gray-50 dark:bg-gray-950 py-2 -mx-1 px-1">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-30 bg-gray-50 dark:bg-gray-950 py-2 -mx-1 px-1">
         <div>
           <GreenButton variant="ghost" className="px-2 py-2" onClick={() => navigate(-1)}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </GreenButton>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
           {/* Employee or admin: escalate (internal or external) when not already escalated/closed/resolved */}
           {canProcessTicket && ticket.status !== 'Closed' && ticket.status !== 'Escalated' && ticket.status !== 'Resolved' && (
             <button
@@ -1461,7 +1461,7 @@ export function TicketView() {
         <div className="lg:col-span-3">
           <Card>
             {/* Header */}
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-3">
                 <PriorityBadge priority={ticket.priority} />
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">{ticket.id}</h2>
@@ -1546,7 +1546,7 @@ export function TicketView() {
             )}
 
             {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Client</div>
                 <div className="text-gray-900 dark:text-gray-100">{ticket.client}</div>
@@ -1588,7 +1588,7 @@ export function TicketView() {
                 <div className="text-gray-900 dark:text-gray-100">{ticket.preferredSupport}</div>
               </div>
               {/* Description - Full Width */}
-              <div className="col-span-2 mt-2">
+              <div className="sm:col-span-2 mt-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Description</div>
                 <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
                   {ticket.description}
@@ -1634,7 +1634,7 @@ export function TicketView() {
                   </select>
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 {/* Device / Equipment */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Device / Equipment</div>
@@ -1963,7 +1963,7 @@ export function TicketView() {
             {uploadedAttachments.length > 0 && (
               <div className="mt-3 space-y-2">
                 <div className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uploaded Files</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {uploadedAttachments.map((att) => (
                     <div key={att.id} className="relative group rounded-lg overflow-hidden border border-green-100 dark:border-green-800 bg-green-50 dark:bg-green-900/10">
                       {att.type === 'screenshot' && att.url ? (
@@ -2227,7 +2227,7 @@ export function TicketView() {
           className={`fixed z-50 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
             chatExpanded
               ? 'right-4 bottom-4 top-4 left-4 lg:left-[calc(50%-24rem)] lg:right-4 lg:top-4 lg:bottom-4'
-              : 'right-6 bottom-6 w-[420px] max-w-[calc(100vw-3rem)] h-[600px] max-h-[calc(100vh-6rem)]'
+              : 'right-2 sm:right-6 bottom-2 sm:bottom-6 w-[calc(100vw-1rem)] sm:w-[420px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-3rem)] h-[70vh] sm:h-[600px] max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-6rem)]'
           }`}
         >
           {/* ── Chat Header ── */}
@@ -2325,7 +2325,7 @@ export function TicketView() {
             {chatMessages.length === 0 && (
               <div className="flex flex-col items-center text-center pt-4">
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">No messages yet</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[200px]">Start the conversation between supervisor and technical here.</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 max-w-[240px] sm:max-w-[200px]">Start the conversation between supervisor and technical here.</p>
               </div>
             )}
 
@@ -2435,7 +2435,7 @@ export function TicketView() {
                             >
                               {/* Attachments inside bubble */}
                               {m.attachments && m.attachments.length > 0 && (
-                                <div className={`${m.content ? '' : ''} ${m.attachments.length > 1 ? 'grid grid-cols-2 gap-0.5' : ''}`}>
+                                <div className={`${m.content ? '' : ''} ${m.attachments.length > 1 ? 'grid grid-cols-1 sm:grid-cols-2 gap-0.5' : ''}`}>
                                   {m.attachments.map((att, ai) => {
                                     const attType = att.file_type?.startsWith('image') ? 'image' : att.file_type?.startsWith('video') ? 'video' : (att.file_type as string);
                                     if (attType === 'image') {
@@ -3152,7 +3152,7 @@ export function TicketView() {
               ) : (
               <div>
                 <label className="block text-xs text-gray-500 dark:text-white/50 font-medium mb-2 uppercase tracking-wider">Escalation Type</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => { setEscalateType('internal'); setEscalateToErr(''); }}

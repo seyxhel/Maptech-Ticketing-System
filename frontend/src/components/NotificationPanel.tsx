@@ -180,14 +180,14 @@ export function NotificationPanel({
       />
       {/* Dropdown below bell */}
       <div
-        className="absolute right-0 top-full mt-2 w-96 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl flex flex-col max-h-[70vh] overflow-hidden z-50"
+        className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] max-w-[24rem] sm:w-96 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl flex flex-col max-h-[70vh] overflow-hidden z-50"
         role="dialog"
         aria-label="Notifications"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center justify-between px-3 sm:px-4 py-3 gap-2">
             <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
               <Bell className="w-4 h-4 text-[#0E8F79]" />
               Notifications
@@ -197,7 +197,7 @@ export function NotificationPanel({
                 </span>
               )}
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
@@ -220,7 +220,7 @@ export function NotificationPanel({
           </div>
 
           {/* Tabs: All / Unread */}
-          <div className="flex px-4 gap-1 pb-2">
+          <div className="flex px-3 sm:px-4 gap-1 pb-2 overflow-x-auto">
             <button
               onClick={() => setActiveTab('all')}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${

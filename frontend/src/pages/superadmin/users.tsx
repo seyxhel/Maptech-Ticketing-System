@@ -287,7 +287,7 @@ export default function UserManagement() {
       </div>
 
       {/* summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
         {
           label: 'Total Users',
@@ -320,7 +320,7 @@ export default function UserManagement() {
       {/* table card */}
       <Card accent>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-          <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg gap-1">
+          <div className="flex flex-wrap bg-gray-100 dark:bg-gray-700 p-1 rounded-lg gap-1 w-full md:w-auto">
             {(['All', 'Supervisor', 'Technical', 'Superadmin'] as const).map((tab) =>
             <button
               key={tab}
@@ -353,7 +353,7 @@ export default function UserManagement() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full min-w-[900px] text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
                 <th className="px-6 py-4 font-semibold">Full Name</th>
@@ -457,7 +457,7 @@ export default function UserManagement() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             Showing {filteredUsers.length} of {users.length} accounts
           </span>
@@ -468,7 +468,7 @@ export default function UserManagement() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                   {editingUser ? 'Edit Account' : 'Add New Account'}
@@ -486,8 +486,8 @@ export default function UserManagement() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSave} className="p-4 sm:p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                     Last Name <span className="text-red-500">*</span>
@@ -609,7 +609,7 @@ export default function UserManagement() {
       {recoveryKeyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
                   <Key className="w-4 h-4 text-green-500" />
@@ -626,7 +626,7 @@ export default function UserManagement() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
                 <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Important: Save this recovery key!</p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">This key is required to reset the password. Please provide it to the user and store it securely. It will not be shown again.</p>

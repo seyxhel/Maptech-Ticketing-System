@@ -24,7 +24,7 @@ export default function ClientDashboard() {
         <GreenButton onClick={() => navigate('/client/create-ticket')}>+ New Ticket</GreenButton>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         <StatCard title="Open Tickets" value="3" icon={Ticket} color="blue" />
         <StatCard title="In Progress" value="2" icon={Clock} color="orange" />
         <StatCard
@@ -42,7 +42,7 @@ export default function ClientDashboard() {
       </div>
 
       <Card accent>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             Recent Tickets
           </h3>
@@ -51,7 +51,7 @@ export default function ClientDashboard() {
           </GreenButton>
         </div>
         <div className="overflow-x-auto max-h-[340px] overflow-y-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full min-w-[820px] text-sm text-left">
             <thead className="text-xs text-gray-500 dark:text-gray-400 uppercase bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700 sticky top-0 z-10">
               <tr>
                 <th className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50">Ticket</th>

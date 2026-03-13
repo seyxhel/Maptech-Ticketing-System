@@ -8,7 +8,7 @@ interface SLATimerProps {
 export function SLATimer({ hoursRemaining, totalHours, status }: SLATimerProps) {
   if (status === 'Resolved' || status === 'Closed') {
     return (
-      <div className="flex flex-col gap-1 min-w-[90px]">
+      <div className="flex flex-col gap-1 min-w-[72px] sm:min-w-[90px]">
         <div className="flex items-center gap-1">
           <CheckCircle className="w-3 h-3 text-green-500" />
           <span className="text-xs font-bold text-green-600 dark:text-green-400">Done</span>
@@ -33,7 +33,7 @@ export function SLATimer({ hoursRemaining, totalHours, status }: SLATimerProps) 
   'text-yellow-600 dark:text-yellow-400' :
   'text-[#0E8F79] dark:text-green-400';
   return (
-    <div className="flex flex-col gap-1 min-w-[90px]">
+    <div className="flex flex-col gap-1 min-w-[72px] sm:min-w-[90px]">
       <div className="flex items-center gap-1">
         <Clock className={`w-3 h-3 ${textColor}`} />
         <span className={`text-xs font-bold ${textColor}`}>
