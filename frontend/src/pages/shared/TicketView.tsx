@@ -1057,6 +1057,12 @@ export function TicketView() {
     if (!btData) return;
     const dateTag = new Date().toISOString().slice(0, 10);
     const pd = ticket.productDetails;
+    const ticketIdValue = ticket.id || 'N/A';
+    const jobStatusValue = ticket.jobStatus || 'N/A';
+    const signedByValue = ticket.signedByName || 'N/A';
+    const signatureHtml = ticket.signature
+      ? `<img src="${ticket.signature}" alt="Signature" style="max-height:62px;max-width:220px;border:1px solid #d1fae5;border-radius:6px;background:#ffffff;padding:4px;object-fit:contain;" />`
+      : '<span class="info-value">N/A</span>';
     const escLogs = btData.escalation_logs || [];
     const atts = btData.attachments || [];
     const body = `
@@ -1068,6 +1074,7 @@ export function TicketView() {
       </div>
       <h2>Client Information</h2>
       <div class="info-grid">
+        <div class="info-row"><span class="info-label">Ticket ID:</span><span class="info-value">${ticketIdValue}</span></div>
         <div class="info-row"><span class="info-label">Client:</span><span class="info-value">${ticket.client}</span></div>
         <div class="info-row"><span class="info-label">Contact Person:</span><span class="info-value">${ticket.contact}</span></div>
         <div class="info-row"><span class="info-label">Email:</span><span class="info-value">${ticket.emailAddress}</span></div>
@@ -1089,11 +1096,12 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Serial No:</span><span class="info-value">${pd.serialNo}</span></div>
         <div class="info-row"><span class="info-label">Warranty:</span><span class="info-value">${pd.warranty}</span></div>
         <div class="info-row"><span class="info-label">Date Purchased:</span><span class="info-value">${pd.datePurchased}</span></div>
-        ${pd.others ? `<div class="info-row"><span class="info-label">Others:</span><span class="info-value">${pd.others}</span></div>` : ''}
+        <div class="info-row"><span class="info-label">Sales / Invoice No:</span><span class="info-value">${pd.salesNo || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Others:</span><span class="info-value">${pd.others || 'N/A'}</span></div>
       </div>` : ''}
-      ${(ticket.actionTaken || ticket.remarks || ticket.jobStatus || ticket.timeIn !== 'N/A') ? `<h2>Work Details</h2>
+      <h2>Work Details</h2>
       <div class="info-grid">
-        <div class="info-row"><span class="info-label">Job Status:</span><span class="info-value">${ticket.jobStatus}</span></div>
+        <div class="info-row"><span class="info-label">Job Status:</span><span class="info-value">${jobStatusValue}</span></div>
         <div class="info-row"><span class="info-label">Progress:</span><span class="info-value">${ticket.progressPercentage}%</span></div>
         <div class="info-row"><span class="info-label">Time In:</span><span class="info-value">${ticket.timeIn}</span></div>
         <div class="info-row"><span class="info-label">Time Out:</span><span class="info-value">${ticket.timeOut}</span></div>
@@ -1101,7 +1109,8 @@ export function TicketView() {
       ${ticket.actionTaken ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Action Taken:</span><span class="info-value">${ticket.actionTaken}</span></div>` : ''}
       ${ticket.remarks ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Remarks:</span><span class="info-value">${ticket.remarks}</span></div>` : ''}
       ${ticket.observation ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Observation:</span><span class="info-value">${ticket.observation}</span></div>` : ''}
-      ${ticket.signedByName ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signed By:</span><span class="info-value">${ticket.signedByName}</span></div>` : ''}` : ''}
+      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signed By:</span><span class="info-value">${signedByValue}</span></div>
+      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signature:</span><span class="info-value">${signatureHtml}</span></div>
       ${escLogs.length > 0 ? `<h2>Escalation History</h2>
       <table><thead><tr><th>Date</th><th>From</th><th>To</th><th>Type</th><th>Notes</th></tr></thead>
       <tbody>${escLogs.map((esc: any) => `<tr><td>${esc.created_at ? new Date(esc.created_at).toLocaleString() : ''}</td><td>${esc.from_user_name || ''}</td><td>${esc.to_user_name || esc.external_escalated_to || ''}</td><td>${esc.cascade_type || ''}</td><td>${esc.notes || ''}</td></tr>`).join('')}</tbody></table>` : ''}
@@ -1128,6 +1137,10 @@ export function TicketView() {
       const now = new Date();
       const dateStr = now.toISOString().slice(0, 10);
       const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      const ticketIdValue = String(ticket.id || 'N/A');
+      const jobStatusValue = ticket.jobStatus || 'N/A';
+      const signatureValue = ticket.signature ? 'Attached' : 'N/A';
+      const signedByValue = ticket.signedByName || 'N/A';
 
       // Color palette
       const C = {
@@ -1230,6 +1243,8 @@ export function TicketView() {
       rowHeights[R] = { hpt: 22 }; R++;
       detailRow(R, 'Support Type', ticket.preferredSupport);
       rowHeights[R] = { hpt: 22 }; R++;
+      detailRow(R, 'Ticket ID', ticketIdValue);
+      rowHeights[R] = { hpt: 22 }; R++;
 
       // Spacer
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
@@ -1262,29 +1277,26 @@ export function TicketView() {
         detailRow(R, 'Product', pd.product ?? '', 'Model', pd.model ?? ''); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Version No', pd.versionNo, 'Serial No', pd.serialNo); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Warranty', pd.warranty, 'Date Purchased', pd.datePurchased); rowHeights[R] = { hpt: 22 }; R++;
-        if (pd.others) { detailRow(R, 'Others', pd.others); rowHeights[R] = { hpt: Math.max(22, Math.ceil(pd.others.length / 40) * 14) }; R++; }
+        detailRow(R, 'Sales / Invoice No', pd.salesNo || 'N/A', 'Others', pd.others || 'N/A');
+        rowHeights[R] = { hpt: Math.max(22, Math.ceil((pd.others || '').length / 40) * 14) }; R++;
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
       // ─── WORK DETAILS ───
-      if (ticket.actionTaken || ticket.remarks || ticket.jobStatus || ticket.timeIn !== 'N/A') {
-        sectionHeader(R, 'WORK DETAILS'); R++;
-        detailRow(R, 'Job Status', ticket.jobStatus, 'Progress', `${ticket.progressPercentage}%`); rowHeights[R] = { hpt: 22 }; R++;
-        detailRow(R, 'Time In', ticket.timeIn, 'Time Out', ticket.timeOut); rowHeights[R] = { hpt: 22 }; R++;
-        if (ticket.actionTaken) {
-          detailRow(R, 'Action Taken', ticket.actionTaken); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.actionTaken.length / 40) * 14) }; R++;
-        }
-        if (ticket.remarks) {
-          detailRow(R, 'Remarks', ticket.remarks); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.remarks.length / 40) * 14) }; R++;
-        }
-        if (ticket.observation) {
-          detailRow(R, 'Observation', ticket.observation); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.observation.length / 40) * 14) }; R++;
-        }
-        if (ticket.signedByName) {
-          detailRow(R, 'Signed By', ticket.signedByName); rowHeights[R] = { hpt: 22 }; R++;
-        }
-        mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
+      sectionHeader(R, 'WORK DETAILS'); R++;
+      detailRow(R, 'Job Status', jobStatusValue, 'Progress', `${ticket.progressPercentage}%`); rowHeights[R] = { hpt: 22 }; R++;
+      detailRow(R, 'Time In', ticket.timeIn, 'Time Out', ticket.timeOut); rowHeights[R] = { hpt: 22 }; R++;
+      if (ticket.actionTaken) {
+        detailRow(R, 'Action Taken', ticket.actionTaken); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.actionTaken.length / 40) * 14) }; R++;
       }
+      if (ticket.remarks) {
+        detailRow(R, 'Remarks', ticket.remarks); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.remarks.length / 40) * 14) }; R++;
+      }
+      if (ticket.observation) {
+        detailRow(R, 'Observation', ticket.observation); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.observation.length / 40) * 14) }; R++;
+      }
+      detailRow(R, 'Signed By', signedByValue, 'Signature', signatureValue); rowHeights[R] = { hpt: 22 }; R++;
+      mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
       // ─── ESCALATION (if any) ───
       if (btData.escalation_logs && btData.escalation_logs.length > 0) {
