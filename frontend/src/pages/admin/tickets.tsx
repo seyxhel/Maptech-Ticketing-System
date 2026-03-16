@@ -29,7 +29,7 @@ import type { UITicket } from '../../services/ticketMapper';
 
 const ITEMS_PER_PAGE = 5;
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-const STATUSES = ['New', 'Assigned', 'In Progress', 'Escalated', 'Resolved', 'Closed', 'Pending'];
+const STATUSES = ['New', 'Assigned', 'In Progress', 'Resolved', 'Closed', 'Pending'];
 
 export default function AdminTickets() {
   const navigate = useNavigate();
@@ -55,9 +55,10 @@ export default function AdminTickets() {
           fetchTickets(),
           fetchEmployees().catch(() => []),
         ]);
+        const visibleTickets = raw.filter((ticket) => ticket.status !== 'escalated' && ticket.status !== 'escalated_external');
         if (cancelled) return;
-        setBackendTickets(raw);
-        setTickets(raw.map(mapBackendTicketToUI));
+        setBackendTickets(visibleTickets);
+        setTickets(visibleTickets.map(mapBackendTicketToUI));
         if (emps) setEmployees(emps);
       } catch (err) {
         if (!cancelled) toast.error('Failed to load tickets.');

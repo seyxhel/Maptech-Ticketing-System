@@ -18,6 +18,7 @@ export interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   path: string;
+  exact?: boolean;
   children?: NavItem[];
 }
 
@@ -117,8 +118,11 @@ export function Sidebar({
   };
 
   const navItems = navItemsProp ?? getNavItems();
-  const isPathMatch = (itemPath: string) =>
-    itemPath === 'logout' ? false : (currentPage === itemPath || currentPage.startsWith(itemPath + '/'));
+  const isPathMatch = (item: NavItem) => {
+    if (item.path === 'logout') return false;
+    if (item.exact) return currentPage === item.path;
+    return currentPage === item.path || currentPage.startsWith(item.path + '/');
+  };
 
   return (
     <aside 
@@ -155,8 +159,8 @@ export function Sidebar({
           if (item.id === 'logout') return null;
           const Icon = item.icon;
           const hasChildren = item.children && item.children.length > 0;
-          const isChildActive = hasChildren && item.children!.some((c) => isPathMatch(c.path));
-          const isActive = navItemsProp ? (isPathMatch(item.path) || isChildActive) : currentPage === item.path;
+          const isChildActive = hasChildren && item.children!.some((c) => isPathMatch(c));
+          const isActive = navItemsProp ? (isPathMatch(item) || isChildActive) : currentPage === item.path;
           const isGroupOpen = expandedGroups.has(item.id) || isChildActive;
 
           if (hasChildren) {
@@ -178,7 +182,7 @@ export function Sidebar({
                 {sidebarExpanded && isGroupOpen && (
                   <div className="ml-6 mt-1 space-y-1">
                     {item.children!.map((child) => {
-                      const childActive = isPathMatch(child.path);
+                      const childActive = isPathMatch(child);
                       const ChildIcon = child.icon;
                       return (
                         <button
