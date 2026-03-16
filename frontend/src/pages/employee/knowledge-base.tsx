@@ -167,16 +167,38 @@ export default function EmployeeKnowledgeBase() {
                 <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
                   {/* Media Preview */}
                   {isVideo ? (
-                    <div className="relative rounded-lg overflow-hidden bg-gray-900 aspect-video flex items-center justify-center cursor-pointer group">
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black" />
-                      <div className="relative flex flex-col items-center gap-3">
-                        <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 group-hover:scale-110 transition-all">
-                          <Play className="w-7 h-7 text-white ml-0.5" fill="white" />
-                        </div>
-                        <span className="text-white/80 text-xs font-medium">Attached Video</span>
-                      </div>
-                      <div className="absolute top-2.5 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-0.5 rounded text-white text-[10px] font-bold uppercase">
+                    <div
+                      className="relative rounded-lg overflow-hidden bg-gray-900 border border-gray-200 dark:border-gray-700"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <video
+                        src={article.file_url}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full aspect-video bg-black"
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                      <div className="absolute top-2.5 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-0.5 rounded text-white text-[10px] font-bold uppercase pointer-events-none">
                         <Video className="w-3 h-3" /> Video
+                      </div>
+                      <div className="flex items-center justify-end gap-3 px-3 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                        <a
+                          href={article.file_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-medium text-[#0E8F79] hover:underline"
+                        >
+                          Open Video
+                        </a>
+                        <a
+                          href={article.file_url}
+                          download
+                          className="text-xs font-medium text-[#0E8F79] hover:underline"
+                        >
+                          Download
+                        </a>
                       </div>
                     </div>
                   ) : isImage ? (
