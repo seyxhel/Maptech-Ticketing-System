@@ -580,7 +580,7 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
                     className="w-full max-h-96 object-contain"
                   />
                 ) : isVideoFile(selected.file) ? (
-                  <video controls className="w-full max-h-96">
+                  <video controls playsInline preload="metadata" className="w-full max-h-96">
                     <source src={selected.file} />
                     Your browser does not support the video tag.
                   </video>

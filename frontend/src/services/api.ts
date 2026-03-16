@@ -6,6 +6,50 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+const API_ORIGIN = (() => {
+  if (/^https?:\/\//.test(API_BASE)) {
+    try {
+      return new URL(API_BASE).origin;
+    } catch {
+      return '';
+    }
+  }
+  return '';
+})();
+
+function normalizeMediaUrl(rawUrl: string | null | undefined): string {
+  if (!rawUrl) return '';
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('/')) {
+    if (API_ORIGIN) return `${API_ORIGIN}${trimmed}`;
+    return trimmed;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    if (window.location.protocol === 'https:' && trimmed.startsWith('http://')) {
+      return `https://${trimmed.slice('http://'.length)}`;
+    }
+    return trimmed;
+  }
+
+  if (API_ORIGIN) {
+    return `${API_ORIGIN}/${trimmed.replace(/^\/+/, '')}`;
+  }
+  return trimmed;
+}
+
+function normalizeTicketMedia(ticket: BackendTicket): BackendTicket {
+  return {
+    ...ticket,
+    attachments: (ticket.attachments || []).map((attachment) => ({
+      ...attachment,
+      file: normalizeMediaUrl(attachment.file),
+    })),
+  };
+}
+
 function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   return fetch(input, { ...init, credentials: 'include' });
 }
@@ -230,13 +274,15 @@ export interface TicketStats {
 /** Fetch all tickets (admin sees all, employee sees assigned). */
 export async function fetchTickets(): Promise<BackendTicket[]> {
   const res = await apiFetch(`${API_BASE}/tickets/`, { headers: authHeaders() });
-  return handleResponse<BackendTicket[]>(res);
+  const tickets = await handleResponse<BackendTicket[]>(res);
+  return tickets.map(normalizeTicketMedia);
 }
 
 /** Fetch a single ticket by numeric ID. */
 export async function fetchTicketById(id: number): Promise<BackendTicket> {
   const res = await apiFetch(`${API_BASE}/tickets/${id}/`, { headers: authHeaders() });
-  return handleResponse<BackendTicket>(res);
+  const ticket = await handleResponse<BackendTicket>(res);
+  return normalizeTicketMedia(ticket);
 }
 
 /** Fetch a ticket by its STF number (searches the list). */
@@ -429,7 +475,14 @@ export async function uploadResolutionProof(ticketId: number, files: File | File
     headers: authHeaders(false),
     body: formData,
   });
-  return handleResponse(res);
+  const uploaded = await handleResponse<any>(res);
+  if (Array.isArray(uploaded)) {
+    return uploaded.map((attachment) => ({
+      ...attachment,
+      file: normalizeMediaUrl(attachment?.file),
+    }));
+  }
+  return uploaded;
 }
 
 /** Delete an attachment. */
@@ -727,7 +780,11 @@ export async function fetchKnowledgeHubAttachments(params?: {
   if (params?.all) query.set('all', 'true');
   const qs = query.toString() ? `?${query.toString()}` : '';
   const res = await apiFetch(`${API_BASE}/knowledge-hub/${qs}`, { headers: authHeaders() });
-  return handleResponse<KnowledgeHubAttachment[]>(res);
+  const items = await handleResponse<KnowledgeHubAttachment[]>(res);
+  return items.map((item) => ({
+    ...item,
+    file: normalizeMediaUrl(item.file),
+  }));
 }
 
 /** Publish an attachment to the employee Knowledge Hub. */
@@ -801,7 +858,11 @@ export async function fetchPublishedArticles(params?: { search?: string }): Prom
   if (params?.search) query.set('search', params.search);
   const qs = query.toString() ? `?${query.toString()}` : '';
   const res = await apiFetch(`${API_BASE}/published-articles/${qs}`, { headers: authHeaders() });
-  return handleResponse<PublishedArticle[]>(res);
+  const items = await handleResponse<PublishedArticle[]>(res);
+  return items.map((item) => ({
+    ...item,
+    file_url: normalizeMediaUrl(item.file_url),
+  }));
 }
 
 // ── Product endpoints ──

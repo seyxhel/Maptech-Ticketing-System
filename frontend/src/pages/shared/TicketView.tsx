@@ -2042,7 +2042,7 @@ export function TicketView() {
                           onClick={() => setVideoLightboxUrl(att.url!)}
                           className="relative block w-full cursor-pointer hover:opacity-90 transition-opacity bg-gray-900"
                         >
-                          <video src={att.url} className="w-full h-32 object-cover" muted />
+                          <video src={att.url} className="w-full h-32 object-cover" muted playsInline preload="metadata" />
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
                               <Play className="w-5 h-5 text-white ml-0.5" />
@@ -2564,6 +2564,7 @@ export function TicketView() {
                                             className="w-full max-h-52 object-cover"
                                             controls
                                             preload="metadata"
+                                            playsInline
                                           />
                                         </div>
                                       );
@@ -2753,7 +2754,7 @@ export function TicketView() {
                       <img src={p.url} alt={p.file.name} className="w-16 h-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600" />
                     ) : p.type === 'video' ? (
                       <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-900 flex items-center justify-center relative overflow-hidden">
-                        <video src={p.url} className="w-full h-full object-cover opacity-60" preload="metadata" />
+                        <video src={p.url} className="w-full h-full object-cover opacity-60" muted playsInline preload="metadata" />
                         <Play className="w-5 h-5 text-white absolute" />
                       </div>
                     ) : (
@@ -2958,6 +2959,8 @@ export function TicketView() {
             src={videoLightboxUrl}
             controls
             autoPlay
+            playsInline
+            preload="auto"
             className="max-w-full max-h-full rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />

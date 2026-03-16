@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -14,6 +15,14 @@ _allowed_hosts_raw = os.environ.get('ALLOWED_HOSTS', '*')
 ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts_raw.split(',') if h.strip()]
 if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = ['*']
+
+# Include frontend domains from CORS_ALLOWED_ORIGINS so WebSocket origin
+# checks (AllowedHostsOriginValidator) accept deployed frontend hosts.
+_cors_origins_for_hosts = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+for _origin in _cors_origins_for_hosts.split(','):
+    _host = urlparse(_origin.strip()).hostname
+    if _host and _host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_host)
 
 INSTALLED_APPS = [
     'daphne',
@@ -136,6 +145,10 @@ MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Railway terminates TLS at the edge and forwards protocol headers.
+# Trust this header so build_absolute_uri() emits https URLs.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False').lower() in ('true', '1', 'yes')
