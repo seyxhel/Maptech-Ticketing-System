@@ -1,12 +1,15 @@
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+import datetime as dt
 from .lookup import TypeOfService
 from .client import Client
 from .product import Product
 
 
 class Ticket(models.Model):
+    STF_SEQUENCE_WIDTH = 6
+
     # --- Status choices ---
     STATUS_OPEN = 'open'
     STATUS_IN_PROGRESS = 'in_progress'
@@ -160,7 +163,7 @@ class Ticket(models.Model):
         if isinstance(self.date, _dt.datetime):
             self.date = self.date.date()
         if not self.stf_no:
-            self.stf_no = self._generate_stf_no()
+            self.stf_no = self.get_next_stf_no(self.date)
         super().save(*args, **kwargs)
 
     @property
@@ -191,21 +194,31 @@ class Ticket(models.Model):
             return 15
         return 5
 
-    @staticmethod
-    def _generate_stf_no():
-        """Generate STF-MT-YYYYMMDDXXXXXX where XXXXXX is zero-padded sequence."""
-        today = timezone.now()
-        date_str = today.strftime('%Y%m%d')
-        prefix = f'STF-MT-{date_str}'
-        last = Ticket.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
+    @classmethod
+    def _get_stf_prefix(cls, for_date=None):
+        if isinstance(for_date, dt.datetime):
+            for_date = timezone.localtime(for_date).date()
+        if for_date is None:
+            for_date = timezone.localdate()
+        return f"STF-MT-{for_date.strftime('%Y%m%d')}"
+
+    @classmethod
+    def get_next_stf_no(cls, for_date=None):
+        """Generate the next STF number for the given date using a daily sequence."""
+        prefix = cls._get_stf_prefix(for_date)
+        last = cls.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
         if last:
             try:
-                seq = int(last.stf_no[-6:]) + 1
+                seq = int(last.stf_no[-cls.STF_SEQUENCE_WIDTH:]) + 1
             except (ValueError, IndexError):
                 seq = 1
         else:
             seq = 1
-        return f'{prefix}{seq:06d}'
+        return f'{prefix}{seq:0{cls.STF_SEQUENCE_WIDTH}d}'
+
+    @classmethod
+    def _generate_stf_no(cls):
+        return cls.get_next_stf_no()
 
     def __str__(self):
         return f"{self.stf_no} ({self.status})"

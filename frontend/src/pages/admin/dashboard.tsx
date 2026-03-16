@@ -47,6 +47,13 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 const ITEMS_PER_PAGE = 10;
 
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}...`;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
@@ -306,9 +313,9 @@ export default function AdminDashboard() {
               latestTicketCards.map((ticket) => (
                 <div key={ticket.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-mono text-xs text-[#0E8F79] dark:text-green-400 mb-1">{ticket.id}</p>
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{ticket.subject}</h4>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white break-all">{truncateText(ticket.subject, 73)}</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Client: {ticket.client}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last Updated: {getLastUpdatedText(ticket.id)}</p>
                     </div>
@@ -449,7 +456,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Assignee</label>
-                {editTicket && !['New', 'Assigned'].includes(editTicket.status) ? (
+                {editTicket && !['New', 'Assigned', 'Escalated'].includes(editTicket.status) ? (
                   <>
                     <select disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed outline-none">
                       <option>{editTicket.assignee || 'Unassigned'}</option>

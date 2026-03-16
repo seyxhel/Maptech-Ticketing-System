@@ -31,6 +31,11 @@ const ITEMS_PER_PAGE = 5;
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 const STATUSES = ['New', 'Assigned', 'In Progress', 'Resolved', 'Closed', 'Pending'];
 
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}...`;
+}
+
 export default function AdminTickets() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -187,7 +192,7 @@ export default function AdminTickets() {
                 <tr key={ticket.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
                   <td className="px-6 py-4">
                     <span className="font-bold text-gray-900 dark:text-white text-xs block mb-1">{ticket.id}</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">{ticket.subject}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200 break-all">{truncateText(ticket.subject, 73)}</span>
                   </td>
                   <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{ticket.client}</td>
                   <td className="px-6 py-4"><PriorityBadge priority={ticket.priority} /></td>
@@ -258,7 +263,7 @@ export default function AdminTickets() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Assignee</label>
-                {editTicket && !['New', 'Assigned'].includes(editTicket.status) ? (
+                {editTicket && !['New', 'Assigned', 'Escalated'].includes(editTicket.status) ? (
                   <>
                     <select disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed outline-none">
                       <option>{editTicket.assignee || 'Unassigned'}</option>

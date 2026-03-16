@@ -185,7 +185,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
           >
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
                     <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
                       {ticket.id}
@@ -193,7 +193,14 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
                     <PriorityBadge priority={ticket.priority} />
                     <StatusBadge status={ticket.status} />
                   </div>
-                  <h4 className="text-base font-semibold text-gray-900 dark:text-white group-hover:text-[#0E8F79] dark:group-hover:text-green-400 transition-colors">
+                  <h4
+                    className="text-base font-semibold text-gray-900 dark:text-white group-hover:text-[#0E8F79] dark:group-hover:text-green-400 transition-colors break-all overflow-hidden"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                    }}
+                  >
                     {ticket.issue}
                   </h4>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

@@ -47,6 +47,7 @@ import {
   createTicket,
   assignTicket,
   fetchEmployees,
+  fetchNextTicketStfNo,
   fetchTypesOfService,
   fetchClients,
   fetchProducts,
@@ -108,14 +109,13 @@ export default function AdminCreateTicket() {
   const linkedTicketId = searchParams.get('linkedTicketId') ? Number(searchParams.get('linkedTicketId')) : null;
   const linkedStf = searchParams.get('linkedStf') || null;
 
-  const getStfNo = () => {
+  const getFallbackStfNo = () => {
     const d = new Date();
     const yyyymmdd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const suffix = String(Math.floor(Math.random() * 900000) + 100000);
-    return `STF-MT-${yyyymmdd}${suffix}`;
+    return `STF-MT-${yyyymmdd}000001`;
   };
 
-  const [stfNo] = useState(getStfNo);
+  const [stfNo, setStfNo] = useState(getFallbackStfNo);
   const [contactValues, setContactValues] = useState<Record<string, string>>({
     client: '', contactPerson: '', landline: '', mobile: '', designation: '', department: '',
   });
@@ -165,6 +165,7 @@ export default function AdminCreateTicket() {
 
   // After call completion + priority selection, external assignment is no longer shown.
   const canAssignExternal = !(callCompleted && !!priorityLevel);
+  const selectedProduct = selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null;
 
   // Fetch employees, service types, clients, and products from backend
   useEffect(() => {
@@ -191,7 +192,28 @@ export default function AdminCreateTicket() {
     fetchProducts()
       .then((p) => setProducts(p))
       .catch(() => {});
+    fetchNextTicketStfNo()
+      .then((nextStfNo) => setStfNo(nextStfNo))
+      .catch(() => {});
   }, []);
+
+  const applySelectedProductToTicketData = (ticketData: Record<string, unknown>) => {
+    if (!selectedProductId) return;
+
+    ticketData.product_record = selectedProductId;
+    if (!selectedProduct) return;
+
+    if (selectedProduct.device_equipment) ticketData.device_equipment = selectedProduct.device_equipment;
+    if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
+    if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
+    if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
+    if (selectedProduct.version_no) ticketData.version_no = selectedProduct.version_no;
+    if (selectedProduct.date_purchased) ticketData.date_purchased = selectedProduct.date_purchased;
+    if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
+    if (selectedProduct.has_warranty) ticketData.has_warranty = selectedProduct.has_warranty;
+    if (selectedProduct.others) ticketData.others = selectedProduct.others;
+    ticketData.sales_no = salesNo.trim() || selectedProduct.sales_no || '';
+  };
 
   const setContactField = (name: string, value: string) => {
     setContactValues((prev) => ({ ...prev, [name]: value }));
@@ -389,16 +411,7 @@ export default function AdminCreateTicket() {
         ticketData.client_record = selectedClientId;
         ticketData.is_existing_client = true;
       }
-      if (selectedProductId) {
-        ticketData.product_record = selectedProductId;
-        const selectedProduct = products.find((p) => p.id === selectedProductId);
-        if (selectedProduct) {
-          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
-          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
-          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
-          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
-        }
-      }
+      applySelectedProductToTicketData(ticketData);
       if (salesNo.trim()) {
         ticketData.sales_no = salesNo.trim();
       }
@@ -470,16 +483,7 @@ export default function AdminCreateTicket() {
         ticketData.client_record = selectedClientId;
         ticketData.is_existing_client = true;
       }
-      if (selectedProductId) {
-        ticketData.product_record = selectedProductId;
-        const selectedProduct = products.find((p) => p.id === selectedProductId);
-        if (selectedProduct) {
-          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
-          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
-          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
-          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
-        }
-      }
+      applySelectedProductToTicketData(ticketData);
       if (salesNo.trim()) {
         ticketData.sales_no = salesNo.trim();
       }
@@ -632,11 +636,22 @@ export default function AdminCreateTicket() {
                 ))}
               </select>
             </div>
-            {selectedProductId && (() => {
-              const p = products.find((x) => x.id === selectedProductId);
-              if (!p) return null;
+            {selectedProduct && (() => {
+              const p = selectedProduct;
               return (
                 <>
+                  {p.device_equipment && (
+                    <div>
+                      <label className={labelCls}>Device / Equipment</label>
+                      <input readOnly value={p.device_equipment} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  {p.product_name && (
+                    <div>
+                      <label className={labelCls}>Product</label>
+                      <input readOnly value={p.product_name} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
                   {p.brand && (
                     <div>
                       <label className={labelCls}>Brand</label>
@@ -659,6 +674,22 @@ export default function AdminCreateTicket() {
                     <div>
                       <label className={labelCls}>Version No.</label>
                       <input readOnly value={p.version_no} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  {p.date_purchased && (
+                    <div>
+                      <label className={labelCls}>Date Purchased</label>
+                      <input readOnly value={p.date_purchased} className={`${inputCls} opacity-70 cursor-default`} />
+                    </div>
+                  )}
+                  <div>
+                    <label className={labelCls}>Warranty</label>
+                    <input readOnly value={p.has_warranty ? 'With Warranty' : 'Without Warranty'} className={`${inputCls} opacity-70 cursor-default`} />
+                  </div>
+                  {p.others && (
+                    <div className="md:col-span-2">
+                      <label className={labelCls}>Others</label>
+                      <textarea readOnly value={p.others} rows={2} className={`${inputCls} opacity-70 cursor-default resize-none`} />
                     </div>
                   )}
                 </>
