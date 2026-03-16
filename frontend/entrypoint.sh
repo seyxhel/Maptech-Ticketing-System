@@ -14,14 +14,17 @@ else
 fi
 
 export BACKEND_TARGET
+CLIENT_MAX_BODY_SIZE=${CLIENT_MAX_BODY_SIZE:-250M}
+export CLIENT_MAX_BODY_SIZE
 
 # Log computed targets for debugging
 echo "==> FRONTEND: computed BACKEND_TARGET=${BACKEND_TARGET}" 1>&2 || true
 echo "==> FRONTEND: PORT=${PORT:-<unset>}" 1>&2 || true
+echo "==> FRONTEND: CLIENT_MAX_BODY_SIZE=${CLIENT_MAX_BODY_SIZE}" 1>&2 || true
 
 # Substitute BACKEND_TARGET and PORT into nginx config template
 # envsubst will replace the listed variables; if you omit the list it replaces all env vars.
-envsubst '${BACKEND_TARGET} ${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
+envsubst '${BACKEND_TARGET} ${PORT} ${CLIENT_MAX_BODY_SIZE}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf
 
 # Print top of final nginx config for logs (helps diagnose 502/upstream issues)
 sed -n '1,120p' /etc/nginx/conf.d/default.conf 1>&2 || true

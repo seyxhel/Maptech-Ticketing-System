@@ -144,6 +144,13 @@ MEDIA_URL = _media_url
 MEDIA_ROOT = Path(os.environ.get('MEDIA_ROOT', str(BASE_DIR / 'media')))
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 
+FILE_UPLOAD_TEMP_DIR = os.environ.get('FILE_UPLOAD_TEMP_DIR', str(BASE_DIR / 'tmp_uploads'))
+Path(FILE_UPLOAD_TEMP_DIR).mkdir(parents=True, exist_ok=True)
+
+# Support larger multipart uploads for screenshots and video proof.
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get('FILE_UPLOAD_MAX_MEMORY_SIZE', str(25 * 1024 * 1024)))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.environ.get('DATA_UPLOAD_MAX_MEMORY_SIZE', str(250 * 1024 * 1024)))
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Railway terminates TLS at the edge and forwards protocol headers.
