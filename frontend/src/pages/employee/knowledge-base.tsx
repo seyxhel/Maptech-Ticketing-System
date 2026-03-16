@@ -183,23 +183,6 @@ export default function EmployeeKnowledgeBase() {
                       <div className="absolute top-2.5 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-0.5 rounded text-white text-[10px] font-bold uppercase pointer-events-none">
                         <Video className="w-3 h-3" /> Video
                       </div>
-                      <div className="flex items-center justify-end gap-3 px-3 py-2 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                        <a
-                          href={article.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-medium text-[#0E8F79] hover:underline"
-                        >
-                          Open Video
-                        </a>
-                        <a
-                          href={article.file_url}
-                          download
-                          className="text-xs font-medium text-[#0E8F79] hover:underline"
-                        >
-                          Download
-                        </a>
-                      </div>
                     </div>
                   ) : isImage ? (
                     <div className="relative rounded-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border border-gray-200 dark:border-gray-700 aspect-video flex items-center justify-center">
