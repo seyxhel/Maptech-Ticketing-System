@@ -1,11 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/Card';
 import {
   Search,
-  BookOpen,
-  AlertTriangle,
   ChevronRight,
-  ArrowUpRight,
   Play,
   Image as ImageIcon,
   Video,
@@ -225,21 +222,6 @@ export default function EmployeeKnowledgeBase() {
         })}
       </div>
 
-      {/* Quick Links */}
-      <Card className="bg-gradient-to-br from-[#0E8F79] to-[#0a0a0a] text-white border-none">
-        <div className="flex items-start gap-4">
-          <BookOpen className="w-8 h-8 text-white/80 flex-shrink-0" />
-          <div>
-            <h3 className="text-lg font-bold mb-1">Can't find what you need?</h3>
-            <p className="text-white/70 text-sm mb-3">
-              If the troubleshooting guides above don't resolve the issue, escalate the ticket to a senior engineer or contact the supervisor team directly.
-            </p>
-            <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors">
-              Contact Supervisor Team <ArrowUpRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </Card>
     </div>
   );
 }

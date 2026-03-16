@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityBadge } from '../../components/ui/PriorityBadge';
 import { SLATimer } from '../../components/ui/SLATimer';
 import { fetchTickets, fetchTicketStats } from '../../services/api';
-import type { TicketStats } from '../../services/api';
+import type { BackendTicket, TicketStats } from '../../services/api';
 import { mapBackendTicketToEmployee } from '../../services/ticketMapper';
 import type { UIEmployeeTicket } from '../../services/ticketMapper';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
   const navigate = useNavigate();
   const firstName = user?.name?.split(' ')[0] || 'there';
 
+  const [rawTickets, setRawTickets] = useState<BackendTicket[]>([]);
   const [tickets, setTickets] = useState<UIEmployeeTicket[]>([]);
   const [stats, setStats] = useState<TicketStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +41,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
           fetchTicketStats().catch(() => null),
         ]);
         if (cancelled) return;
+        setRawTickets(raw);
         setTickets(raw.map(mapBackendTicketToEmployee));
         if (statsData) setStats(statsData);
       } catch {
@@ -53,6 +55,73 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
 
   const inProgressCount = stats?.in_progress ?? tickets.filter((t) => t.status === 'In Progress').length;
   const avgResolution = stats?.avg_resolution_time != null ? `${stats.avg_resolution_time.toFixed(1)}h` : '0h';
+  const weeklyGoals = React.useMemo(() => {
+    const now = Date.now();
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+    const recentTickets = rawTickets.filter((ticket) => {
+      const createdAt = new Date(ticket.created_at).getTime();
+      return !Number.isNaN(createdAt) && createdAt >= sevenDaysAgo && createdAt <= now;
+    });
+
+    const resolvedThisWeek = recentTickets.filter((ticket) => {
+      const status = (ticket.status || '').toLowerCase();
+      return status === 'closed' || status === 'pending_closure';
+    }).length;
+    const weeklyTotal = recentTickets.length;
+    const resolvedPct = weeklyTotal > 0 ? Math.round((resolvedThisWeek / weeklyTotal) * 100) : 0;
+
+    const ratings = rawTickets
+      .map((ticket) => ticket.csat_feedback?.rating)
+      .filter((rating): rating is number => typeof rating === 'number');
+    const avgRating = ratings.length > 0
+      ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length
+      : null;
+    const qualityPct = avgRating != null ? Math.round((Math.min(avgRating, 5) / 5) * 100) : 0;
+
+    const responseTimesMins = rawTickets
+      .map((ticket) => {
+        if (!ticket.time_in) return null;
+        const createdAt = new Date(ticket.created_at).getTime();
+        const startedAt = new Date(ticket.time_in).getTime();
+        if (Number.isNaN(createdAt) || Number.isNaN(startedAt) || startedAt <= createdAt) return null;
+        return (startedAt - createdAt) / 60000;
+      })
+      .filter((minutes): minutes is number => typeof minutes === 'number');
+
+    const avgResponseMinutes = responseTimesMins.length > 0
+      ? responseTimesMins.reduce((sum, minutes) => sum + minutes, 0) / responseTimesMins.length
+      : null;
+    const startedThisWeek = recentTickets.filter((ticket) => !!ticket.time_in).length;
+    const responsePct = weeklyTotal > 0 ? Math.round((startedThisWeek / weeklyTotal) * 100) : 0;
+
+    const responseValue = avgResponseMinutes == null
+      ? 'N/A'
+      : avgResponseMinutes < 60
+        ? `${Math.round(avgResponseMinutes)}m avg`
+        : `${(avgResponseMinutes / 60).toFixed(1)}h avg`;
+
+    return [
+      {
+        label: 'Tickets Resolved',
+        value: `${resolvedThisWeek}/${weeklyTotal}`,
+        pct: `${resolvedPct}%`,
+        color: 'bg-[#3BC25B]',
+      },
+      {
+        label: 'Quality Score',
+        value: avgRating == null ? 'N/A' : `${avgRating.toFixed(1)}/5.0`,
+        pct: `${qualityPct}%`,
+        color: 'bg-[#0E8F79]',
+      },
+      {
+        label: 'Response Time',
+        value: responseValue,
+        pct: `${responsePct}%`,
+        color: 'bg-blue-500',
+      },
+    ];
+  }, [rawTickets]);
 
   if (loading) {
     return (
@@ -161,26 +230,7 @@ export function EmployeeDashboard({ onNavigate }: EmployeeDashboardProps) {
               Weekly Goals
             </h3>
             <div className="space-y-4">
-              {[
-              {
-                label: 'Tickets Resolved',
-                value: '18/25',
-                pct: '72%',
-                color: 'bg-[#3BC25B]'
-              },
-              {
-                label: 'Quality Score',
-                value: '4.8/5.0',
-                pct: '96%',
-                color: 'bg-[#0E8F79]'
-              },
-              {
-                label: 'Response Time',
-                value: '15m avg',
-                pct: '85%',
-                color: 'bg-blue-500'
-              }].
-              map((item) =>
+              {weeklyGoals.map((item) =>
               <div key={item.label}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600 dark:text-gray-400">

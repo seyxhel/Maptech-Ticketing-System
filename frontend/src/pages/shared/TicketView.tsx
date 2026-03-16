@@ -666,7 +666,9 @@ export function TicketView() {
   // ── Admin reassign (for escalated tickets) ──
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [reassignEmployeeId, setReassignEmployeeId] = useState('');
+  const [reassignSearch, setReassignSearch] = useState('');
   const [reassigning, setReassigning] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
   const [employeeTickets, setEmployeeTickets] = useState<Record<number, BackendTicket[]>>({});
 
   // Show reassign when: ticket is Escalated (admin handles escalation),
@@ -676,6 +678,17 @@ export function TicketView() {
       ticket.status === 'Escalated' ||
       btData?.assigned_to?.id === user?.id
     );
+
+  const filteredEmployees = [...employees]
+    .sort((a, b) => a.active_ticket_count - b.active_ticket_count)
+    .filter((emp) => {
+      const query = reassignSearch.trim().toLowerCase();
+      if (!query) return true;
+      const fullName = `${emp.first_name} ${emp.last_name}`.trim().toLowerCase();
+      const reverseFullName = `${emp.last_name} ${emp.first_name}`.trim().toLowerCase();
+      const username = emp.username.toLowerCase();
+      return fullName.includes(query) || reverseFullName.includes(query) || username.includes(query);
+    });
 
   useEffect(() => {
     if (!canAdminReassign) return;
@@ -941,6 +954,8 @@ export function TicketView() {
       setBtData(updated);
       toast.success('Ticket reassigned successfully.');
       setReassignEmployeeId('');
+      setReassignSearch('');
+      setShowReassignModal(false);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to reassign ticket.');
     } finally {
@@ -2165,84 +2180,22 @@ export function TicketView() {
           {/* ── Action Buttons ── */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
-              {/* Admin: Reassign ticket to another employee (available at any active status) */}
+              {/* Admin: Reassign ticket via modal picker */}
               {canAdminReassign && (
-                <div className="space-y-2 pb-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reassign to Employee</label>
-
-
-                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                    {employees.length === 0 ? (
-                      <p className="text-sm text-gray-400 py-2">No technicals found.</p>
-                    ) : (
-                      [...employees]
-                        .sort((a, b) => a.active_ticket_count - b.active_ticket_count)
-                        .map((emp) => {
-                          const tickets = employeeTickets[emp.id] || [];
-                          const isSelected = reassignEmployeeId === String(emp.id);
-                          const name = `${emp.first_name} ${emp.last_name}`.trim() || emp.username;
-                          return (
-                            <button
-                              type="button"
-                              key={emp.id}
-                              onClick={() => setReassignEmployeeId(isSelected ? '' : String(emp.id))}
-                              className={`w-full text-left rounded-xl border p-3 transition-colors ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-700 hover:border-[#3BC25B]/60 hover:bg-gray-50 dark:hover:bg-gray-800/60'}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{name}</div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{emp.username}</div>
-                                </div>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${emp.active_ticket_count === 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : emp.active_ticket_count <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                  {emp.active_ticket_count} active
-                                </span>
-                              </div>
-
-                              {tickets.length > 0 && (
-                                <div className="mt-2.5">
-                                  <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Current Working Tickets</p>
-                                  <div className="space-y-1.5">
-                                    {tickets.slice(0, 3).map((t) => (
-                                      <div key={t.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-lg px-2.5 py-1.5 border border-gray-100 dark:border-gray-600">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 truncate">{t.stf_no}</div>
-                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{t.type_of_service_detail?.name || 'N/A'}</div>
-                                        </div>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${priorityBadgeClass(t.priority)}`}>
-                                          {formatPriorityLabel(t.priority)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                    {tickets.length > 3 && (
-                                      <p className="text-[10px] text-gray-400 dark:text-gray-500">+{tickets.length - 3} more active tickets</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })
-                    )}
-                  </div>
-
+                <>
                   <button
                     type="button"
-                    disabled={!reassignEmployeeId || reassigning}
-                    onClick={handleReassignTicket}
-                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                    onClick={() => setShowReassignModal(true)}
+                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 flex items-center justify-center gap-2 transition-all text-sm"
                   >
-                    {reassigning ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Reassigning...</>
-                    ) : (
-                      <><UserCheck className="w-4 h-4" /> Reassign to Employee</>
-                    )}
+                    <UserCheck className="w-4 h-4" /> Reassign to Employee
                   </button>
                   <div className="flex items-center gap-2 pt-1">
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                     <span className="text-xs text-gray-400">or handle yourself</span>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                   </div>
-                </div>
+                </>
               )}
               {/* Start Work — only shown when no time_in yet (work has not begun) */}
               {canProcessTicket && !btData?.time_in && (
@@ -3378,6 +3331,133 @@ export function TicketView() {
                   <><ArrowUpRight className="w-3.5 h-3.5" /> Submit Escalation</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Reassign Ticket Modal ── */}
+      {showReassignModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Reassign Employee</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Select a technical to handle this ticket</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setReassignSearch('');
+                    setReassignEmployeeId('');
+                  }}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Ticket: </span>
+                <span className="font-bold text-gray-900 dark:text-white">{ticket.id}</span>
+              </div>
+
+              <div className="relative mb-3">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={reassignSearch}
+                  onChange={(e) => setReassignSearch(e.target.value)}
+                  placeholder="Search employee by name or username..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                />
+              </div>
+
+              <div className="space-y-3 max-h-[26rem] overflow-y-auto pr-1">
+                {employees.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No technicals found.</p>
+                )}
+                {employees.length > 0 && filteredEmployees.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No employees match your search.</p>
+                )}
+                {filteredEmployees.map((emp) => {
+                  const tickets = employeeTickets[emp.id] || [];
+                  const isSelected = reassignEmployeeId === String(emp.id);
+                  const name = `${emp.first_name} ${emp.last_name}`.trim() || emp.username;
+                  return (
+                    <div key={emp.id} className={`rounded-xl border-2 transition-all ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B]'}`}>
+                      <button
+                        type="button"
+                        onClick={() => setReassignEmployeeId(isSelected ? '' : String(emp.id))}
+                        className="w-full flex items-center gap-3 p-3 text-left"
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 dark:text-white text-sm truncate">{name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{emp.username}</div>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${emp.active_ticket_count === 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : emp.active_ticket_count <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {emp.active_ticket_count} active
+                        </span>
+                        {isSelected && <CheckCircle className="w-5 h-5 text-[#3BC25B] shrink-0" />}
+                        {!isSelected && <div className="w-2 h-2 bg-green-400 rounded-full shrink-0" title="Available" />}
+                      </button>
+
+                      {tickets.length > 0 && (
+                        <div className="px-3 pb-3">
+                          <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Current Working Tickets</p>
+                          <div className="space-y-1.5">
+                            {tickets.slice(0, 3).map((t) => (
+                              <div key={t.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{t.stf_no}</div>
+                                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{t.type_of_service_detail?.name || 'N/A'}</div>
+                                </div>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${priorityBadgeClass(t.priority)}`}>
+                                  {formatPriorityLabel(t.priority)}
+                                </span>
+                              </div>
+                            ))}
+                            {tickets.length > 3 && (
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">+{tickets.length - 3} more active tickets</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setReassignSearch('');
+                    setReassignEmployeeId('');
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReassignTicket}
+                  disabled={!reassignEmployeeId || reassigning}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                >
+                  {reassigning ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Reassigning...</>
+                  ) : (
+                    <><UserCheck className="w-4 h-4" /> Reassign to Employee</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>,
