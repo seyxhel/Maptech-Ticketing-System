@@ -1142,6 +1142,12 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Designation:</span><span class="info-value">${ticket.designation}</span></div>
         <div class="info-row"><span class="info-label">Address:</span><span class="info-value">${ticket.fullAddress}</span></div>
       </div>
+      ${btData.external_escalated_to ? `
+        <div class="info-grid" style="margin-bottom: 0;">
+          <div class="info-row"><span class="info-label" style="color:#7c3aed">Escalated To (External):</span><span class="info-value">${btData.external_escalated_to}</span></div>
+          <div class="info-row"><span class="info-label" style="color:#7c3aed">Escalation Notes:</span><span class="info-value">${btData.external_escalation_notes || 'N/A'}</span></div>
+        </div>
+      ` : ''}
       <h2>Issue Description</h2>
       <div class="desc">${ticket.description}</div>
       ${pd ? `<h2>Product Details</h2>
