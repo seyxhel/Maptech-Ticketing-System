@@ -111,7 +111,7 @@ class TicketViewSet(viewsets.ModelViewSet):
 
             linked_product = serializer.validated_data.get('product_record')
             if linked_product:
-                for field in ('product_name', 'brand', 'model_name', 'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others'):
+                for field in ('product_name', 'brand', 'model_name', 'device_equipment', 'version_no', 'serial_no', 'sales_no'):
                     if product_text[field] in (None, ''):
                         product_text[field] = getattr(linked_product, field, product_text[field])
                 if not product_text['has_warranty']:
@@ -120,7 +120,12 @@ class TicketViewSet(viewsets.ModelViewSet):
             # If no product_record linked and product data present, auto-create a Product record
             if not serializer.validated_data.get('product_record'):
                 if any(v for v in product_text.values() if v not in (None, '', False)):
-                    serializer.validated_data['product_record'] = Product.objects.create(**product_text)
+                    product_record_data = {
+                        key: value
+                        for key, value in product_text.items()
+                        if key not in ('date_purchased', 'others')
+                    }
+                    serializer.validated_data['product_record'] = Product.objects.create(**product_record_data)
 
             # Store product details directly on the ticket as well
             for field, val in product_text.items():

@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
@@ -17,7 +17,8 @@ import {
   validateAddress, validateDescription, sanitize,
   MAX_FIELD, MAX_EMAIL, MAX_PHONE, MAX_ADDRESS, MAX_DESCRIPTION,
 } from '../../utils/validation';
-import { createTicket } from '../../services/api';
+import { createTicket, fetchProducts } from '../../services/api';
+import type { Product } from '../../services/api';
 
 const CONTACT_FIELDS = [
   { name: 'client', label: 'Client', placeholder: 'e.g. Maptech Inc.', required: true },
@@ -49,12 +50,27 @@ export default function CreateTicket() {
   const [address, setAddress] = useState('');
 
   const [productInfo, setProductInfo] = useState({
+    device_equipment: '',
     product_name: '',
     brand: '',
     model_name: '',
     serial_no: '',
+    version_no: '',
+    date_purchased: '',
+    has_warranty: false,
     sales_no: '',
   });
+
+  // New/existing product toggle
+  const [isExistingProduct, setIsExistingProduct] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchProducts().then((p) => setProducts(p)).catch(() => {});
+  }, []);
+
+  const selectedProduct = selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null;
 
   const [serviceType, setServiceType] = useState('');
   const [serviceOthersText, setServiceOthersText] = useState('');
@@ -131,11 +147,24 @@ export default function CreateTicket() {
         type_of_service_others: serviceType === 'Others' ? sanitize(serviceOthersText) : serviceType,
       };
 
-      if (productInfo.product_name.trim()) payload.product = sanitize(productInfo.product_name);
-      if (productInfo.brand.trim()) payload.brand = sanitize(productInfo.brand);
-      if (productInfo.model_name.trim()) payload.model_name = sanitize(productInfo.model_name);
-      if (productInfo.serial_no.trim()) payload.serial_no = sanitize(productInfo.serial_no);
-      if (productInfo.sales_no.trim()) payload.sales_no = sanitize(productInfo.sales_no);
+      if (isExistingProduct && selectedProductId && selectedProduct) {
+        payload.product_record = selectedProductId;
+        if (selectedProduct.product_name) payload.product = selectedProduct.product_name;
+        if (selectedProduct.brand) payload.brand = selectedProduct.brand;
+        if (selectedProduct.model_name) payload.model_name = selectedProduct.model_name;
+        if (selectedProduct.serial_no) payload.serial_no = selectedProduct.serial_no;
+        if (productInfo.sales_no.trim()) payload.sales_no = sanitize(productInfo.sales_no);
+      } else {
+        if (productInfo.device_equipment.trim()) payload.device_equipment = sanitize(productInfo.device_equipment);
+        if (productInfo.product_name.trim()) payload.product = sanitize(productInfo.product_name);
+        if (productInfo.brand.trim()) payload.brand = sanitize(productInfo.brand);
+        if (productInfo.model_name.trim()) payload.model_name = sanitize(productInfo.model_name);
+        if (productInfo.serial_no.trim()) payload.serial_no = sanitize(productInfo.serial_no);
+        if (productInfo.version_no.trim()) payload.version_no = sanitize(productInfo.version_no);
+        if (productInfo.date_purchased) payload.date_purchased = productInfo.date_purchased;
+        payload.has_warranty = productInfo.has_warranty;
+        if (productInfo.sales_no.trim()) payload.sales_no = sanitize(productInfo.sales_no);
+      }
 
       const created = await createTicket(payload as any);
       toast.success('Service Ticket Submitted Successfully', {
@@ -240,62 +269,118 @@ export default function CreateTicket() {
         {/* Section 2 */}
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>2. Product Details</h3>
+
+          {/* New / Existing product toggle */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => { setIsExistingProduct(false); setSelectedProductId(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                !isExistingProduct
+                  ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
+                  : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              New Product
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsExistingProduct(true); setProductInfo({ device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false, sales_no: '' }); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                isExistingProduct
+                  ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
+                  : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              Existing Product
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className={labelCls}>Product Name</label>
-              <input
-                type="text"
-                placeholder="e.g. Laptop"
-                value={productInfo.product_name}
-                onChange={(e) => setProductInfo((p) => ({ ...p, product_name: e.target.value }))}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Brand</label>
-              <input
-                type="text"
-                placeholder="e.g. Dell"
-                value={productInfo.brand}
-                onChange={(e) => setProductInfo((p) => ({ ...p, brand: e.target.value }))}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Model</label>
-              <input
-                type="text"
-                placeholder="e.g. Latitude 5520"
-                value={productInfo.model_name}
-                onChange={(e) => setProductInfo((p) => ({ ...p, model_name: e.target.value }))}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Serial No.</label>
-              <input
-                type="text"
-                placeholder="e.g. SN123456"
-                value={productInfo.serial_no}
-                onChange={(e) => setProductInfo((p) => ({ ...p, serial_no: e.target.value }))}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className={labelCls}>Sales / Invoice No.</label>
-              <input
-                type="text"
-                placeholder="e.g. INV-2025-001"
-                value={productInfo.sales_no}
-                onChange={(e) => setProductInfo((p) => ({ ...p, sales_no: e.target.value }))}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
+            {!isExistingProduct ? (
+              <>
+                <div>
+                  <label className={labelCls}>Device / Equipment</label>
+                  <input type="text" placeholder="e.g. Fingerprint Terminal" value={productInfo.device_equipment} onChange={(e) => setProductInfo((p) => ({ ...p, device_equipment: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Product</label>
+                  <input type="text" placeholder="e.g. ZK-K40" value={productInfo.product_name} onChange={(e) => setProductInfo((p) => ({ ...p, product_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Brand</label>
+                  <input type="text" placeholder="e.g. ZKTeco" value={productInfo.brand} onChange={(e) => setProductInfo((p) => ({ ...p, brand: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Model</label>
+                  <input type="text" placeholder="e.g. K40" value={productInfo.model_name} onChange={(e) => setProductInfo((p) => ({ ...p, model_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Serial No.</label>
+                  <input type="text" placeholder="e.g. SN123456" value={productInfo.serial_no} onChange={(e) => setProductInfo((p) => ({ ...p, serial_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Version No.</label>
+                  <input type="text" placeholder="e.g. FW 6.60" value={productInfo.version_no} onChange={(e) => setProductInfo((p) => ({ ...p, version_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Date Purchased</label>
+                  <input type="date" value={productInfo.date_purchased} onChange={(e) => setProductInfo((p) => ({ ...p, date_purchased: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Warranty</label>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setProductInfo((p) => ({ ...p, has_warranty: true }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${productInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>With Warranty</button>
+                    <button type="button" onClick={() => setProductInfo((p) => ({ ...p, has_warranty: false }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${!productInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>Without Warranty</button>
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Sales / Invoice No.</label>
+                  <input type="text" placeholder="e.g. INV-2025-001" value={productInfo.sales_no} onChange={(e) => setProductInfo((p) => ({ ...p, sales_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Select Product (optional)</label>
+                  <select
+                    value={selectedProductId || ''}
+                    onChange={(e) => setSelectedProductId(e.target.value ? Number(e.target.value) : null)}
+                    className={inputCls}
+                  >
+                    <option value="">— Select a product —</option>
+                    {products.filter((p) => p.is_active).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.product_name || p.device_equipment || '—'}
+                        {p.brand ? ` | ${p.brand}` : ''}
+                        {p.model_name ? ` | ${p.model_name}` : ''}
+                        {p.serial_no ? ` | S/N: ${p.serial_no}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedProduct && (
+                  <>
+                    {selectedProduct.product_name && (
+                      <div><label className={labelCls}>Product</label><input readOnly value={selectedProduct.product_name} className={`${inputCls} opacity-70 cursor-default`} /></div>
+                    )}
+                    {selectedProduct.brand && (
+                      <div><label className={labelCls}>Brand</label><input readOnly value={selectedProduct.brand} className={`${inputCls} opacity-70 cursor-default`} /></div>
+                    )}
+                    {selectedProduct.model_name && (
+                      <div><label className={labelCls}>Model</label><input readOnly value={selectedProduct.model_name} className={`${inputCls} opacity-70 cursor-default`} /></div>
+                    )}
+                    {selectedProduct.serial_no && (
+                      <div><label className={labelCls}>Serial No.</label><input readOnly value={selectedProduct.serial_no} className={`${inputCls} opacity-70 cursor-default`} /></div>
+                    )}
+                  </>
+                )}
+                <div className={selectedProductId ? '' : 'md:col-span-2'}>
+                  <label className={labelCls}>Sales / Invoice No.</label>
+                  <input type="text" placeholder="e.g. INV-2025-001" value={productInfo.sales_no} onChange={(e) => setProductInfo((p) => ({ ...p, sales_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+              </>
+            )}
           </div>
         </Card>
 

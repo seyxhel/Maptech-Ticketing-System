@@ -62,8 +62,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 Q(model_name__icontains=search) |
                 Q(serial_no__icontains=search) |
                 Q(device_equipment__icontains=search) |
-                Q(sales_no__icontains=search) |
-                Q(others__icontains=search)
+                Q(sales_no__icontains=search)
             )
         return qs
 
