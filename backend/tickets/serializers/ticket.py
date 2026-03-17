@@ -199,6 +199,7 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
     date_purchased = serializers.DateField(required=False, allow_null=True, write_only=True)
     serial_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
     sales_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    others = serializers.CharField(required=False, allow_blank=True, write_only=True)
 
     class Meta:
         model = Ticket
@@ -214,7 +215,7 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
             'is_existing_client',
             # Product creation fields (write-only, not model fields)
             'has_warranty', 'product', 'brand', 'model_name',
-            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no',
+            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others',
         ]
         extra_kwargs = {
             'email_address': {'required': False, 'allow_blank': True, 'default': ''},

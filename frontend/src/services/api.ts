@@ -278,6 +278,12 @@ export async function fetchTickets(): Promise<BackendTicket[]> {
   return tickets.map(normalizeTicketMedia);
 }
 
+export async function fetchNextTicketStfNo(): Promise<string> {
+  const res = await apiFetch(`${API_BASE}/tickets/next_stf_no/`, { headers: authHeaders() });
+  const data = await handleResponse<{ stf_no: string }>(res);
+  return data.stf_no;
+}
+
 /** Fetch a single ticket by numeric ID. */
 export async function fetchTicketById(id: number): Promise<BackendTicket> {
   const res = await apiFetch(`${API_BASE}/tickets/${id}/`, { headers: authHeaders() });

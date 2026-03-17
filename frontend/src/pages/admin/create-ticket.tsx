@@ -47,6 +47,7 @@ import {
   createTicket,
   assignTicket,
   fetchEmployees,
+  fetchNextTicketStfNo,
   fetchTypesOfService,
   fetchClients,
   fetchProducts,
@@ -108,14 +109,13 @@ export default function AdminCreateTicket() {
   const linkedTicketId = searchParams.get('linkedTicketId') ? Number(searchParams.get('linkedTicketId')) : null;
   const linkedStf = searchParams.get('linkedStf') || null;
 
-  const getStfNo = () => {
+  const getFallbackStfNo = () => {
     const d = new Date();
     const yyyymmdd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const suffix = String(Math.floor(Math.random() * 900000) + 100000);
-    return `STF-MT-${yyyymmdd}${suffix}`;
+    return `STF-MT-${yyyymmdd}000001`;
   };
 
-  const [stfNo] = useState(getStfNo);
+  const [stfNo, setStfNo] = useState(getFallbackStfNo);
   const [contactValues, setContactValues] = useState<Record<string, string>>({
     client: '', contactPerson: '', landline: '', mobile: '', designation: '', department: '',
   });
@@ -147,6 +147,13 @@ export default function AdminCreateTicket() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [salesNo, setSalesNo] = useState('');
 
+  // New/existing product toggle
+  const [isExistingProduct, setIsExistingProduct] = useState(false);
+  const [newProductInfo, setNewProductInfo] = useState({
+    device_equipment: '', product_name: '', brand: '', model_name: '',
+    serial_no: '', version_no: '', date_purchased: '', has_warranty: false,
+  });
+
   // Estimated resolution days override (for "Others")
   const [estimatedDaysOverride, setEstimatedDaysOverride] = useState<number | ''>('');
 
@@ -165,6 +172,7 @@ export default function AdminCreateTicket() {
 
   // After call completion + priority selection, external assignment is no longer shown.
   const canAssignExternal = !(callCompleted && !!priorityLevel);
+  const selectedProduct = selectedProductId ? products.find((p) => p.id === selectedProductId) ?? null : null;
 
   // Fetch employees, service types, clients, and products from backend
   useEffect(() => {
@@ -191,7 +199,28 @@ export default function AdminCreateTicket() {
     fetchProducts()
       .then((p) => setProducts(p))
       .catch(() => {});
+    fetchNextTicketStfNo()
+      .then((nextStfNo) => setStfNo(nextStfNo))
+      .catch(() => {});
   }, []);
+
+  const applySelectedProductToTicketData = (ticketData: Record<string, unknown>) => {
+    if (!selectedProductId) return;
+
+    ticketData.product_record = selectedProductId;
+    if (!selectedProduct) return;
+
+    if (selectedProduct.device_equipment) ticketData.device_equipment = selectedProduct.device_equipment;
+    if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
+    if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
+    if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
+    if (selectedProduct.version_no) ticketData.version_no = selectedProduct.version_no;
+    if (selectedProduct.date_purchased) ticketData.date_purchased = selectedProduct.date_purchased;
+    if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
+    if (selectedProduct.has_warranty) ticketData.has_warranty = selectedProduct.has_warranty;
+    if (selectedProduct.others) ticketData.others = selectedProduct.others;
+    ticketData.sales_no = salesNo.trim() || selectedProduct.sales_no || '';
+  };
 
   const setContactField = (name: string, value: string) => {
     setContactValues((prev) => ({ ...prev, [name]: value }));
@@ -389,18 +418,19 @@ export default function AdminCreateTicket() {
         ticketData.client_record = selectedClientId;
         ticketData.is_existing_client = true;
       }
-      if (selectedProductId) {
-        ticketData.product_record = selectedProductId;
-        const selectedProduct = products.find((p) => p.id === selectedProductId);
-        if (selectedProduct) {
-          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
-          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
-          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
-          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
-        }
-      }
-      if (salesNo.trim()) {
-        ticketData.sales_no = salesNo.trim();
+      if (isExistingProduct) {
+        applySelectedProductToTicketData(ticketData);
+        if (salesNo.trim()) ticketData.sales_no = salesNo.trim();
+      } else {
+        if (newProductInfo.device_equipment.trim()) ticketData.device_equipment = newProductInfo.device_equipment.trim();
+        if (newProductInfo.product_name.trim()) ticketData.product = newProductInfo.product_name.trim();
+        if (newProductInfo.brand.trim()) ticketData.brand = newProductInfo.brand.trim();
+        if (newProductInfo.model_name.trim()) ticketData.model_name = newProductInfo.model_name.trim();
+        if (newProductInfo.serial_no.trim()) ticketData.serial_no = newProductInfo.serial_no.trim();
+        if (newProductInfo.version_no.trim()) ticketData.version_no = newProductInfo.version_no.trim();
+        if (newProductInfo.date_purchased) ticketData.date_purchased = newProductInfo.date_purchased;
+        ticketData.has_warranty = newProductInfo.has_warranty;
+        if (salesNo.trim()) ticketData.sales_no = salesNo.trim();
       }
 
       const created = await createTicket(ticketData as any);
@@ -470,18 +500,19 @@ export default function AdminCreateTicket() {
         ticketData.client_record = selectedClientId;
         ticketData.is_existing_client = true;
       }
-      if (selectedProductId) {
-        ticketData.product_record = selectedProductId;
-        const selectedProduct = products.find((p) => p.id === selectedProductId);
-        if (selectedProduct) {
-          if (selectedProduct.product_name) ticketData.product = selectedProduct.product_name;
-          if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
-          if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
-          if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
-        }
-      }
-      if (salesNo.trim()) {
-        ticketData.sales_no = salesNo.trim();
+      if (isExistingProduct) {
+        applySelectedProductToTicketData(ticketData);
+        if (salesNo.trim()) ticketData.sales_no = salesNo.trim();
+      } else {
+        if (newProductInfo.device_equipment.trim()) ticketData.device_equipment = newProductInfo.device_equipment.trim();
+        if (newProductInfo.product_name.trim()) ticketData.product = newProductInfo.product_name.trim();
+        if (newProductInfo.brand.trim()) ticketData.brand = newProductInfo.brand.trim();
+        if (newProductInfo.model_name.trim()) ticketData.model_name = newProductInfo.model_name.trim();
+        if (newProductInfo.serial_no.trim()) ticketData.serial_no = newProductInfo.serial_no.trim();
+        if (newProductInfo.version_no.trim()) ticketData.version_no = newProductInfo.version_no.trim();
+        if (newProductInfo.date_purchased) ticketData.date_purchased = newProductInfo.date_purchased;
+        ticketData.has_warranty = newProductInfo.has_warranty;
+        if (salesNo.trim()) ticketData.sales_no = salesNo.trim();
       }
 
       const created = await createTicket(ticketData as any);
@@ -613,68 +644,161 @@ export default function AdminCreateTicket() {
         {/* Section 2: Product Information */}
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>2. Product Details</h3>
+
+          {/* New / Existing product toggle */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => { setIsExistingProduct(false); setSelectedProductId(null); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                !isExistingProduct
+                  ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
+                  : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              New Product
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsExistingProduct(true); setNewProductInfo({ device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false }); }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
+                isExistingProduct
+                  ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
+                  : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              Existing Product
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="md:col-span-2">
-              <label className={labelCls}>Select Product (optional)</label>
-              <select
-                value={selectedProductId || ''}
-                onChange={(e) => setSelectedProductId(e.target.value ? Number(e.target.value) : null)}
-                className={inputCls}
-              >
-                <option value="">— Select a product —</option>
-                {products.filter((p) => p.is_active).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.product_name || p.device_equipment || '—'}
-                    {p.brand ? ` | ${p.brand}` : ''}
-                    {p.model_name ? ` | ${p.model_name}` : ''}
-                    {p.serial_no ? ` | S/N: ${p.serial_no}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {selectedProductId && (() => {
-              const p = products.find((x) => x.id === selectedProductId);
-              if (!p) return null;
-              return (
-                <>
-                  {p.brand && (
-                    <div>
-                      <label className={labelCls}>Brand</label>
-                      <input readOnly value={p.brand} className={`${inputCls} opacity-70 cursor-default`} />
-                    </div>
-                  )}
-                  {p.model_name && (
-                    <div>
-                      <label className={labelCls}>Model</label>
-                      <input readOnly value={p.model_name} className={`${inputCls} opacity-70 cursor-default`} />
-                    </div>
-                  )}
-                  {p.serial_no && (
-                    <div>
-                      <label className={labelCls}>Serial No.</label>
-                      <input readOnly value={p.serial_no} className={`${inputCls} opacity-70 cursor-default`} />
-                    </div>
-                  )}
-                  {p.version_no && (
-                    <div>
-                      <label className={labelCls}>Version No.</label>
-                      <input readOnly value={p.version_no} className={`${inputCls} opacity-70 cursor-default`} />
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-            <div className={selectedProductId ? '' : 'md:col-span-2'}>
-              <label className={labelCls}>Sales / Invoice No.</label>
-              <input
-                type="text"
-                placeholder="e.g. INV-2025-001"
-                value={salesNo}
-                onChange={(e) => setSalesNo(e.target.value)}
-                maxLength={MAX_FIELD}
-                className={inputCls}
-              />
-            </div>
+            {!isExistingProduct ? (
+              <>
+                <div>
+                  <label className={labelCls}>Device / Equipment</label>
+                  <input type="text" placeholder="e.g. Fingerprint Terminal" value={newProductInfo.device_equipment} onChange={(e) => setNewProductInfo((p) => ({ ...p, device_equipment: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Product</label>
+                  <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, product_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Brand</label>
+                  <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => setNewProductInfo((p) => ({ ...p, brand: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Model</label>
+                  <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, model_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Serial No.</label>
+                  <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, serial_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Version No.</label>
+                  <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, version_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Date Purchased</label>
+                  <input type="date" value={newProductInfo.date_purchased} onChange={(e) => setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className={labelCls}>Warranty</label>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: true }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>With Warranty</button>
+                    <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: false }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${!newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>Without Warranty</button>
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Sales / Invoice No.</label>
+                  <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Select Product (optional)</label>
+                  <select
+                    value={selectedProductId || ''}
+                    onChange={(e) => setSelectedProductId(e.target.value ? Number(e.target.value) : null)}
+                    className={inputCls}
+                  >
+                    <option value="">— Select a product —</option>
+                    {products.filter((p) => p.is_active).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.product_name || p.device_equipment || '—'}
+                        {p.brand ? ` | ${p.brand}` : ''}
+                        {p.model_name ? ` | ${p.model_name}` : ''}
+                        {p.serial_no ? ` | S/N: ${p.serial_no}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {selectedProduct && (() => {
+                  const p = selectedProduct;
+                  return (
+                    <>
+                      {p.device_equipment && (
+                        <div>
+                          <label className={labelCls}>Device / Equipment</label>
+                          <input readOnly value={p.device_equipment} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.product_name && (
+                        <div>
+                          <label className={labelCls}>Product</label>
+                          <input readOnly value={p.product_name} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.brand && (
+                        <div>
+                          <label className={labelCls}>Brand</label>
+                          <input readOnly value={p.brand} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.model_name && (
+                        <div>
+                          <label className={labelCls}>Model</label>
+                          <input readOnly value={p.model_name} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.serial_no && (
+                        <div>
+                          <label className={labelCls}>Serial No.</label>
+                          <input readOnly value={p.serial_no} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.version_no && (
+                        <div>
+                          <label className={labelCls}>Version No.</label>
+                          <input readOnly value={p.version_no} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      {p.date_purchased && (
+                        <div>
+                          <label className={labelCls}>Date Purchased</label>
+                          <input readOnly value={p.date_purchased} className={`${inputCls} opacity-70 cursor-default`} />
+                        </div>
+                      )}
+                      <div>
+                        <label className={labelCls}>Warranty</label>
+                        <input readOnly value={p.has_warranty ? 'With Warranty' : 'Without Warranty'} className={`${inputCls} opacity-70 cursor-default`} />
+                      </div>
+                      {p.others && (
+                        <div className="md:col-span-2">
+                          <label className={labelCls}>Others</label>
+                          <textarea readOnly value={p.others} rows={2} className={`${inputCls} opacity-70 cursor-default resize-none`} />
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+                <div className={selectedProductId ? '' : 'md:col-span-2'}>
+                  <label className={labelCls}>Sales / Invoice No.</label>
+                  <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                </div>
+              </>
+            )}
           </div>
         </Card>
 

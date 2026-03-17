@@ -11,11 +11,13 @@ def create_initial_admin(sender, **kwargs):
         return
     try:
         # Create default admin (is_staff=True, is_superuser=False)
-        if not User.objects.filter(email='rvebayo@gmail.com').exists():
+        if not User.objects.filter(email='admin@maptechisi.com').exists():
             user = User.objects.create_user(
-                username='Rivo Vebayo',
-                email='rvebayo@gmail.com',
-                password='rvebayo123!',
+                username='Admin',
+                first_name='Admin',
+                last_name='User',
+                email='admin@maptechisi.com',
+                password='Admin123!',
                 role=User.ROLE_ADMIN,
                 is_staff=True,
                 is_superuser=False,
@@ -23,7 +25,6 @@ def create_initial_admin(sender, **kwargs):
     except Exception:
         # avoid failing migrations if DB not ready
         pass
-
 
 # ── Audit logging signals ──
 
