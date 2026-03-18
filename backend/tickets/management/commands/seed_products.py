@@ -3,31 +3,6 @@ from tickets.models import Category, Product
 
 
 SEED_PRODUCTS = [
-    # Cyber Security
-    {
-        'category_name': 'Cyber Security',
-        'product_name': 'FortiGate 60F',
-        'brand': 'Fortinet',
-        'model_name': 'FG-60F',
-        'device_equipment': 'Next-Generation Firewall',
-        'version_no': 'FortiOS 7.4',
-        'serial_no': 'FG60F-SN-100001',
-        'sales_no': 'SO-2025-001',
-        'has_warranty': True,
-        
-    },
-    {
-        'category_name': 'Cyber Security',
-        'product_name': 'Cisco ASA 5506',
-        'brand': 'Cisco',
-        'model_name': 'ASA 5506-X',
-        'device_equipment': 'Adaptive Security Appliance',
-        'version_no': '9.16.3',
-        'serial_no': 'CISCO-ASA-200002',
-        'sales_no': 'SO-2025-002',
-        'has_warranty': True,
-        
-    },
     # Wireless Access Points & Switches
     {
         'category_name': 'Wireless Access Points & Switches',
