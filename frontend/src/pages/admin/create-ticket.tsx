@@ -55,6 +55,8 @@ import {
   createCallLog,
   endCallLog,
   linkTickets,
+  updateProduct,
+  fetchDeviceEquipment,
 } from '../../services/api';
 import type { TypeOfService as ServiceType, ClientRecord, Product, BackendTicket } from '../../services/api';
 
@@ -153,6 +155,12 @@ export default function AdminCreateTicket() {
     device_equipment: '', product_name: '', brand: '', model_name: '',
     serial_no: '', version_no: '', date_purchased: '', has_warranty: false,
   });
+  const [savingProductDetails, setSavingProductDetails] = useState(false);
+  const [deviceEquipments, setDeviceEquipments] = useState<{ id: number; device_name?: string; device_equipment?: string; is_active?: boolean }[]>([]);
+  const [deviceModalOpen, setDeviceModalOpen] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [devicePage, setDevicePage] = useState(1);
+  const DEVICE_PAGE_SIZE = 8;
 
   // Estimated resolution days override (for "Others")
   const [estimatedDaysOverride, setEstimatedDaysOverride] = useState<number | ''>('');
@@ -199,10 +207,56 @@ export default function AdminCreateTicket() {
     fetchProducts()
       .then((p) => setProducts(p))
       .catch(() => {});
+    fetchDeviceEquipment().then((list) => { setDeviceEquipments(list); setDevicePage(1); }).catch(() => {});
     fetchNextTicketStfNo()
       .then((nextStfNo) => setStfNo(nextStfNo))
       .catch(() => {});
   }, []);
+
+  // When selectedProductId changes, populate newProductInfo so fields become editable
+  useEffect(() => {
+    if (!selectedProductId) return;
+    const p = products.find((x) => x.id === selectedProductId);
+    if (!p) return;
+    setNewProductInfo({
+      device_equipment: p.device_equipment || '',
+      product_name: p.product_name || '',
+      brand: p.brand || '',
+      model_name: p.model_name || '',
+      serial_no: p.serial_no || '',
+      version_no: p.version_no || '',
+      date_purchased: p.date_purchased || '',
+      has_warranty: !!p.has_warranty,
+    });
+  }, [selectedProductId, products]);
+
+  const handleSaveProductDetails = async () => {
+    if (!selectedProductId) {
+      toast.error('Please select a product to save.');
+      return;
+    }
+    setSavingProductDetails(true);
+    try {
+      const payload: Partial<Product> = {
+        device_equipment: newProductInfo.device_equipment || null,
+        product_name: newProductInfo.product_name || null,
+        brand: newProductInfo.brand || null,
+        model_name: newProductInfo.model_name || null,
+        serial_no: newProductInfo.serial_no || null,
+        version_no: newProductInfo.version_no || null,
+        date_purchased: newProductInfo.date_purchased || null,
+        has_warranty: newProductInfo.has_warranty,
+      };
+      await updateProduct(selectedProductId, payload);
+      const refreshed = await fetchProducts();
+      setProducts(refreshed);
+      toast.success('Product details saved.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save product details.');
+    } finally {
+      setSavingProductDetails(false);
+    }
+  };
 
   const applySelectedProductToTicketData = (ticketData: Record<string, unknown>) => {
     if (!selectedProductId) return;
@@ -641,6 +695,65 @@ export default function AdminCreateTicket() {
           </div>
         </Card>
 
+        {/* Device selection modal */}
+        {deviceModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setDeviceModalOpen(false)} />
+            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-xl max-h-[80vh] overflow-auto p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Select Device / Equipment</h4>
+                <button type="button" onClick={() => setDeviceModalOpen(false)} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Close</button>
+              </div>
+              <div className="mb-3">
+                <input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search device/equipment..." className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm" />
+              </div>
+              <div className="space-y-2">
+                {(() => {
+                  const filtered = deviceEquipments.filter((d) => d.is_active !== false).filter((d) => ((d.name || d.device_equipment || d.device_name) || '').toLowerCase().includes(deviceSearch.toLowerCase()));
+                  const total = filtered.length;
+                  const totalPages = Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE));
+                  const start = (devicePage - 1) * DEVICE_PAGE_SIZE;
+                  const pageItems = filtered.slice(start, start + DEVICE_PAGE_SIZE);
+                  return (
+                    <>
+                      {pageItems.map((d) => {
+                        const title = d.name || d.device_equipment || d.device_name || 'Unnamed';
+                        const isSelectedDevice = (newProductInfo.device_equipment || '').toLowerCase() === title.toLowerCase();
+                        return (
+                          <div key={d.id} className="flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                            <div className="text-sm text-gray-800 dark:text-gray-100">{title}</div>
+                            <div>
+                              {isSelectedDevice ? (
+                                <button type="button" className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Selected</button>
+                              ) : (
+                                <button type="button" onClick={() => { setNewProductInfo((p) => ({ ...p, device_equipment: title })); setDeviceModalOpen(false); }} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {total === 0 && (
+                        <div className="text-sm text-gray-500">No device/equipment found.</div>
+                      )}
+
+                      {/* Pagination controls */}
+                      {total > DEVICE_PAGE_SIZE && (
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-sm text-gray-500">Page {devicePage} of {Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE))}</div>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => setDevicePage((p) => Math.max(1, p - 1))} disabled={devicePage === 1} className={`px-2 py-1 rounded border ${devicePage === 1 ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}>Prev</button>
+                            <button type="button" onClick={() => setDevicePage((p) => Math.min(Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE)), p + 1))} disabled={devicePage >= Math.ceil(total / DEVICE_PAGE_SIZE)} className={`px-2 py-1 rounded border ${devicePage >= Math.ceil(total / DEVICE_PAGE_SIZE) ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}>Next</button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Section 2: Product Information */}
         <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>2. Product Details</h3>
@@ -676,7 +789,12 @@ export default function AdminCreateTicket() {
               <>
                 <div>
                   <label className={labelCls}>Device / Equipment</label>
-                  <input type="text" placeholder="e.g. Fingerprint Terminal" value={newProductInfo.device_equipment} onChange={(e) => setNewProductInfo((p) => ({ ...p, device_equipment: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <div className="relative">
+                    <button type="button" onClick={() => setDeviceModalOpen(true)} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'}`}>
+                      {newProductInfo.device_equipment || 'Select Device / Equipment'}
+                    </button>
+                    <button type="button" onClick={() => setDeviceModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
+                  </div>
                 </div>
                 <div>
                   <label className={labelCls}>Product</label>
@@ -734,69 +852,71 @@ export default function AdminCreateTicket() {
                     ))}
                   </select>
                 </div>
-                {selectedProduct && (() => {
-                  const p = selectedProduct;
-                  return (
-                    <>
-                      {p.device_equipment && (
-                        <div>
-                          <label className={labelCls}>Device / Equipment</label>
-                          <input readOnly value={p.device_equipment} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.product_name && (
-                        <div>
-                          <label className={labelCls}>Product</label>
-                          <input readOnly value={p.product_name} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.brand && (
-                        <div>
-                          <label className={labelCls}>Brand</label>
-                          <input readOnly value={p.brand} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.model_name && (
-                        <div>
-                          <label className={labelCls}>Model</label>
-                          <input readOnly value={p.model_name} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.serial_no && (
-                        <div>
-                          <label className={labelCls}>Serial No.</label>
-                          <input readOnly value={p.serial_no} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.version_no && (
-                        <div>
-                          <label className={labelCls}>Version No.</label>
-                          <input readOnly value={p.version_no} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      {p.date_purchased && (
-                        <div>
-                          <label className={labelCls}>Date Purchased</label>
-                          <input readOnly value={p.date_purchased} className={`${inputCls} opacity-70 cursor-default`} />
-                        </div>
-                      )}
-                      <div>
-                        <label className={labelCls}>Warranty</label>
-                        <input readOnly value={p.has_warranty ? 'With Warranty' : 'Without Warranty'} className={`${inputCls} opacity-70 cursor-default`} />
+                {selectedProduct && (
+                  <>
+                    <div>
+                      <label className={labelCls}>Device / Equipment</label>
+                      <div className="relative">
+                        <button type="button" onClick={() => setDeviceModalOpen(true)} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'}`}>
+                          {newProductInfo.device_equipment || 'Select Device / Equipment'}
+                        </button>
+                        <button type="button" onClick={() => setDeviceModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
                       </div>
-                      {p.others && (
-                        <div className="md:col-span-2">
-                          <label className={labelCls}>Others</label>
-                          <textarea readOnly value={p.others} rows={2} className={`${inputCls} opacity-70 cursor-default resize-none`} />
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-                <div className={selectedProductId ? '' : 'md:col-span-2'}>
-                  <label className={labelCls}>Sales / Invoice No.</label>
-                  <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
-                </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Product</label>
+                      <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, product_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Brand</label>
+                      <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => setNewProductInfo((p) => ({ ...p, brand: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Model</label>
+                      <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, model_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Serial No.</label>
+                      <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, serial_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Version No.</label>
+                      <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, version_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Date Purchased</label>
+                      <input type="date" value={newProductInfo.date_purchased} onChange={(e) => setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value }))} className={inputCls} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Warranty</label>
+                      <div className="flex gap-3">
+                        <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: true }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>With Warranty</button>
+                        <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: false }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${!newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>Without Warranty</button>
+                      </div>
+                    </div>
+                    {selectedProduct?.others && (
+                      <div className="md:col-span-2">
+                        <label className={labelCls}>Others</label>
+                        <textarea value={selectedProduct.others} rows={2} className={`${inputCls} resize-none`} readOnly />
+                      </div>
+                    )}
+                    <div className="md:col-span-2">
+                      <label className={labelCls}>Sales / Invoice No.</label>
+                      <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                      <div className="mt-3 flex justify-end">
+                        <button type="button" onClick={handleSaveProductDetails} disabled={!selectedProductId || savingProductDetails} className={`ml-3 px-4 py-2 rounded-lg text-sm ${savingProductDetails ? 'bg-gray-300 text-gray-700 cursor-not-allowed' : 'bg-[#0E8F79] text-white'}`}>
+                          {savingProductDetails ? 'Saving...' : 'Save product details'}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+                {!selectedProduct && (
+                  <div className="md:col-span-2">
+                    <label className={labelCls}>Sales / Invoice No.</label>
+                    <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                  </div>
+                )}
               </>
             )}
           </div>
