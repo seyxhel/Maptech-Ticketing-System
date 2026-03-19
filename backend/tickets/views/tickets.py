@@ -109,10 +109,23 @@ class TicketViewSet(viewsets.ModelViewSet):
                 'others':           serializer.validated_data.pop('others', '') or '',
             }
 
+            linked_product = serializer.validated_data.get('product_record')
+            if linked_product:
+                for field in ('product_name', 'brand', 'model_name', 'device_equipment', 'version_no', 'serial_no', 'sales_no'):
+                    if product_text[field] in (None, ''):
+                        product_text[field] = getattr(linked_product, field, product_text[field])
+                if not product_text['has_warranty']:
+                    product_text['has_warranty'] = bool(getattr(linked_product, 'has_warranty', False))
+
             # If no product_record linked and product data present, auto-create a Product record
             if not serializer.validated_data.get('product_record'):
                 if any(v for v in product_text.values() if v not in (None, '', False)):
-                    serializer.validated_data['product_record'] = Product.objects.create(**product_text)
+                    product_record_data = {
+                        key: value
+                        for key, value in product_text.items()
+                        if key not in ('date_purchased', 'others')
+                    }
+                    serializer.validated_data['product_record'] = Product.objects.create(**product_record_data)
 
             # Store product details directly on the ticket as well
             for field, val in product_text.items():
@@ -217,19 +230,29 @@ class TicketViewSet(viewsets.ModelViewSet):
         }
         return perm_map.get(self.action, [IsAuthenticated()])
 
+    @action(detail=False, methods=['get'])
+    def next_stf_no(self, request):
+        return Response({'stf_no': Ticket.get_next_stf_no()})
+
     @action(detail=True, methods=['post'])
     def assign(self, request, pk=None):
         ticket = self.get_object()
 
-        reassignable_statuses = [
-            Ticket.STATUS_OPEN,
-            Ticket.STATUS_IN_PROGRESS,
-            Ticket.STATUS_FOR_OBSERVATION,
-            Ticket.STATUS_ESCALATED,
-        ]
-        if ticket.status not in reassignable_statuses:
+        # Block reassignment if the employee has already clicked Start Work,
+        # unless the ticket is escalated (admin must be able to reassign after escalation).
+        if ticket.time_in is not None and ticket.status != Ticket.STATUS_ESCALATED:
             return Response(
-                {'detail': 'Cannot reassign a ticket after the employee has started working on it.'},
+                {'detail': 'Cannot reassign after the employee has already started working.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        terminal_statuses = [
+            Ticket.STATUS_CLOSED,
+            Ticket.STATUS_PENDING_CLOSURE,
+            Ticket.STATUS_UNRESOLVED,
+        ]
+        if ticket.status in terminal_statuses:
+            return Response(
+                {'detail': 'Cannot reassign a closed or resolved ticket.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

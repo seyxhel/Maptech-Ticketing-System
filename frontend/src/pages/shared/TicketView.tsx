@@ -92,8 +92,8 @@ function computeTrackerStates(
     assigned: 'done', in_progress: 'done', observation: 'active', resolved: 'pending', closed: 'pending',
   };
   if (s === 'escalated' || s === 'escalated_external') return {
-    // progress frozen at In Progress while awaiting admin action
-    assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
+    // progress frozen while awaiting admin action; only mark Start Work done if employee actually clicked it
+    assigned: 'done', in_progress: timeIn ? 'done' : 'pending', observation: wasObserved ? 'done' : 'pending', resolved: 'pending', closed: 'pending',
   };
   if (s === 'pending_closure') return {
     assigned: 'done', in_progress: 'done', observation: wasObserved ? 'done' : 'skipped', resolved: 'active', closed: 'pending',
@@ -215,6 +215,49 @@ const TicketProgressTracker: React.FC<{
 }
 // ──────────────────────────────────────────────────────────────────────────── //
 
+function resolveTicketProductSnapshot(btData: BackendTicket): {
+  deviceEquipment: string;
+  versionNo: string;
+  datePurchased: string;
+  serialNo: string;
+  warranty: 'With Warranty' | 'Without Warranty';
+  product: string;
+  brand: string;
+  model: string;
+  salesNo: string;
+  others: string;
+  hasAnyValue: boolean;
+} {
+  const linkedProduct = btData.product_record_detail;
+  const readText = (value: unknown) => typeof value === 'string' ? value : '';
+  const readBool = (value: unknown) => value === true;
+
+  return {
+    deviceEquipment: readText(btData.device_equipment) || readText(linkedProduct?.device_equipment),
+    versionNo: readText(btData.version_no) || readText(linkedProduct?.version_no),
+    datePurchased: readText(btData.date_purchased) || readText(linkedProduct?.date_purchased),
+    serialNo: readText(btData.serial_no) || readText(linkedProduct?.serial_no),
+    warranty: readBool(btData.has_warranty) || readBool(linkedProduct?.has_warranty) ? 'With Warranty' : 'Without Warranty',
+    product: readText(btData.product) || readText(linkedProduct?.product_name),
+    brand: readText(btData.brand) || readText(linkedProduct?.brand),
+    model: readText(btData.model_name) || readText(linkedProduct?.model_name),
+    salesNo: readText(btData.sales_no) || readText(linkedProduct?.sales_no),
+    others: readText(btData.others) || readText(linkedProduct?.others),
+    hasAnyValue: Boolean(
+      readText(btData.device_equipment) || readText(linkedProduct?.device_equipment) ||
+      readText(btData.brand) || readText(linkedProduct?.brand) ||
+      readText(btData.product) || readText(linkedProduct?.product_name) ||
+      readText(btData.model_name) || readText(linkedProduct?.model_name) ||
+      readText(btData.version_no) || readText(linkedProduct?.version_no) ||
+      readText(btData.date_purchased) || readText(linkedProduct?.date_purchased) ||
+      readText(btData.serial_no) || readText(linkedProduct?.serial_no) ||
+      readBool(btData.has_warranty) || readBool(linkedProduct?.has_warranty) ||
+      readText(btData.sales_no) || readText(linkedProduct?.sales_no) ||
+      readText(btData.others) || readText(linkedProduct?.others)
+    ),
+  };
+}
+
 export function TicketView() {
   const { user } = useAuth();
   const isEmployee = user?.role === 'employee';
@@ -241,6 +284,7 @@ export function TicketView() {
   const ticket = btData
     ? (() => {
         const { sla, total } = computeSla(btData);
+        const productSnapshot = resolveTicketProductSnapshot(btData);
         return {
           id: btData.stf_no,
           priority: mapPriority(btData.priority) as 'Critical' | 'High' | 'Medium' | 'Low',
@@ -261,17 +305,17 @@ export function TicketView() {
           designation: btData.designation || 'N/A',
           preferredSupport: ({'remote_online':'Remote / Online','onsite':'Onsite','chat':'Chat','call':'Call'} as Record<string,string>)[btData.preferred_support_type] || btData.preferred_support_type || 'N/A',
           typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A',
-          productDetails: (btData.device_equipment || btData.brand || btData.product || btData.model_name || btData.version_no || btData.date_purchased || btData.serial_no || btData.has_warranty || btData.sales_no || btData.others) ? {
-            deviceEquipment: btData.device_equipment || '',
-            versionNo: btData.version_no || '',
-            datePurchased: btData.date_purchased || '',
-            serialNo: btData.serial_no || '',
-            warranty: btData.has_warranty ? 'With Warranty' : 'Without Warranty',
-            product: btData.product || '',
-            brand: btData.brand || '',
-            model: btData.model_name || '',
-            salesNo: btData.sales_no || '',
-            others: btData.others || '',
+          productDetails: productSnapshot.hasAnyValue ? {
+            deviceEquipment: productSnapshot.deviceEquipment,
+            versionNo: productSnapshot.versionNo,
+            datePurchased: productSnapshot.datePurchased,
+            serialNo: productSnapshot.serialNo,
+            warranty: productSnapshot.warranty,
+            product: productSnapshot.product,
+            brand: productSnapshot.brand,
+            model: productSnapshot.model,
+            salesNo: productSnapshot.salesNo,
+            others: productSnapshot.others,
           } : null,
           actionTaken: btData.action_taken || '',
           remarks: btData.remarks || '',
@@ -666,16 +710,31 @@ export function TicketView() {
   // ── Admin reassign (for escalated tickets) ──
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [reassignEmployeeId, setReassignEmployeeId] = useState('');
+  const [reassignSearch, setReassignSearch] = useState('');
   const [reassigning, setReassigning] = useState(false);
+  const [showReassignModal, setShowReassignModal] = useState(false);
   const [employeeTickets, setEmployeeTickets] = useState<Record<number, BackendTicket[]>>({});
 
   // Show reassign when: ticket is Escalated (admin handles escalation),
+  // OR the employee hasn't clicked Start Work yet (time_in is null),
   // OR the admin themselves is currently assigned (admin started work and wants to hand off).
   const canAdminReassign = isAdmin &&
     !['Resolved', 'Closed', 'Unresolved'].includes(ticket.status) && (
       ticket.status === 'Escalated' ||
+      !btData?.time_in ||
       btData?.assigned_to?.id === user?.id
     );
+
+  const filteredEmployees = [...employees]
+    .sort((a, b) => a.active_ticket_count - b.active_ticket_count)
+    .filter((emp) => {
+      const query = reassignSearch.trim().toLowerCase();
+      if (!query) return true;
+      const fullName = `${emp.first_name} ${emp.last_name}`.trim().toLowerCase();
+      const reverseFullName = `${emp.last_name} ${emp.first_name}`.trim().toLowerCase();
+      const username = emp.username.toLowerCase();
+      return fullName.includes(query) || reverseFullName.includes(query) || username.includes(query);
+    });
 
   useEffect(() => {
     if (!canAdminReassign) return;
@@ -750,6 +809,7 @@ export function TicketView() {
     setPdModel(product.model_name || '');
     setPdVersionNo(product.version_no || '');
     setPdSerialNo(product.serial_no || '');
+    setPdSalesNo(product.sales_no || '');
     setPdDatePurchased(product.date_purchased || '');
     setPdHasWarranty(product.has_warranty ?? false);
     setPdOthers(product.others || '');
@@ -758,19 +818,20 @@ export function TicketView() {
   // Sync form state when backend data loads or updates
   useEffect(() => {
     if (btData) {
+      const productSnapshot = resolveTicketProductSnapshot(btData);
       setJobStatus(btData.job_status || '');
       setActionTaken(btData.action_taken || '');
       setRemarksText(btData.remarks || '');
-      setPdDeviceEquipment(btData.device_equipment || '');
-      setPdProduct(btData.product || '');
-      setPdBrand(btData.brand || '');
-      setPdModel(btData.model_name || '');
-      setPdVersionNo(btData.version_no || '');
-      setPdSerialNo(btData.serial_no || '');
-      setPdSalesNo(btData.sales_no || '');
-      setPdDatePurchased(btData.date_purchased || '');
-      setPdHasWarranty(btData.has_warranty ?? false);
-      setPdOthers(btData.others || '');
+      setPdDeviceEquipment(productSnapshot.deviceEquipment);
+      setPdProduct(productSnapshot.product);
+      setPdBrand(productSnapshot.brand);
+      setPdModel(productSnapshot.model);
+      setPdVersionNo(productSnapshot.versionNo);
+      setPdSerialNo(productSnapshot.serialNo);
+      setPdSalesNo(productSnapshot.salesNo);
+      setPdDatePurchased(productSnapshot.datePurchased);
+      setPdHasWarranty(productSnapshot.warranty === 'With Warranty');
+      setPdOthers(productSnapshot.others);
       setObservation(btData.observation || '');
       setSignatureData(btData.signature || null);
       setSignedByName(btData.signed_by_name || '');
@@ -794,6 +855,29 @@ export function TicketView() {
   /** Admin or assigned employee who is actively processing this ticket */
   const canProcessTicket = isAssignedEmployee || isAdminProcessingEscalated;
   const canEdit = (canProcessTicket) && ticket.status !== 'Resolved' && ticket.status !== 'Closed';
+  const canStartWorkAction = canProcessTicket && !btData?.time_in && (
+    ticket.status === 'Assigned' || ticket.status === 'New' || ticket.status === 'Escalated'
+  );
+  const canSubmitObservationAction = canProcessTicket && !btData?.was_for_observation && !!btData?.time_in && (
+    ticket.status === 'In Progress' || ticket.status === 'Assigned' ||
+    (isAdminProcessingEscalated && ticket.status === 'Escalated')
+  );
+  const canResolveAction = canProcessTicket && (
+    ticket.status === 'For Observation' ||
+    (isAdminProcessingEscalated && ticket.status === 'Escalated' && !!btData?.was_for_observation) ||
+    (isAssignedEmployee && !!btData?.was_for_observation && (ticket.status === 'In Progress' || ticket.status === 'Assigned'))
+  );
+  const showHandleYourselfDivider = canStartWorkAction || canSubmitObservationAction || canResolveAction;
+  const hasLinkedRegisteredProduct = Boolean(btData?.product_record);
+  const needsManualProductEntry = !hasLinkedRegisteredProduct;
+  const hasManualProductDetails = Boolean(
+    btData?.device_equipment || btData?.product || btData?.brand || btData?.model_name ||
+    btData?.version_no || btData?.date_purchased || btData?.serial_no || btData?.sales_no || btData?.others
+  );
+  const [isEditingProductDetails, setIsEditingProductDetails] = useState(false);
+  const showProductEditor = canEdit && needsManualProductEntry && (
+    !hasManualProductDetails || isEditingProductDetails
+  );
   const hasActionTaken = actionTaken.trim().length > 0;
   const hasRemarks = remarksText.trim().length > 0;
   const hasJobStatus = jobStatus.trim().length > 0;
@@ -828,6 +912,7 @@ export function TicketView() {
         others: pdOthers,
       });
       setBtData(updated);
+      setIsEditingProductDetails(false);
       toast.success('Product details saved successfully.');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to save product details.');
@@ -941,6 +1026,8 @@ export function TicketView() {
       setBtData(updated);
       toast.success('Ticket reassigned successfully.');
       setReassignEmployeeId('');
+      setReassignSearch('');
+      setShowReassignModal(false);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to reassign ticket.');
     } finally {
@@ -1142,6 +1229,12 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Designation:</span><span class="info-value">${ticket.designation}</span></div>
         <div class="info-row"><span class="info-label">Address:</span><span class="info-value">${ticket.fullAddress}</span></div>
       </div>
+      ${btData.external_escalated_to ? `
+        <div class="info-grid" style="margin-bottom: 0;">
+          <div class="info-row"><span class="info-label" style="color:#7c3aed">Escalated To (External):</span><span class="info-value">${btData.external_escalated_to}</span></div>
+          <div class="info-row"><span class="info-label" style="color:#7c3aed">Escalation Notes:</span><span class="info-value">${btData.external_escalation_notes || 'N/A'}</span></div>
+        </div>
+      ` : ''}
       <h2>Issue Description</h2>
       <div class="desc">${ticket.description}</div>
       ${pd ? `<h2>Product Details</h2>
@@ -1648,7 +1741,7 @@ export function TicketView() {
               {/* Description - Full Width */}
               <div className="sm:col-span-2 mt-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Description</div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
                   {ticket.description}
                 </p>
               </div>
@@ -1675,7 +1768,7 @@ export function TicketView() {
                 <Package className="w-4 h-4" /> Product Details
                 {canEdit && <span className="text-[10px] font-normal normal-case text-gray-400">(fill in after assignment)</span>}
               </h3>
-              {canEdit && (
+              {showProductEditor && (
                 <div className="mb-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Select Product</div>
                   <select
@@ -1696,7 +1789,7 @@ export function TicketView() {
                 {/* Device / Equipment */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Device / Equipment</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdDeviceEquipment} onChange={(e) => setPdDeviceEquipment(e.target.value)} placeholder="e.g. Laptop, Printer" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdDeviceEquipment || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1705,7 +1798,7 @@ export function TicketView() {
                 {/* Product */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Product</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdProduct} onChange={(e) => setPdProduct(e.target.value)} placeholder="Product name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdProduct || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1714,7 +1807,7 @@ export function TicketView() {
                 {/* Brand */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Brand</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdBrand} onChange={(e) => setPdBrand(e.target.value)} placeholder="Brand name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdBrand || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1723,7 +1816,7 @@ export function TicketView() {
                 {/* Model */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Model</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdModel} onChange={(e) => setPdModel(e.target.value)} placeholder="Model name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdModel || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1732,7 +1825,7 @@ export function TicketView() {
                 {/* Version No. */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Version No.</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdVersionNo} onChange={(e) => setPdVersionNo(e.target.value)} placeholder="Version number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdVersionNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1741,7 +1834,7 @@ export function TicketView() {
                 {/* Serial No. */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Serial No.</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdSerialNo} onChange={(e) => setPdSerialNo(e.target.value)} placeholder="Serial number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdSerialNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1750,7 +1843,7 @@ export function TicketView() {
                 {/* Sales / Invoice No. */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Sales / Invoice No.</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input value={pdSalesNo} onChange={(e) => setPdSalesNo(e.target.value)} placeholder="Sales / Invoice number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdSalesNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1759,7 +1852,7 @@ export function TicketView() {
                 {/* Date Purchased */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Date Purchased</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <input type="date" value={pdDatePurchased} onChange={(e) => setPdDatePurchased(e.target.value)} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdDatePurchased || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1768,7 +1861,7 @@ export function TicketView() {
                 {/* Warranty */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Warranty</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
@@ -1800,7 +1893,7 @@ export function TicketView() {
                 {/* Others */}
                 <div className="col-span-2">
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Others</div>
-                  {canEdit ? (
+                  {showProductEditor ? (
                     <textarea value={pdOthers} onChange={(e) => setPdOthers(e.target.value)} placeholder="Additional product details" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] resize-vertical" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdOthers || <span className="text-gray-400 italic">Not yet filled</span>}</div>
@@ -1808,7 +1901,29 @@ export function TicketView() {
                 </div>
               </div>
               {/* Save Product Details button (employee only) */}
-              {canEdit && (
+              {canEdit && needsManualProductEntry && hasManualProductDetails && (
+                <button
+                  type="button"
+                  disabled={isEditingProductDetails && savingProductDetails}
+                  onClick={() => {
+                    if (isEditingProductDetails) {
+                      void handleSaveProductDetails();
+                      return;
+                    }
+                    setIsEditingProductDetails(true);
+                  }}
+                  className="mt-4 w-full py-2.5 rounded-xl font-semibold text-white bg-gradient-to-r from-[#63D44A] to-[#0E8F79] hover:shadow-lg hover:shadow-[#3BC25B]/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                >
+                  {isEditingProductDetails ? (
+                    savingProductDetails
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                      : <><CheckCircle className="w-4 h-4" /> Save Product Details</>
+                  ) : (
+                    <><PenLine className="w-4 h-4" /> Edit Product Details</>
+                  )}
+                </button>
+              )}
+              {showProductEditor && !(needsManualProductEntry && hasManualProductDetails) && (
                 <button
                   type="button"
                   disabled={savingProductDetails}
@@ -2042,7 +2157,7 @@ export function TicketView() {
                           onClick={() => setVideoLightboxUrl(att.url!)}
                           className="relative block w-full cursor-pointer hover:opacity-90 transition-opacity bg-gray-900"
                         >
-                          <video src={att.url} className="w-full h-32 object-cover" muted />
+                          <video src={att.url} className="w-full h-32 object-cover" muted playsInline preload="metadata" />
                           <div className="absolute inset-0 flex items-center justify-center">
                             <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
                               <Play className="w-5 h-5 text-white ml-0.5" />
@@ -2159,90 +2274,27 @@ export function TicketView() {
           {/* ── Action Buttons ── */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
-              {/* Admin: Reassign ticket to another employee (available at any active status) */}
+              {/* Admin: Reassign ticket via modal picker */}
               {canAdminReassign && (
-                <div className="space-y-2 pb-1">
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reassign to Employee</label>
-
-
-                  <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                    {employees.length === 0 ? (
-                      <p className="text-sm text-gray-400 py-2">No technicals found.</p>
-                    ) : (
-                      [...employees]
-                        .sort((a, b) => a.active_ticket_count - b.active_ticket_count)
-                        .map((emp) => {
-                          const tickets = employeeTickets[emp.id] || [];
-                          const isSelected = reassignEmployeeId === String(emp.id);
-                          const name = `${emp.first_name} ${emp.last_name}`.trim() || emp.username;
-                          return (
-                            <button
-                              type="button"
-                              key={emp.id}
-                              onClick={() => setReassignEmployeeId(isSelected ? '' : String(emp.id))}
-                              className={`w-full text-left rounded-xl border p-3 transition-colors ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-700 hover:border-[#3BC25B]/60 hover:bg-gray-50 dark:hover:bg-gray-800/60'}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{name}</div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{emp.username}</div>
-                                </div>
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${emp.active_ticket_count === 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : emp.active_ticket_count <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                  {emp.active_ticket_count} active
-                                </span>
-                              </div>
-
-                              {tickets.length > 0 && (
-                                <div className="mt-2.5">
-                                  <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Current Working Tickets</p>
-                                  <div className="space-y-1.5">
-                                    {tickets.slice(0, 3).map((t) => (
-                                      <div key={t.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-lg px-2.5 py-1.5 border border-gray-100 dark:border-gray-600">
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 truncate">{t.stf_no}</div>
-                                          <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{t.type_of_service_detail?.name || 'N/A'}</div>
-                                        </div>
-                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${priorityBadgeClass(t.priority)}`}>
-                                          {formatPriorityLabel(t.priority)}
-                                        </span>
-                                      </div>
-                                    ))}
-                                    {tickets.length > 3 && (
-                                      <p className="text-[10px] text-gray-400 dark:text-gray-500">+{tickets.length - 3} more active tickets</p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })
-                    )}
-                  </div>
-
+                <>
                   <button
                     type="button"
-                    disabled={!reassignEmployeeId || reassigning}
-                    onClick={handleReassignTicket}
-                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all text-sm"
+                    onClick={() => setShowReassignModal(true)}
+                    className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-orange-500 to-orange-600 hover:shadow-lg hover:shadow-orange-500/20 flex items-center justify-center gap-2 transition-all text-sm"
                   >
-                    {reassigning ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Reassigning...</>
-                    ) : (
-                      <><UserCheck className="w-4 h-4" /> Reassign to Employee</>
-                    )}
+                    <UserCheck className="w-4 h-4" /> Reassign to Employee
                   </button>
-                  <div className="flex items-center gap-2 pt-1">
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                    <span className="text-xs text-gray-400">or handle yourself</span>
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                  </div>
-                </div>
+                  {showHandleYourselfDivider && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                      <span className="text-xs text-gray-400">or handle yourself</span>
+                      <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                    </div>
+                  )}
+                </>
               )}
               {/* Start Work — only shown when no time_in yet (work has not begun) */}
-              {canProcessTicket && !btData?.time_in && (
-                ticket.status === 'Assigned' || ticket.status === 'New' ||
-                ticket.status === 'Escalated'
-              ) && (
+              {canStartWorkAction && (
                 <button
                   type="button"
                   disabled={startingWork}
@@ -2257,10 +2309,7 @@ export function TicketView() {
                 </button>
               )}
               {/* Submit for Observation — work started (time_in set), not yet observed */}
-              {canProcessTicket && !btData?.was_for_observation && !!btData?.time_in && (
-                ticket.status === 'In Progress' || ticket.status === 'Assigned' ||
-                (isAdminProcessingEscalated && ticket.status === 'Escalated')
-              ) && (
+              {canSubmitObservationAction && (
                 <button
                   type="button"
                   disabled={submittingObservation}
@@ -2275,11 +2324,7 @@ export function TicketView() {
                 </button>
               )}
               {/* Resolve Ticket — observation already submitted; shown at For Observation, or after reassignment with time_in preserved */}
-              {canProcessTicket && (
-                ticket.status === 'For Observation' ||
-                (isAdminProcessingEscalated && ticket.status === 'Escalated' && !!btData?.was_for_observation) ||
-                (isAssignedEmployee && !!btData?.was_for_observation && (ticket.status === 'In Progress' || ticket.status === 'Assigned'))
-              ) && (
+              {canResolveAction && (
                 <button
                   type="button"
                   disabled={savingFields || !canResolveTicket}
@@ -2564,6 +2609,7 @@ export function TicketView() {
                                             className="w-full max-h-52 object-cover"
                                             controls
                                             preload="metadata"
+                                            playsInline
                                           />
                                         </div>
                                       );
@@ -2753,7 +2799,7 @@ export function TicketView() {
                       <img src={p.url} alt={p.file.name} className="w-16 h-16 rounded-lg object-cover border border-gray-200 dark:border-gray-600" />
                     ) : p.type === 'video' ? (
                       <div className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-900 flex items-center justify-center relative overflow-hidden">
-                        <video src={p.url} className="w-full h-full object-cover opacity-60" preload="metadata" />
+                        <video src={p.url} className="w-full h-full object-cover opacity-60" muted playsInline preload="metadata" />
                         <Play className="w-5 h-5 text-white absolute" />
                       </div>
                     ) : (
@@ -2958,6 +3004,8 @@ export function TicketView() {
             src={videoLightboxUrl}
             controls
             autoPlay
+            playsInline
+            preload="auto"
             className="max-w-full max-h-full rounded-lg shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           />
@@ -3372,6 +3420,133 @@ export function TicketView() {
                   <><ArrowUpRight className="w-3.5 h-3.5" /> Submit Escalation</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Reassign Ticket Modal ── */}
+      {showReassignModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Reassign Employee</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Select a technical to handle this ticket</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setReassignSearch('');
+                    setReassignEmployeeId('');
+                  }}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-4 text-sm">
+                <span className="text-gray-500 dark:text-gray-400">Ticket: </span>
+                <span className="font-bold text-gray-900 dark:text-white">{ticket.id}</span>
+              </div>
+
+              <div className="relative mb-3">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={reassignSearch}
+                  onChange={(e) => setReassignSearch(e.target.value)}
+                  placeholder="Search employee by name or username..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                />
+              </div>
+
+              <div className="space-y-3 max-h-[26rem] overflow-y-auto pr-1">
+                {employees.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No technicals found.</p>
+                )}
+                {employees.length > 0 && filteredEmployees.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No employees match your search.</p>
+                )}
+                {filteredEmployees.map((emp) => {
+                  const tickets = employeeTickets[emp.id] || [];
+                  const isSelected = reassignEmployeeId === String(emp.id);
+                  const name = `${emp.first_name} ${emp.last_name}`.trim() || emp.username;
+                  return (
+                    <div key={emp.id} className={`rounded-xl border-2 transition-all ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B]'}`}>
+                      <button
+                        type="button"
+                        onClick={() => setReassignEmployeeId(isSelected ? '' : String(emp.id))}
+                        className="w-full flex items-center gap-3 p-3 text-left"
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 dark:text-white text-sm truncate">{name}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">{emp.username}</div>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${emp.active_ticket_count === 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : emp.active_ticket_count <= 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                          {emp.active_ticket_count} active
+                        </span>
+                        {isSelected && <CheckCircle className="w-5 h-5 text-[#3BC25B] shrink-0" />}
+                        {!isSelected && <div className="w-2 h-2 bg-green-400 rounded-full shrink-0" title="Available" />}
+                      </button>
+
+                      {tickets.length > 0 && (
+                        <div className="px-3 pb-3">
+                          <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Current Working Tickets</p>
+                          <div className="space-y-1.5">
+                            {tickets.slice(0, 3).map((t) => (
+                              <div key={t.id} className="flex items-center gap-2 bg-white dark:bg-gray-700 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{t.stf_no}</div>
+                                  <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{t.type_of_service_detail?.name || 'N/A'}</div>
+                                </div>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${priorityBadgeClass(t.priority)}`}>
+                                  {formatPriorityLabel(t.priority)}
+                                </span>
+                              </div>
+                            ))}
+                            {tickets.length > 3 && (
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">+{tickets.length - 3} more active tickets</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReassignModal(false);
+                    setReassignSearch('');
+                    setReassignEmployeeId('');
+                  }}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReassignTicket}
+                  disabled={!reassignEmployeeId || reassigning}
+                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-orange-500/20 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                >
+                  {reassigning ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Reassigning...</>
+                  ) : (
+                    <><UserCheck className="w-4 h-4" /> Reassign to Employee</>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

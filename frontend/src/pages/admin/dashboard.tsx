@@ -18,6 +18,14 @@ import {
   ChevronRight as ChevronRightIcon,
   X,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+} from 'recharts';
 import { toast } from 'sonner';
 import { AnnouncementBanner } from '../../components/ui/AnnouncementBanner';
 import {
@@ -39,6 +47,13 @@ const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
 
 const ITEMS_PER_PAGE = 10;
 
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, maxLength)}...`;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
@@ -57,6 +72,7 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showFilter, setShowFilter] = useState(false);
+  const [ticketFeedView, setTicketFeedView] = useState<'submitted' | 'escalated'>('submitted');
   const [escalationHistory, setEscalationHistory] = useState<
     { id: number; ticketId: string; type: string; to: string; reason: string; time: string }[]
   >([]);
@@ -125,25 +141,23 @@ export default function AdminDashboard() {
     if (!editTicket) return;
     try {
       const assignedToId = editFields.assigneeId ? Number(editFields.assigneeId) : null;
-
-      // Update status & priority via PATCH
-      await apiUpdateTicket(editTicket.backendId, {
+      let updatedBackendTicket = await apiUpdateTicket(editTicket.backendId, {
         status: reverseMapStatus(editFields.status),
         priority: reverseMapPriority(editFields.priority),
       } as any);
 
-      // Assign employee via dedicated endpoint (if changed)
       if (assignedToId && assignedToId !== editTicket.assigneeId) {
-        await assignTicket(editTicket.backendId, assignedToId);
+        updatedBackendTicket = await assignTicket(editTicket.backendId, assignedToId);
       }
 
-      const emp = employees.find((e) => e.id === assignedToId);
-      const assigneeName = emp ? `${emp.first_name} ${emp.last_name}`.trim() : null;
+      setBackendTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === updatedBackendTicket.id ? updatedBackendTicket : ticket
+        )
+      );
       setTickets((prev) =>
-        prev.map((t) =>
-          t.id === editTicket.id
-            ? { ...t, status: editFields.status, priority: editFields.priority as UITicket['priority'], assignee: assigneeName, assigneeId: assignedToId }
-            : t
+        prev.map((ticket) =>
+          ticket.id === editTicket.id ? mapBackendTicketToUI(updatedBackendTicket) : ticket
         )
       );
       toast.success(`Ticket ${editTicket.id} updated.`);
@@ -158,6 +172,7 @@ export default function AdminDashboard() {
     if (!bt) return;
     try {
       await apiDeleteTicket(bt.id);
+      setBackendTickets((prev) => prev.filter((t) => t.id !== bt.id));
       setTickets((prev) => prev.filter((t) => t.id !== id));
       toast.success(`Ticket ${id} deleted.`);
     } catch (err: any) {
@@ -178,9 +193,37 @@ export default function AdminDashboard() {
 
   const totalPages = Math.max(1, Math.ceil(filteredTickets.length / ITEMS_PER_PAGE));
   const pagedTickets = filteredTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  const latestTicketCards = tickets.slice(0, 5);
-  const latestBackendTickets = backendTickets.slice(0, 5);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
+
+  const sortedBackendTickets = [...backendTickets].sort(
+    (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  );
+  const submittedBackendTickets = sortedBackendTickets.filter((ticket) => ticket.status !== 'escalated' && ticket.status !== 'escalated_external');
+  const escalatedBackendTickets = sortedBackendTickets.filter((ticket) => ticket.status === 'escalated' || ticket.status === 'escalated_external');
+  const activeFeedBackendTickets = ticketFeedView === 'submitted' ? submittedBackendTickets : escalatedBackendTickets;
+  const latestTicketCards = activeFeedBackendTickets.slice(0, 5).map(mapBackendTicketToUI);
+
+  const statusChartPalette: Record<string, string> = {
+    New: '#3B82F6',
+    Assigned: '#0EA5E9',
+    'In Progress': '#22C55E',
+    Escalated: '#F97316',
+    'For Observation': '#A855F7',
+    Unresolved: '#EF4444',
+    Resolved: '#14B8A6',
+    Closed: '#6B7280',
+    Pending: '#F59E0B',
+  };
+  const statusPieData = Object.entries(
+    tickets.reduce<Record<string, number>>((acc, ticket) => {
+      acc[ticket.status] = (acc[ticket.status] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).map(([name, value]) => ({
+    name,
+    value,
+    color: statusChartPalette[name] ?? '#94A3B8',
+  }));
 
   const getLastUpdatedText = (stfNo: string) => {
     const bt = backendTickets.find((t) => t.stf_no === stfNo);
@@ -194,7 +237,17 @@ export default function AdminDashboard() {
     if (!bt) { toast.error('Ticket not found.'); return; }
     try {
       const targetName = escalationType === 'Distributor' ? 'Distributor' : escalationType === 'Principal' ? 'Principal' : 'Higher Position';
-      await escalateExternal(bt.id, { external_escalated_to: targetName, external_escalation_notes: escalationReason } as any);
+      const updatedBackendTicket = await escalateExternal(bt.id, { external_escalated_to: targetName, external_escalation_notes: escalationReason } as any);
+      setBackendTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === updatedBackendTicket.id ? updatedBackendTicket : ticket
+        )
+      );
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === selectedEscalationTicket ? mapBackendTicketToUI(updatedBackendTicket) : ticket
+        )
+      );
       toast.success(`Ticket ${selectedEscalationTicket} escalated successfully`);
       setEscalationReason('');
     } catch (err: any) {
@@ -233,23 +286,36 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2" accent>
           <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Submitted Tickets</h3>
-            <GreenButton variant="outline" onClick={() => navigate('/admin/tickets')}>
-              View All
+            <div className="flex items-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 p-1">
+              <button
+                onClick={() => setTicketFeedView('submitted')}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${ticketFeedView === 'submitted' ? 'bg-white dark:bg-gray-700 text-[#0E8F79] shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                Submitted Tickets
+              </button>
+              <button
+                onClick={() => setTicketFeedView('escalated')}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${ticketFeedView === 'escalated' ? 'bg-white dark:bg-gray-700 text-[#0E8F79] shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+              >
+                Escalated Tickets
+              </button>
+            </div>
+            <GreenButton variant="outline" onClick={() => navigate(ticketFeedView === 'submitted' ? '/admin/tickets' : '/admin/tickets/escalated')}>
+              {ticketFeedView === 'submitted' ? 'All Submitted Tickets' : 'All Escalated Tickets'}
             </GreenButton>
           </div>
           <div className="space-y-4">
             {latestTicketCards.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400">No submitted tickets yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{ticketFeedView === 'submitted' ? 'No submitted tickets yet.' : 'No escalated tickets yet.'}</p>
               </div>
             ) : (
               latestTicketCards.map((ticket) => (
                 <div key={ticket.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-mono text-xs text-[#0E8F79] dark:text-green-400 mb-1">{ticket.id}</p>
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white">{ticket.subject}</h4>
+                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white break-all">{truncateText(ticket.subject, 73)}</h4>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Client: {ticket.client}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Last Updated: {getLastUpdatedText(ticket.id)}</p>
                     </div>
@@ -279,12 +345,12 @@ export default function AdminDashboard() {
                       <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Progress</p>
                       <div className="mt-1">
                         {(() => {
-                          const bt = latestBackendTickets.find((b) => b.stf_no === ticket.id);
+                          const bt = activeFeedBackendTickets.find((b) => b.stf_no === ticket.id);
                           const progress = bt?.progress_percentage ?? bt?.progressPercentage ?? 0;
                           return (
                             <>
                               <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
-                                <span>Progress</span>
+                                <span>Current Progress</span>
                                 <span className="font-bold">{progress}%</span>
                               </div>
                               <div className="w-full h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
@@ -303,6 +369,47 @@ export default function AdminDashboard() {
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-gray-900 dark:text-white">Tickets by Status</h3>
+              <span className="text-xs text-gray-400 dark:text-gray-500">Supervisor overview</span>
+            </div>
+            <div className="h-72">
+              {statusPieData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">No ticket data available.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      cx="50%"
+                      cy="46%"
+                      innerRadius={58}
+                      outerRadius={88}
+                      paddingAngle={3}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {statusPieData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #E5E7EB',
+                        borderRadius: '8px',
+                        color: '#111827',
+                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                      }}
+                    />
+                    <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#6b7280', fontSize: '12px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </Card>
+
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
@@ -349,7 +456,7 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Assignee</label>
-                {editTicket && !['New', 'Assigned'].includes(editTicket.status) ? (
+                {editTicket && !['New', 'Assigned', 'Escalated'].includes(editTicket.status) ? (
                   <>
                     <select disabled className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed outline-none">
                       <option>{editTicket.assignee || 'Unassigned'}</option>

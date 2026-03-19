@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
-import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2, Camera, Eye } from 'lucide-react';
+import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { changePassword, updateProfile, uploadAvatar, removeAvatar } from '../../services/authService';
 import { toast } from 'sonner';
@@ -144,6 +144,9 @@ export default function EmployeeSettings() {
   const [pwError, setPwError] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -375,16 +378,22 @@ export default function EmployeeSettings() {
           {pwError && <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 text-sm">{pwError}</div>}
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Current Password</label>
-            <div className={boxEdit}>
+            <div className={`${boxEdit} relative`}>
               <Lock className="w-4 h-4 text-gray-400" />
-              <input type="password" value={currentPassword} maxLength={MAX_PASSWORD} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" className={inputClass} />
+              <input type={showCurrent ? 'text' : 'password'} value={currentPassword} maxLength={MAX_PASSWORD} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="••••••••" className={`${inputClass} pr-10`} />
+              <button type="button" onClick={() => setShowCurrent((s) => !s)} className="absolute right-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Toggle password visibility">
+                {showCurrent ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">New Password</label>
-            <div className={boxEdit}>
+            <div className={`${boxEdit} relative`}>
               <Lock className="w-4 h-4 text-gray-400" />
-              <input type="password" value={newPassword} maxLength={MAX_PASSWORD} onChange={(e) => { setNewPassword(e.target.value); const { rules } = validatePassword(e.target.value); setPwRules(rules); }} placeholder="••••••••" className={inputClass} />
+              <input type={showNew ? 'text' : 'password'} value={newPassword} maxLength={MAX_PASSWORD} onChange={(e) => { setNewPassword(e.target.value); const { rules } = validatePassword(e.target.value); setPwRules(rules); }} placeholder="••••••••" className={`${inputClass} pr-10`} />
+              <button type="button" onClick={() => setShowNew((s) => !s)} className="absolute right-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Toggle password visibility">
+                {showNew ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
             </div>
             {newPassword && pwRules && (
               <ul className="text-xs space-y-0.5 mt-1.5">
@@ -404,9 +413,12 @@ export default function EmployeeSettings() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Confirm New Password</label>
-            <div className={boxEdit}>
+            <div className={`${boxEdit} relative`}>
               <Lock className="w-4 h-4 text-gray-400" />
-              <input type="password" value={confirmPassword} maxLength={MAX_PASSWORD} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className={inputClass} />
+              <input type={showConfirm ? 'text' : 'password'} value={confirmPassword} maxLength={MAX_PASSWORD} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" className={`${inputClass} pr-10`} />
+              <button type="button" onClick={() => setShowConfirm((s) => !s)} className="absolute right-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300" aria-label="Toggle password visibility">
+                {showConfirm ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+              </button>
             </div>
           </div>
           <GreenButton type="submit" disabled={pwLoading}>

@@ -6,14 +6,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/auth/Login';
 import { ForgotPassword } from './pages/auth/ForgotPassword';
-import { Signup } from './pages/auth/Signup';
 import { PrivacyPolicy } from './pages/auth/PrivacyPolicy';
 import { TermsOfService } from './pages/auth/TermsOfService';
 import { NotFound } from './pages/auth/NotFound';
 import { SuperAdminLayout } from './layouts/SuperAdminLayout';
 import { AdminLayout } from './layouts/AdminLayout';
 import { EmployeeLayout } from './layouts/EmployeeLayout';
-import { ClientLayout } from './layouts/ClientLayout';
 
 import SuperAdminDashboard from './pages/superadmin/dashboard';
 import SuperAdminUsers from './pages/superadmin/users';
@@ -23,6 +21,7 @@ import SuperAdminAuditLogs from './pages/superadmin/audit-logs';
 
 import AdminDashboard from './pages/admin/dashboard';
 import AdminTickets from './pages/admin/tickets';
+import AdminEscalatedTickets from './pages/admin/escalated-tickets';
 import AdminEscalation from './pages/admin/escalation';
 import AdminReports from './pages/admin/reports';
 import AdminCreateTicket from './pages/admin/create-ticket';
@@ -42,12 +41,6 @@ import EmployeeTicketDetails from './pages/employee/ticket-details';
 import EmployeeKnowledgeHub from './pages/employee/knowledge-base';
 import EmployeeSettings from './pages/employee/settings';
 import EmployeeEscalation from './pages/employee/escalation';
-
-import ClientDashboard from './pages/client/dashboard';
-import ClientMyTickets from './pages/client/my-tickets';
-import ClientCreateTicket from './pages/client/create-ticket';
-import ClientTicketDetails from './pages/client/ticket-details';
-import ClientSettings from './pages/client/settings';
 
 
 
@@ -69,7 +62,6 @@ export function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/signup" element={<Signup />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms-of-service" element={<TermsOfService />} />
             <Route path="/" element={<RootRedirect />} />
@@ -101,6 +93,7 @@ export function App() {
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="tickets" element={<AdminTickets />} />
+              <Route path="tickets/escalated" element={<AdminEscalatedTickets />} />
               <Route path="escalation" element={<AdminEscalation />} />
               <Route path="reports" element={<AdminReports />} />
               <Route path="create-ticket" element={<AdminCreateTicket />} />
@@ -133,22 +126,6 @@ export function App() {
               <Route path="escalation" element={<EmployeeEscalation />} />
               <Route path="knowledge-hub" element={<EmployeeKnowledgeHub />} />
               <Route path="settings" element={<EmployeeSettings />} />
-            </Route>
-
-            <Route
-              path="/client"
-              element={
-                <ProtectedRoute allowedRole="client">
-                  <ClientLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/client/dashboard" replace />} />
-              <Route path="dashboard" element={<ClientDashboard />} />
-              <Route path="my-tickets" element={<ClientMyTickets />} />
-              <Route path="create-ticket" element={<ClientCreateTicket />} />
-              <Route path="ticket-details" element={<ClientTicketDetails />} />
-              <Route path="settings" element={<ClientSettings />} />
             </Route>
 
             <Route path="*" element={<NotFound />} />

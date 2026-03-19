@@ -34,6 +34,30 @@ type NotificationCallbacks = {
 
 // ── Helpers ────────────────────────────────────────────
 
+function getWsBaseUrl(): string {
+  const explicitWsUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  if (explicitWsUrl && /^wss?:\/\//.test(explicitWsUrl)) {
+    return explicitWsUrl.replace(/\/$/, '');
+  }
+
+  const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+  if (apiUrl && /^https?:\/\//.test(apiUrl)) {
+    const parsed = new URL(apiUrl);
+    const wsProtocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${wsProtocol}//${parsed.host}`;
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = window.location.hostname;
+  const isLocal = host === 'localhost' || host === '127.0.0.1';
+  const port = (import.meta.env.VITE_WS_PORT as string | undefined) || (isLocal ? '8000' : '');
+  return `${protocol}://${host}${port ? `:${port}` : ''}`;
+}
+
+function getAccessToken(): string | null {
+  return localStorage.getItem('maptech_access') || sessionStorage.getItem('maptech_access') || null;
+}
+
 // ── Socket class ───────────────────────────────────────
 
 export class NotificationSocket {
@@ -49,10 +73,9 @@ export class NotificationSocket {
   }
 
   private connect() {
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.hostname;
-    const port = import.meta.env.VITE_WS_PORT || '8000';
-    const url = `${protocol}://${host}:${port}/ws/notifications/`;
+    const token = getAccessToken();
+    const base = getWsBaseUrl();
+    const url = `${base}/ws/notifications/${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
     this.ws = new WebSocket(url);
 

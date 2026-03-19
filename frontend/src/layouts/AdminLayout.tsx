@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -9,9 +8,17 @@ import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
-  { id: 'tickets', label: 'Tickets', icon: Ticket, path: '/admin/tickets' },
+  {
+    id: 'tickets',
+    label: 'Tickets',
+    icon: Ticket,
+    path: '/admin/tickets',
+    children: [
+      { id: 'all-tickets', label: 'All Tickets', icon: Ticket, path: '/admin/tickets', exact: true },
+      { id: 'escalated-tickets', label: 'Escalated Tickets', icon: ShieldAlert, path: '/admin/tickets/escalated' },
+    ],
+  },
   { id: 'create-ticket', label: 'Create Ticket', icon: PlusCircle, path: '/admin/create-ticket' },
-  { id: 'escalation', label: 'Escalation', icon: ShieldAlert, path: '/admin/escalation' },
   {
     id: 'logs',
     label: 'Logs',
@@ -20,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { id: 'audit-logs', label: 'Audit Logs', icon: Shield, path: '/admin/audit-logs' },
       { id: 'call-logs', label: 'Call Logs', icon: PhoneCall, path: '/admin/call-logs' },
+      { id: 'escalation', label: 'Escalation Logs', icon: ShieldAlert, path: '/admin/escalation' },
     ],
   },
   {

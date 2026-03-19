@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -8,12 +8,15 @@ import { PriorityBadge } from '../../components/ui/PriorityBadge';
 import { Ticket, AlertTriangle, Users, ShieldCheck, Plus, Pencil, Trash2, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 import {
+  fetchTickets,
+  fetchTicketStats,
+  fetchUsers,
   fetchAnnouncements,
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
 } from '../../services/api';
-import type { AnnouncementData } from '../../services/api';
+import type { AnnouncementData, BackendTicket, BackendUser, TicketStats } from '../../services/api';
 import {
   BarChart,
   Bar,
@@ -27,53 +30,133 @@ import {
   Cell,
   Legend } from
 'recharts';
-const WEEK_DATA = [
-  { name: 'Mon', tickets: 45 }, { name: 'Tue', tickets: 52 }, { name: 'Wed', tickets: 38 },
-  { name: 'Thu', tickets: 65 }, { name: 'Fri', tickets: 48 }, { name: 'Sat', tickets: 25 }, { name: 'Sun', tickets: 15 },
-];
-const MONTH_DATA = [
-  { name: 'Wk 1', tickets: 193 }, { name: 'Wk 2', tickets: 224 }, { name: 'Wk 3', tickets: 156 }, { name: 'Wk 4', tickets: 210 },
-];
-const YEAR_DATA = [
-  { name: 'Jan', tickets: 824 }, { name: 'Feb', tickets: 741 }, { name: 'Mar', tickets: 963 },
-  { name: 'Apr', tickets: 897 }, { name: 'May', tickets: 1050 }, { name: 'Jun', tickets: 978 },
-  { name: 'Jul', tickets: 1124 }, { name: 'Aug', tickets: 1066 }, { name: 'Sep', tickets: 932 },
-  { name: 'Oct', tickets: 1013 }, { name: 'Nov', tickets: 889 }, { name: 'Dec', tickets: 764 },
-];
 
-const RECENT_SUBJECTS = [
-  'Network outage in Building A',
-  'Database server unresponsive',
-  'Email gateway failure',
-  'SSL certificate expired on portal',
-  'VPN access down for remote staff',
-];
+const PRIORITY_COLORS: Record<string, string> = {
+  Low: '#3BC25B',
+  Medium: '#F59E0B',
+  High: '#EF4444',
+  Critical: '#991B1B',
+};
 
-const PRIORITY_DATA = [
-{
-  name: 'Low',
-  value: 35,
-  color: '#3BC25B'
-},
-{
-  name: 'Medium',
-  value: 45,
-  color: '#F59E0B'
-},
-{
-  name: 'High',
-  value: 15,
-  color: '#EF4444'
-},
-{
-  name: 'Critical',
-  value: 5,
-  color: '#991B1B'
-}];
+function formatLabel(value: string) {
+  return value
+    .replace(/[_-]/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function normalize(value: string | null | undefined) {
+  return (value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function buildWeekData(tickets: BackendTicket[]) {
+  const today = startOfDay(new Date());
+  const counts: Record<string, number> = {};
+
+  for (const ticket of tickets) {
+    const createdAt = new Date(ticket.created_at);
+    if (Number.isNaN(createdAt.getTime())) continue;
+    const key = localDateKey(createdAt);
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (6 - index));
+    const key = localDateKey(date);
+    return {
+      name: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      tickets: counts[key] || 0,
+    };
+  });
+}
+
+function buildMonthData(tickets: BackendTicket[]) {
+  const today = startOfDay(new Date());
+  const buckets = [0, 0, 0, 0];
+
+  for (const ticket of tickets) {
+    const createdAt = startOfDay(new Date(ticket.created_at));
+    if (Number.isNaN(createdAt.getTime())) continue;
+    const dayDiff = Math.floor((today.getTime() - createdAt.getTime()) / 86400000);
+    if (dayDiff < 0 || dayDiff > 27) continue;
+    const bucket = 3 - Math.floor(dayDiff / 7);
+    buckets[bucket] += 1;
+  }
+
+  return buckets.map((count, index) => ({
+    name: `Wk ${index + 1}`,
+    tickets: count,
+  }));
+}
+
+function buildYearData(tickets: BackendTicket[]) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const buckets = Array.from({ length: 12 }, () => 0);
+
+  for (const ticket of tickets) {
+    const createdAt = new Date(ticket.created_at);
+    if (Number.isNaN(createdAt.getTime())) continue;
+    if (createdAt.getFullYear() !== currentYear) continue;
+    buckets[createdAt.getMonth()] += 1;
+  }
+
+  return buckets.map((count, index) => ({
+    name: new Date(currentYear, index, 1).toLocaleDateString('en-US', { month: 'short' }),
+    tickets: count,
+  }));
+}
+
+function getAverageResolutionHours(tickets: BackendTicket[], priorityName: string) {
+  const normalizedPriority = normalize(priorityName);
+  const resolved = tickets.filter((ticket) => {
+    const status = normalize(ticket.status);
+    return normalize(ticket.priority) === normalizedPriority && (status === 'resolved' || status === 'closed');
+  });
+
+  if (resolved.length === 0) return null;
+
+  let total = 0;
+  let count = 0;
+  for (const ticket of resolved) {
+    const start = new Date(ticket.created_at).getTime();
+    const end = new Date(ticket.updated_at || ticket.created_at).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) continue;
+    total += (end - start) / 3600000;
+    count += 1;
+  }
+
+  if (count === 0) return null;
+  return total / count;
+}
+
+function formatDuration(hours: number | null) {
+  if (hours == null) return 'N/A';
+  if (hours < 24) return `${hours.toFixed(1)} hrs`;
+  return `${(hours / 24).toFixed(1)} days`;
+}
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState('Last 7 Days');
+  const [tickets, setTickets] = useState<BackendTicket[]>([]);
+  const [users, setUsers] = useState<BackendUser[]>([]);
+  const [stats, setStats] = useState<TicketStats | null>(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
 
   // ── Announcement management state ──
   const [announcements, setAnnouncements] = useState<AnnouncementData[]>([]);
@@ -90,8 +173,27 @@ export default function SuperAdminDashboard() {
   });
 
   useEffect(() => {
-    loadAnnouncements();
+    void loadAnnouncements();
+    void loadDashboardData();
   }, []);
+
+  async function loadDashboardData() {
+    setLoadingDashboard(true);
+    try {
+      const [ticketData, userData, statsData] = await Promise.all([
+        fetchTickets(),
+        fetchUsers().catch(() => []),
+        fetchTicketStats().catch(() => null),
+      ]);
+      setTickets(ticketData);
+      setUsers(userData);
+      setStats(statsData);
+    } catch {
+      toast.error('Failed to load dashboard metrics.');
+    } finally {
+      setLoadingDashboard(false);
+    }
+  }
 
   async function loadAnnouncements() {
     try {
@@ -178,7 +280,96 @@ export default function SuperAdminDashboard() {
     critical: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   };
 
-  const chartData = dateRange === 'Last 30 Days' ? MONTH_DATA : dateRange === 'This Year' ? YEAR_DATA : WEEK_DATA;
+  const chartData = useMemo(() => {
+    if (dateRange === 'Last 30 Days') return buildMonthData(tickets);
+    if (dateRange === 'This Year') return buildYearData(tickets);
+    return buildWeekData(tickets);
+  }, [dateRange, tickets]);
+
+  const priorityData = useMemo(() => {
+    const base = {
+      low: 0,
+      medium: 0,
+      high: 0,
+      critical: 0,
+    };
+
+    if (stats?.by_priority) {
+      Object.entries(stats.by_priority).forEach(([key, value]) => {
+        const normalized = normalize(key);
+        if (normalized in base) {
+          base[normalized as keyof typeof base] += Number(value) || 0;
+        }
+      });
+    } else {
+      tickets.forEach((ticket) => {
+        const normalized = normalize(ticket.priority);
+        if (normalized in base) {
+          base[normalized as keyof typeof base] += 1;
+        }
+      });
+    }
+
+    return [
+      { name: 'Low', value: base.low, color: PRIORITY_COLORS.Low },
+      { name: 'Medium', value: base.medium, color: PRIORITY_COLORS.Medium },
+      { name: 'High', value: base.high, color: PRIORITY_COLORS.High },
+      { name: 'Critical', value: base.critical, color: PRIORITY_COLORS.Critical },
+    ];
+  }, [stats, tickets]);
+
+  const now = new Date();
+  const totalTicketsMonthly = useMemo(() => {
+    return tickets.filter((ticket) => {
+      const createdAt = new Date(ticket.created_at);
+      return createdAt.getFullYear() === now.getFullYear() && createdAt.getMonth() === now.getMonth();
+    }).length;
+  }, [tickets, now]);
+
+  const criticalIssues = stats?.by_priority?.critical ?? priorityData.find((entry) => entry.name === 'Critical')?.value ?? 0;
+
+  const activeUsers = useMemo(() => users.filter((user) => user.is_active).length, [users]);
+
+  const slaCompliance = useMemo(() => {
+    const measurable = tickets.filter((ticket) => {
+      const status = normalize(ticket.status);
+      return (status === 'resolved' || status === 'closed') && (ticket.sla_estimated_days || 0) > 0;
+    });
+
+    if (measurable.length === 0) return 0;
+
+    const compliant = measurable.filter((ticket) => {
+      const start = new Date(ticket.created_at).getTime();
+      const end = new Date(ticket.updated_at || ticket.created_at).getTime();
+      if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return false;
+      const days = (end - start) / 86400000;
+      return days <= (ticket.sla_estimated_days || 0);
+    }).length;
+
+    return (compliant / measurable.length) * 100;
+  }, [tickets]);
+
+  const escalatedTickets = useMemo(() => {
+    return [...tickets]
+      .filter((ticket) => {
+        const status = normalize(ticket.status);
+        return status === 'escalated' || Boolean(ticket.external_escalated_at) || (ticket.escalation_logs?.length || 0) > 0;
+      })
+      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
+      .slice(0, 5);
+  }, [tickets]);
+
+  const criticalResolutionHours = useMemo(() => getAverageResolutionHours(tickets, 'Critical'), [tickets]);
+  const highResolutionHours = useMemo(() => getAverageResolutionHours(tickets, 'High'), [tickets]);
+
+  if (loadingDashboard) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
+        <span className="ml-3 text-gray-500">Loading dashboard...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -191,47 +382,31 @@ export default function SuperAdminDashboard() {
             Global system monitoring and performance metrics
           </p>
         </div>
-        <div className="flex gap-3">
-          <GreenButton variant="outline" onClick={() => navigate('/superadmin/reports')}>Download Report</GreenButton>
-          <GreenButton onClick={() => navigate('/superadmin/settings')}>System Settings</GreenButton>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Tickets (Monthly)"
-          value="1,284"
+          value={totalTicketsMonthly.toLocaleString()}
           icon={Ticket}
-          trend={{
-            value: 12,
-            isPositive: true
-          }}
           color="green" />
 
         <StatCard
           title="Critical Issues"
-          value="23"
+          value={String(criticalIssues)}
           icon={AlertTriangle}
-          trend={{
-            value: 5,
-            isPositive: false
-          }}
           subtext="Requires immediate attention"
           color="orange" />
 
         <StatCard
           title="SLA Compliance"
-          value="94.2%"
+          value={`${slaCompliance.toFixed(1)}%`}
           icon={ShieldCheck}
-          trend={{
-            value: 1.2,
-            isPositive: true
-          }}
           color="blue" />
 
         <StatCard
           title="Active Users"
-          value="842"
+          value={activeUsers.toLocaleString()}
           icon={Users}
           subtext="Clients & Technicals"
           color="purple" />
@@ -318,7 +493,7 @@ export default function SuperAdminDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={PRIORITY_DATA}
+                  data={priorityData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -326,16 +501,17 @@ export default function SuperAdminDashboard() {
                   paddingAngle={5}
                   dataKey="value">
 
-                  {PRIORITY_DATA.map((entry, i) =>
+                  {priorityData.map((entry, i) =>
                   <Cell key={i} fill={entry.color} />
                   )}
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: '#1f2937',
-                    border: 'none',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #E5E7EB',
                     borderRadius: '8px',
-                    color: '#f9fafb'
+                    color: '#111827',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
                   }} />
 
                 <Legend
@@ -354,7 +530,7 @@ export default function SuperAdminDashboard() {
                 Critical Resolution Time
               </span>
               <span className="font-medium text-gray-900 dark:text-white">
-                1.2 hrs
+                {formatDuration(criticalResolutionHours)}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
@@ -362,7 +538,7 @@ export default function SuperAdminDashboard() {
                 High Priority Resolution
               </span>
               <span className="font-medium text-gray-900 dark:text-white">
-                4.5 hrs
+                {formatDuration(highResolutionHours)}
               </span>
             </div>
           </div>
@@ -391,37 +567,45 @@ export default function SuperAdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {[1, 2, 3, 4, 5].map((i) =>
-              <tr
-                key={i}
-                className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white font-mono text-xs">
-                    STF-MT-20260226{String(100000 + i).slice(1)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                    {RECENT_SUBJECTS[i - 1]}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
-                        C{i}
-                      </div>
-                      <span className="text-gray-700 dark:text-gray-300">
-                        Client Corp {i}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <PriorityBadge priority={i === 1 ? 'Critical' : 'High'} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status="Escalated" />
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
-                    Sarah Engineer
+              {escalatedTickets.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-6 text-center text-sm text-gray-500 dark:text-gray-400" colSpan={6}>
+                    No escalated tickets found.
                   </td>
                 </tr>
+              ) : (
+                escalatedTickets.map((ticket) => (
+                  <tr
+                    key={ticket.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white font-mono text-xs">
+                      {ticket.stf_no}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      {ticket.description_of_problem || 'No subject provided'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                          {(ticket.client || 'C').slice(0, 1).toUpperCase()}
+                        </div>
+                        <span className="text-gray-700 dark:text-gray-300">
+                          {ticket.client || 'Unknown Client'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <PriorityBadge priority={formatLabel(ticket.priority || 'medium')} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={formatLabel(ticket.status || 'escalated')} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">
+                      {ticket.assigned_to ? `${ticket.assigned_to.first_name} ${ticket.assigned_to.last_name}`.trim() || ticket.assigned_to.username : 'Unassigned'}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>

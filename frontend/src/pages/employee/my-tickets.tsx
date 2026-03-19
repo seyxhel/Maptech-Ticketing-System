@@ -9,6 +9,11 @@ import { fetchTickets } from '../../services/api';
 import { mapBackendTicketToEmployee } from '../../services/ticketMapper';
 import type { UIEmployeeTicket } from '../../services/ticketMapper';
 
+function truncateText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength)}...`;
+}
+
 /** Returns an array of page numbers and 'ellipsis' markers for smart pagination. */
 function getPaginationPages(current: number, total: number): (number | 'ellipsis')[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
@@ -126,7 +131,9 @@ export default function EmployeeMyTickets() {
               {pageTickets.map((ticket) => (
                 <tr key={ticket.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
                   <td className="px-4 py-3 font-mono text-xs font-bold text-gray-900 dark:text-white">{ticket.id}</td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{ticket.issue}</td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    <span className="font-medium break-all">{truncateText(ticket.issue, 73)}</span>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{ticket.client}</td>
                   <td className="px-4 py-3"><PriorityBadge priority={ticket.priority} /></td>
                   <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
