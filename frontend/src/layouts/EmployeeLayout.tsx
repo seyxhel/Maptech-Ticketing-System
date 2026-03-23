@@ -4,15 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
 import type { NavItem } from '../components/layout/Sidebar';
-import { LayoutDashboard, Ticket, BookOpen, ArrowUpRight } from 'lucide-react';
+import { LayoutDashboard, Ticket, BookOpen, ArrowUpRight, BarChart3 } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/employee/dashboard' },
   { id: 'assigned-tickets', label: 'Assigned Tickets', icon: Ticket, path: '/employee/my-tickets' },
+  { id: 'reports', label: 'Reports', icon: BarChart3, path: '/employee/reports' },
   { id: 'escalation', label: 'Escalation', icon: ArrowUpRight, path: '/employee/escalation' },
   { id: 'knowledge-hub', label: 'Knowledge Hub', icon: BookOpen, path: '/employee/knowledge-hub' },
 ];
+
 
 export function EmployeeLayout() {
   const { user, logout } = useAuth();
