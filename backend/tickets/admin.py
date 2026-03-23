@@ -66,7 +66,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ('client_name', 'contact_person', 'mobile_no', 'email_address', 'department_organization', 'is_active')
+    list_display = ('client_name', 'contact_person', 'mobile_no', 'email_address', 'department_organization', 'sales_representative', 'is_active')
     list_filter = ('is_active',)
     search_fields = ('client_name', 'contact_person', 'email_address')
 

@@ -1239,7 +1239,7 @@ export function TicketView() {
       <div class="desc">${ticket.description}</div>
       ${pd ? `<h2>Product Details</h2>
       <div class="info-grid">
-        <div class="info-row"><span class="info-label">Device/Equipment:</span><span class="info-value">${pd.deviceEquipment}</span></div>
+        <div class="info-row"><span class="info-label">Device/Equipment (Category):</span><span class="info-value">${pd.deviceEquipment}</span></div>
         <div class="info-row"><span class="info-label">Brand:</span><span class="info-value">${pd.brand || ''}</span></div>
         <div class="info-row"><span class="info-label">Product:</span><span class="info-value">${pd.product || ''}</span></div>
         <div class="info-row"><span class="info-label">Model:</span><span class="info-value">${pd.model || ''}</span></div>
@@ -1273,7 +1273,14 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Rating:</span><span class="info-value">${ticket.csatFeedback.rating} / 5</span></div>
         ${ticket.csatFeedback.comments ? `<div class="info-row"><span class="info-label">Comments:</span><span class="info-value">${ticket.csatFeedback.comments}</span></div>` : ''}
       </div>` : ''}`;
-    const html = buildPdfDocument(`Ticket ${ticket.id} - Maptech Ticketing System`, 'Ticket Detail Report', body, `Service Ticket ${ticket.id}`);
+    const html = buildPdfDocument(
+      `Ticket ${ticket.id} - Maptech Ticketing System`,
+      'Ticket Detail Report',
+      body,
+      `Service Ticket ${ticket.id}`,
+      ticket.signature,
+      ticket.signedByName,
+    );
     void openPrintWindow(html, `ticket_${ticket.id}_${dateTag}.pdf`)
       .then(() => toast.success('PDF downloaded.'))
       .catch((err) => {
@@ -1424,7 +1431,7 @@ export function TicketView() {
       if (ticket.productDetails) {
         sectionHeader(R, 'PRODUCT DETAILS'); R++;
         const pd = ticket.productDetails;
-        detailRow(R, 'Device/Equipment', pd.deviceEquipment, 'Brand', pd.brand ?? ''); rowHeights[R] = { hpt: 22 }; R++;
+        detailRow(R, 'Device/Equipment (Category)', pd.deviceEquipment, 'Brand', pd.brand ?? ''); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Product', pd.product ?? '', 'Model', pd.model ?? ''); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Version No', pd.versionNo, 'Serial No', pd.serialNo); rowHeights[R] = { hpt: 22 }; R++;
         detailRow(R, 'Warranty', pd.warranty, 'Date Purchased', pd.datePurchased); rowHeights[R] = { hpt: 22 }; R++;

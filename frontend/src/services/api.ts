@@ -214,6 +214,8 @@ export interface ClientRecord {
   department_organization: string;
   email_address: string;
   address: string;
+  sales_representative?: string | null;
+  additional_sales_reps?: string[];
   is_active: boolean;
   created_at: string;
   updated_at: string;

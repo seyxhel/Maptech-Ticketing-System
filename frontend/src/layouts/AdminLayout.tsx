@@ -41,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
       { id: 'kh-archived', label: 'Archived Attachments', icon: Archive, path: '/admin/knowledge-hub/archived' },
     ],
   },
-  { id: 'device-equipment', label: 'Device/Equipment', icon: Monitor, path: '/admin/device-equipment' },
+  { id: 'device-equipment', label: 'Device/Equipment (Category)', icon: Monitor, path: '/admin/device-equipment' },
   { id: 'products', label: 'Products', icon: Package, path: '/admin/products' },
   { id: 'clients', label: 'Clients', icon: Users, path: '/admin/clients' },
   { id: 'types-of-service', label: 'Types of Service', icon: Settings2, path: '/admin/types-of-service' },

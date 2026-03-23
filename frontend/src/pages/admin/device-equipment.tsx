@@ -181,15 +181,15 @@ export default function DeviceEquipment() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Device/Equipment</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage device/equipment master list</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Device/Equipment (Category)</h1>
+          <p className="text-gray-500 dark:text-gray-400">Manage device/equipment (category) master list</p>
         </div>
         <div className="flex gap-2">
           <GreenButton variant="outline" onClick={loadDeviceEquipment} disabled={loading}>
             <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </GreenButton>
           <GreenButton onClick={openAddModal}>
-            <Plus className="w-4 h-4 mr-2" /> Add Device/Equipment
+            <Plus className="w-4 h-4 mr-2" /> Add Device/Equipment (Category)
           </GreenButton>
         </div>
       </div>
@@ -203,7 +203,7 @@ export default function DeviceEquipment() {
               type="text"
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Search device/equipment..."
+              placeholder="Search device/equipment (category)..."
               className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
             />
           </div>
@@ -309,7 +309,7 @@ export default function DeviceEquipment() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {editingDeviceEquipment ? 'Edit Device/Equipment' : 'Add Device/Equipment'}
+                {editingDeviceEquipment ? 'Edit Device/Equipment (Category)' : 'Add Device/Equipment (Category)'}
               </h2>
               <button onClick={closeModal} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 <X className="w-5 h-5 text-gray-500" />
@@ -318,7 +318,7 @@ export default function DeviceEquipment() {
 
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device/Equipment Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device/Equipment (Category) Name</label>
                 <input
                   type="text"
                   value={formData.name}

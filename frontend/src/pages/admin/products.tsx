@@ -122,7 +122,7 @@ export default function Products() {
   const validate = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.product_name.trim()) errors.product_name = 'Product name is required.';
-    if (!formData.device_equipment_id && !formData.device_equipment.trim()) errors.device_equipment = 'Device/Equipment is required.';
+    if (!formData.device_equipment_id && !formData.device_equipment.trim()) errors.device_equipment = 'Device/Equipment (Category) is required.';
     if (!formData.brand.trim()) errors.brand = 'Brand is required.';
     if (!formData.model_name.trim()) errors.model_name = 'Model is required.';
     if (!formData.version_no.trim()) errors.version_no = 'Version number is required.';
@@ -262,7 +262,7 @@ export default function Products() {
             <thead>
               <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
                 <th className="pb-3 font-medium">Product Name</th>
-                <th className="pb-3 font-medium">Device/Equipment</th>
+                <th className="pb-3 font-medium">Device/Equipment (Category)</th>
                 <th className="pb-3 font-medium">Brand</th>
                 <th className="pb-3 font-medium">Model</th>
                 <th className="pb-3 font-medium">Serial No.</th>
@@ -388,7 +388,7 @@ export default function Products() {
                     }}
                     className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
                   >
-                    <option value="">— Select Device/Equipment —</option>
+                    <option value="">— Select Device/Equipment (Category) —</option>
                     {deviceEquipment.filter((item) => item.is_active).map((item) => (
                       <option key={item.id} value={item.id}>{item.name}</option>
                     ))}

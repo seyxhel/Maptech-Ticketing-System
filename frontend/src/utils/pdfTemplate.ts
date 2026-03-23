@@ -34,6 +34,9 @@ export const PDF_CSS = `
     font-size: 10px; color: #6b7280; text-transform: uppercase;
     letter-spacing: 2px; font-weight: 500;
   }
+  .header-signature { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+  .header-signature img { height:64px; border-radius:6px; border:1px solid #e5e7eb; object-fit:contain; background:#fff; padding:4px; }
+  .header-signature .sig-name { font-size:10px; color:#6b7280; }
   /* ── Sub-header ── */
   .sub-header {
     background: #e8faf0; padding: 10px 40px;
@@ -139,7 +142,13 @@ export const PDF_CSS = `
 `;
 
 /** Generate the branded header banner HTML */
-export function pdfHeader(reportTitle: string, dateStr: string, timeStr: string): string {
+export function pdfHeader(
+  reportTitle: string,
+  dateStr: string,
+  timeStr: string,
+  signatureData?: string,
+  signedBy?: string,
+): string {
   return `
     <div class="header-banner">
       <img src="${MAPTECH_LOGO_BASE64}" alt="Maptech" class="header-logo" />
@@ -147,6 +156,7 @@ export function pdfHeader(reportTitle: string, dateStr: string, timeStr: string)
         <div class="header-title">${reportTitle}</div>
         <div class="header-company">Maptech Information Solutions Inc.</div>
       </div>
+      ${signatureData ? `<div class="header-signature"><img src="${signatureData}" alt="Signature" /><div class="sig-name">${signedBy || ''}</div></div>` : ''}
     </div>
     <div class="sub-header">
       <span class="sub-header-left">Official Document</span>
@@ -177,6 +187,8 @@ export function buildPdfDocument(
   reportTitle: string,
   bodyContent: string,
   recordSummary: string,
+  signatureData?: string,
+  signedBy?: string,
 ): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -187,7 +199,7 @@ export function buildPdfDocument(
     <title>${title}</title>
     <style>${PDF_CSS}</style>
   </head><body>
-    ${pdfHeader(reportTitle, dateStr, timeStr)}
+    ${pdfHeader(reportTitle, dateStr, timeStr, signatureData, signedBy)}
     <div class="page-wrapper">
       ${bodyContent}
     </div>
@@ -250,6 +262,33 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
 
     const body = frameDoc.body;
 
+    // Capture header and footer separately so they can be pinned to every
+    // PDF page. The header is composed of `.header-banner` + `.sub-header`.
+    const headerBanner = frameDoc.querySelector<HTMLElement>('.header-banner');
+    const subHeader = frameDoc.querySelector<HTMLElement>('.sub-header');
+    let headerCanvas: HTMLCanvasElement | null = null;
+    if (headerBanner || subHeader) {
+      const headerWrapper = frameDoc.createElement('div');
+      headerWrapper.style.width = '100%';
+      headerWrapper.style.boxSizing = 'border-box';
+      if (headerBanner) headerWrapper.appendChild(headerBanner.cloneNode(true));
+      if (subHeader) headerWrapper.appendChild(subHeader.cloneNode(true));
+      // place the wrapper at the top so CSS applies correctly
+      frameDoc.body.insertBefore(headerWrapper, frameDoc.body.firstChild);
+      headerCanvas = await html2canvas(headerWrapper as any, {
+        useCORS: true,
+        backgroundColor: null,
+        scale: 2,
+        windowWidth: 794,
+      });
+      // remove the temporary wrapper
+      headerWrapper.remove();
+      // hide the original header elements so the main body capture does not
+      // include them (we will draw the header separately on each page).
+      if (headerBanner) headerBanner.style.display = 'none';
+      if (subHeader) subHeader.style.display = 'none';
+    }
+
     // Move footer from fixed positioning into normal document flow so we can
     // measure the true full-document height and capture it separately.
     const footerEl = frameDoc.querySelector<HTMLElement>('.footer-wrap');
@@ -304,8 +343,16 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
       footerH_pt = footerCanvas.height * ptPerPx;
     }
 
-    // Usable content height per page (above the footer).
-    const contentAreaH_pt = pageH - footerH_pt;
+    // Header height in PDF points.
+    let headerH_pt = 0;
+    let headerImgData = '';
+    if (headerCanvas && headerCanvas.width > 0) {
+      headerImgData = headerCanvas.toDataURL('image/png');
+      headerH_pt = headerCanvas.height * ptPerPx;
+    }
+
+    // Usable content height per page (between header and footer).
+    const contentAreaH_pt = pageH - headerH_pt - footerH_pt;
     // Equivalent in canvas pixels — use Math.floor to guarantee no overrun.
     const maxSliceH_px = Math.floor(contentAreaH_pt / ptPerPx);
 
@@ -365,12 +412,17 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
         );
       }
 
-      // Place the content slice at the top of the page.
-      pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, pageW, sliceH_pt);
+      // Place header at the top of the page (if available).
+      if (headerImgData && headerH_pt > 0) {
+        pdf.addImage(headerImgData, 'PNG', 0, 0, pageW, headerH_pt);
+      }
+
+      // Place the content slice below the header.
+      pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, headerH_pt, pageW, sliceH_pt);
 
       // Pin footer flush to the bottom of every page.
       if (footerImgData && footerH_pt > 0) {
-        pdf.addImage(footerImgData, 'PNG', 0, contentAreaH_pt, pageW, footerH_pt);
+        pdf.addImage(footerImgData, 'PNG', 0, pageH - footerH_pt, pageW, footerH_pt);
       }
     }
 

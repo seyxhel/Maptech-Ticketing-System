@@ -137,6 +137,7 @@ export default function AdminCreateTicket() {
 
   // Data from backend
   const [employees, setEmployees] = useState<{ id: number; name: string; role: string; avatar: string; available: boolean; activeTickets: number }[]>([]);
+  const [selectedSalesRep, setSelectedSalesRep] = useState<string>('');
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
 
   // New/existing client toggle
@@ -152,6 +153,7 @@ export default function AdminCreateTicket() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [salesNo, setSalesNo] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [productPage, setProductPage] = useState(1);
@@ -181,6 +183,7 @@ export default function AdminCreateTicket() {
   const [callOnHold, setCallOnHold] = useState(false);
   const [holdOffset, setHoldOffset] = useState(0); // accumulated hold time in ms
   const [holdStartTime, setHoldStartTime] = useState<number | null>(null); // when hold started (ms)
+  const [callEndTime, setCallEndTime] = useState<Date | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
 
   // Employee working tickets (for expanded assign modal)
@@ -222,6 +225,85 @@ export default function AdminCreateTicket() {
       .catch(() => {});
   }, []);
 
+  // Multi-step form state
+  const steps = ['Contact', 'Product', 'Service', 'Support', 'Review & Submit'];
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const lastStep = steps.length - 1;
+
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, boolean> = {};
+    const msgs: Record<string, string> = {};
+    if (step === 0) {
+      CONTACT_FIELDS.forEach((f) => {
+        if (f.name === 'mobile') {
+          const err = validatePhone(contactValues[f.name] || '', 'Mobile No.');
+          if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+        } else if (f.name === 'landline') {
+          const err = validateLandline(contactValues[f.name] || '');
+          if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+        } else if (f.name === 'contactPerson') {
+          const err = validateName(contactValues[f.name] || '', 'Contact Person');
+          if (err) { newErrors[f.name] = true; msgs[f.name] = err; }
+        } else if (f.required && !contactValues[f.name]?.trim()) {
+          newErrors[f.name] = true; msgs[f.name] = `${f.label} is required.`;
+        }
+      });
+      if (email.trim()) {
+        const emailErr = validateEmail(email);
+        if (emailErr) { newErrors['email'] = true; msgs['email'] = emailErr; }
+      }
+      const addrErr = validateAddress(address);
+      if (addrErr) { newErrors['address'] = true; msgs['address'] = addrErr; }
+    }
+    if (step === 1) {
+      if (!projectTitle.trim()) { newErrors['projectTitle'] = true; msgs['projectTitle'] = 'Project Title is required.'; }
+      // require full product details for either existing or new product
+      if (isExistingProduct && !selectedProductId) {
+        newErrors['product'] = true; msgs['product'] = 'Please select a product.';
+      }
+      const requiredProductFields = [
+        ['device_equipment', newProductInfo.device_equipment, 'Device / Equipment is required.'],
+        ['product_name', newProductInfo.product_name, 'Product name is required.'],
+        ['brand', newProductInfo.brand, 'Brand is required.'],
+        ['model_name', newProductInfo.model_name, 'Model is required.'],
+        ['serial_no', newProductInfo.serial_no, 'Serial No. is required.'],
+        ['version_no', newProductInfo.version_no, 'Version No. is required.'],
+        ['date_purchased', newProductInfo.date_purchased, 'Date Purchased is required.'],
+      ];
+      for (const [key, val, msg] of requiredProductFields) {
+        if (!String(val || '').trim()) { newErrors[key as string] = true; msgs[key as string] = msg; }
+      }
+      if (!salesNo.trim()) { newErrors['salesNo'] = true; msgs['salesNo'] = 'Sales / Invoice No. is required.'; }
+    }
+    if (step === 2) {
+      if (!serviceType) { newErrors['serviceType'] = true; msgs['serviceType'] = 'Please select a type of service'; }
+      if (serviceType === 'Others' && !serviceOthersText.trim()) { newErrors['serviceOthersText'] = true; msgs['serviceOthersText'] = 'Please specify the service'; }
+    }
+    if (step === 3) {
+      if (!supportType) { newErrors['supportType'] = true; msgs['supportType'] = 'Please select a support type'; }
+      const descErr = validateDescription(description, 'Description of problem');
+      if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
+    }
+
+    setErrors((prev) => ({ ...prev, ...newErrors }));
+    setErrorMsgs((prev) => ({ ...prev, ...msgs }));
+    if (Object.keys(newErrors).length > 0) {
+      toast.error('Please fix the highlighted errors before proceeding.');
+      return false;
+    }
+    return true;
+  };
+
+  const goNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((s) => Math.min(lastStep, s + 1));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const goPrev = () => { setCurrentStep((s) => Math.max(0, s - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
   // When selectedProductId changes, populate newProductInfo so fields become editable
   useEffect(() => {
     if (!selectedProductId) return;
@@ -237,6 +319,7 @@ export default function AdminCreateTicket() {
       date_purchased: p.date_purchased || '',
       has_warranty: !!p.has_warranty,
     });
+    setErrors((prev) => ({ ...prev, product: false, product_name: false, brand: false, model_name: false, serial_no: false, version_no: false, date_purchased: false, salesNo: false, device_equipment: false }));
   }, [selectedProductId, products]);
 
   const handleSaveProductDetails = async () => {
@@ -305,6 +388,11 @@ export default function AdminCreateTicket() {
       });
       setEmail(client.email_address || '');
       setAddress(client.address || '');
+      // Populate sales representative text and any additional sales reps into a single string
+      const reps: string[] = [];
+      if ((client as any).sales_representative) reps.push((client as any).sales_representative);
+      if (Array.isArray((client as any).additional_sales_reps)) reps.push(...(client as any).additional_sales_reps.filter(Boolean));
+      setSelectedSalesRep(reps.join(', '));
     }
   };
 
@@ -387,6 +475,7 @@ export default function AdminCreateTicket() {
     setCallTimer(0);
     setCallOnHold(false);
     setHoldOffset(0);
+    setCallEndTime(null);
     try {
       const log = await createCallLog({
         client_name: contactValues.client,
@@ -410,6 +499,7 @@ export default function AdminCreateTicket() {
       }
     }
     setCallCompleted(true);
+    setCallEndTime(new Date());
     setCallOnHold(false);
     setModalStep('stf-details'); // Go back to STF details with priority enabled
   }, [callLogId]);
@@ -460,6 +550,7 @@ export default function AdminCreateTicket() {
 
     try {
       const ticketData: Record<string, unknown> = {
+        project_title: projectTitle.trim(),
         client: contactValues.client,
         contact_person: contactValues.contactPerson,
         landline: contactValues.landline,
@@ -472,6 +563,10 @@ export default function AdminCreateTicket() {
         preferred_support_type: supportTypeMap[supportType?.trim()] || 'remote_online',
         priority: priorityLevel.toLowerCase(),
       };
+
+      if (selectedSalesRep) {
+        ticketData.sales_representative = selectedSalesRep;
+      }
 
       if (matchedService) {
         ticketData.type_of_service = matchedService.id;
@@ -543,6 +638,7 @@ export default function AdminCreateTicket() {
 
     try {
       const ticketData: Record<string, unknown> = {
+        project_title: projectTitle.trim(),
         client: contactValues.client,
         contact_person: contactValues.contactPerson,
         landline: contactValues.landline,
@@ -555,6 +651,10 @@ export default function AdminCreateTicket() {
         preferred_support_type: supportTypeMap[supportType?.trim()] || 'remote_online',
         priority: priorityLevel.toLowerCase(),
       };
+
+      if (selectedSalesRep) {
+        ticketData.sales_representative = selectedSalesRep;
+      }
 
       if (matchedService) {
         ticketData.type_of_service = matchedService.id;
@@ -643,9 +743,29 @@ export default function AdminCreateTicket() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={(e) => { e.preventDefault(); if (currentStep === lastStep) handleSubmit(e); else goNext(); }} className="space-y-6">
+        {/* Progress tracker */}
+        <div className="mb-4">
+          <div className="relative max-w-3xl mx-auto">
+            {/* full background line inset from the edges so it doesn't pass under the outer circles */}
+            <div className="absolute top-6 h-0.5 bg-gray-200 rounded left-6 right-6" />
+            {/* progress line (scaled) inset between the same left/right so scaling doesn't overlap circles */}
+            <div className="absolute top-6 h-0.5 bg-[#3BC25B] rounded left-6 right-6 transform origin-left" style={{ transform: `scaleX(${steps.length > 1 ? currentStep / (steps.length - 1) : 0})` }} />
+            <div className="flex items-center justify-between relative z-10">
+              {steps.map((s, i) => (
+                <div key={s} className="flex-1 flex flex-col items-center text-center">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${i === currentStep ? 'bg-[#0E8F79] text-white' : i < currentStep ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 text-gray-600'}`}>{i+1}</div>
+                    <div className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">{s}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
         {/* Section 1: Contact Info */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
+        {currentStep === 0 && (
+          <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>1. Contact Information</h3>
 
           {/* New / Existing client toggle */}
@@ -717,6 +837,17 @@ export default function AdminCreateTicket() {
               </div>
             ))}
             <div>
+              <label className={labelCls}>Sales Representative</label>
+              <input
+                type="text"
+                placeholder="Primary sales representative"
+                value={selectedSalesRep}
+                onChange={(e) => { setSelectedSalesRep(e.target.value); setErrors((p) => ({ ...p, salesRepresentative: false })); }}
+                className={`${inputCls}`}
+              />
+              {/* combined main and additional reps shown in single editable field */}
+            </div>
+            <div>
               <label className={labelCls}>Email Address <span className="text-gray-400 text-xs font-normal">(optional)</span></label>
               <input type="text" placeholder="e.g. juandelacruz@email.com" value={email} maxLength={MAX_EMAIL} onChange={(e) => { setEmail(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, email: false })); setErrorMsgs((p) => ({ ...p, email: '' })); } }} className={`${inputCls} ${errors['email'] ? errorRing : ''}`} />
               {errors['email'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['email'] || 'This field is required'}</p>}
@@ -727,7 +858,16 @@ export default function AdminCreateTicket() {
               {errors['address'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['address'] || 'This field is required'}</p>}
             </div>
           </div>
-        </Card>
+          </Card>
+        )}
+
+        {/* Navigation controls for step 0 */}
+        {currentStep === 0 && (
+          <div className="flex justify-end gap-3">
+            <GreenButton type="button" variant="outline" onClick={() => { setContactValues({ client: '', contactPerson: '', landline: '', mobile: '', designation: '', department: '' }); setEmail(''); setAddress(''); }}>Clear</GreenButton>
+            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
+          </div>
+        )}
 
         {/* Device selection modal */}
         {deviceModalOpen && (
@@ -739,7 +879,7 @@ export default function AdminCreateTicket() {
                 <button type="button" onClick={() => setDeviceModalOpen(false)} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Close</button>
               </div>
               <div className="mb-3">
-                <input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search device/equipment..." className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm" />
+                <input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search device/equipment (category)..." className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm" />
               </div>
               <div className="space-y-2">
                 {(() => {
@@ -760,14 +900,14 @@ export default function AdminCreateTicket() {
                               {isSelectedDevice ? (
                                 <button type="button" className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Selected</button>
                               ) : (
-                                <button type="button" onClick={() => { setNewProductInfo((p) => ({ ...p, device_equipment: title })); setDeviceModalOpen(false); }} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
+                                <button type="button" onClick={() => { setNewProductInfo((p) => ({ ...p, device_equipment: title })); setErrors((p) => ({ ...p, device_equipment: false })); setDeviceModalOpen(false); }} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
                               )}
                             </div>
                           </div>
                         );
                       })}
                       {total === 0 && (
-                        <div className="text-sm text-gray-500">No device/equipment found.</div>
+                        <div className="text-sm text-gray-500">No device/equipment (category) found.</div>
                       )}
 
                       {/* Pagination controls */}
@@ -896,14 +1036,16 @@ export default function AdminCreateTicket() {
         )}
 
         {/* Section 2: Product Information */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
+        {currentStep === 1 && (
+          <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>2. Product Details</h3>
+          {errors['product'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['product'] || 'Please complete product details.'}</p>}
 
           {/* New / Existing product toggle */}
           <div className="flex items-center gap-4 mb-6">
             <button
               type="button"
-              onClick={() => { setIsExistingProduct(false); setSelectedProductId(null); }}
+              onClick={() => { setIsExistingProduct(false); setSelectedProductId(null); setErrors((p) => ({ ...p, product: false, product_name: false, brand: false, model_name: false, serial_no: false, version_no: false, date_purchased: false, salesNo: false, device_equipment: false, projectTitle: false })); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
                 !isExistingProduct
                   ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
@@ -914,7 +1056,7 @@ export default function AdminCreateTicket() {
             </button>
             <button
               type="button"
-              onClick={() => { setIsExistingProduct(true); setNewProductInfo({ device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false }); }}
+              onClick={() => { setIsExistingProduct(true); setNewProductInfo({ device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false }); setErrors((p) => ({ ...p, product: false, product_name: false, brand: false, model_name: false, serial_no: false, version_no: false, date_purchased: false, salesNo: false, device_equipment: false, projectTitle: false })); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
                 isExistingProduct
                   ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
@@ -925,52 +1067,66 @@ export default function AdminCreateTicket() {
             </button>
           </div>
 
+          <div className="mb-4">
+            <label className={labelCls}>Project Title <span className="text-red-500 ml-1">*</span></label>
+            <input type="text" placeholder="Project title or reference" value={projectTitle} onChange={(e) => { setProjectTitle(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, projectTitle: false })); setErrorMsgs((p) => ({ ...p, projectTitle: '' })); } }} className={`${inputCls} ${errors['projectTitle'] ? errorRing : ''}`} />
+            {errors['projectTitle'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['projectTitle'] || 'Project Title is required'}</p>}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {!isExistingProduct ? (
               <>
                 <div>
-                  <label className={labelCls}>Device / Equipment</label>
+                  <label className={labelCls}>Device / Equipment <span className="text-red-500 ml-1">*</span></label>
                   <div className="relative">
-                    <button type="button" onClick={() => setDeviceModalOpen(true)} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'}`}>
+                    <button type="button" onClick={() => { setDeviceModalOpen(true); setErrors((p) => ({ ...p, device_equipment: false })); }} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'} ${errors['device_equipment'] ? errorRing : ''}`}>
                       {newProductInfo.device_equipment || 'Select Device / Equipment'}
                     </button>
-                    <button type="button" onClick={() => setDeviceModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
+                    <button type="button" onClick={() => { setDeviceModalOpen(true); setErrors((p) => ({ ...p, device_equipment: false })); }} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
                   </div>
+                  {errors['device_equipment'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['device_equipment'] || 'Device / Equipment is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Product</label>
-                  <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, product_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Product <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => { setNewProductInfo((p) => ({ ...p, product_name: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, product_name: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['product_name'] ? errorRing : ''}`} />
+                  {errors['product_name'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['product_name'] || 'Product name is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Brand</label>
-                  <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => setNewProductInfo((p) => ({ ...p, brand: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Brand <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => { setNewProductInfo((p) => ({ ...p, brand: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, brand: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['brand'] ? errorRing : ''}`} />
+                  {errors['brand'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['brand'] || 'Brand is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Model</label>
-                  <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, model_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Model <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => { setNewProductInfo((p) => ({ ...p, model_name: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, model_name: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['model_name'] ? errorRing : ''}`} />
+                  {errors['model_name'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['model_name'] || 'Model is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Serial No.</label>
-                  <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, serial_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Serial No. <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => { setNewProductInfo((p) => ({ ...p, serial_no: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, serial_no: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['serial_no'] ? errorRing : ''}`} />
+                  {errors['serial_no'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['serial_no'] || 'Serial No. is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Version No.</label>
-                  <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, version_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Version No. <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => { setNewProductInfo((p) => ({ ...p, version_no: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, version_no: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['version_no'] ? errorRing : ''}`} />
+                  {errors['version_no'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['version_no'] || 'Version No. is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Date Purchased</label>
-                  <input type="date" value={newProductInfo.date_purchased} onChange={(e) => setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value }))} className={inputCls} />
+                  <label className={labelCls}>Date Purchased <span className="text-red-500 ml-1">*</span></label>
+                  <input type="date" value={newProductInfo.date_purchased} onChange={(e) => { setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value })); if (e.target.value) setErrors((p) => ({ ...p, date_purchased: false })); }} className={`${inputCls} ${errors['date_purchased'] ? errorRing : ''}`} />
+                  {errors['date_purchased'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['date_purchased'] || 'Date Purchased is required.'}</p>}
                 </div>
                 <div>
-                  <label className={labelCls}>Warranty</label>
+                  <label className={labelCls}>Warranty <span className="text-red-500 ml-1">*</span></label>
                   <div className="flex gap-3">
                     <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: true }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>With Warranty</button>
                     <button type="button" onClick={() => setNewProductInfo((p) => ({ ...p, has_warranty: false }))} className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${!newProductInfo.has_warranty ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600'}`}>Without Warranty</button>
                   </div>
                 </div>
                 <div className="md:col-span-2">
-                  <label className={labelCls}>Sales / Invoice No.</label>
-                  <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                  <label className={labelCls}>Sales / Invoice No. <span className="text-red-500 ml-1">*</span></label>
+                  <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => { setSalesNo(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, salesNo: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['salesNo'] ? errorRing : ''}`} />
+                  {errors['salesNo'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['salesNo'] || 'Sales / Invoice No. is required.'}</p>}
                 </div>
               </>
             ) : (
@@ -1003,35 +1159,42 @@ export default function AdminCreateTicket() {
                     <div>
                       <label className={labelCls}>Device / Equipment</label>
                       <div className="relative">
-                        <button type="button" onClick={() => setDeviceModalOpen(true)} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'}`}>
+                        <button type="button" onClick={() => { setDeviceModalOpen(true); setErrors((p) => ({ ...p, device_equipment: false })); }} className={`w-full text-left px-4 py-2.5 pr-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[#3BC25B] ${newProductInfo.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500'} ${errors['device_equipment'] ? errorRing : ''}`}>
                           {newProductInfo.device_equipment || 'Select Device / Equipment'}
                         </button>
-                        <button type="button" onClick={() => setDeviceModalOpen(true)} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
+                        <button type="button" onClick={() => { setDeviceModalOpen(true); setErrors((p) => ({ ...p, device_equipment: false })); }} className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
                       </div>
+                      {errors['device_equipment'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['device_equipment'] || 'Device / Equipment is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Product</label>
-                      <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, product_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. ZK-K40" value={newProductInfo.product_name} onChange={(e) => { setNewProductInfo((p) => ({ ...p, product_name: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, product_name: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['product_name'] ? errorRing : ''}`} />
+                      {errors['product_name'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['product_name'] || 'Product name is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Brand</label>
-                      <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => setNewProductInfo((p) => ({ ...p, brand: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. ZKTeco" value={newProductInfo.brand} onChange={(e) => { setNewProductInfo((p) => ({ ...p, brand: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, brand: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['brand'] ? errorRing : ''}`} />
+                      {errors['brand'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['brand'] || 'Brand is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Model</label>
-                      <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, model_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. K40" value={newProductInfo.model_name} onChange={(e) => { setNewProductInfo((p) => ({ ...p, model_name: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, model_name: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['model_name'] ? errorRing : ''}`} />
+                      {errors['model_name'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['model_name'] || 'Model is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Serial No.</label>
-                      <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, serial_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. SN123456" value={newProductInfo.serial_no} onChange={(e) => { setNewProductInfo((p) => ({ ...p, serial_no: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, serial_no: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['serial_no'] ? errorRing : ''}`} />
+                      {errors['serial_no'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['serial_no'] || 'Serial No. is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Version No.</label>
-                      <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => setNewProductInfo((p) => ({ ...p, version_no: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. FW 6.60" value={newProductInfo.version_no} onChange={(e) => { setNewProductInfo((p) => ({ ...p, version_no: e.target.value })); if (e.target.value.trim()) setErrors((p) => ({ ...p, version_no: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['version_no'] ? errorRing : ''}`} />
+                      {errors['version_no'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['version_no'] || 'Version No. is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Date Purchased</label>
-                      <input type="date" value={newProductInfo.date_purchased} onChange={(e) => setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value }))} className={inputCls} />
+                      <input type="date" value={newProductInfo.date_purchased} onChange={(e) => { setNewProductInfo((p) => ({ ...p, date_purchased: e.target.value })); if (e.target.value) setErrors((p) => ({ ...p, date_purchased: false })); }} className={`${inputCls} ${errors['date_purchased'] ? errorRing : ''}`} />
+                      {errors['date_purchased'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['date_purchased'] || 'Date Purchased is required.'}</p>}
                     </div>
                     <div>
                       <label className={labelCls}>Warranty</label>
@@ -1048,7 +1211,8 @@ export default function AdminCreateTicket() {
                     )}
                     <div className="md:col-span-2">
                       <label className={labelCls}>Sales / Invoice No.</label>
-                      <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                      <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => { setSalesNo(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, salesNo: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['salesNo'] ? errorRing : ''}`} />
+                      {errors['salesNo'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['salesNo'] || 'Sales / Invoice No. is required.'}</p>}
                       <div className="mt-3 flex justify-end">
                         <button type="button" onClick={handleSaveProductDetails} disabled={!selectedProductId || savingProductDetails} className={`ml-3 px-4 py-2 rounded-lg text-sm ${savingProductDetails ? 'bg-gray-300 text-gray-700 cursor-not-allowed' : 'bg-[#0E8F79] text-white'}`}>
                           {savingProductDetails ? 'Saving...' : 'Save product details'}
@@ -1060,13 +1224,23 @@ export default function AdminCreateTicket() {
                 {!selectedProduct && (
                   <div className="md:col-span-2">
                     <label className={labelCls}>Sales / Invoice No.</label>
-                    <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => setSalesNo(e.target.value)} maxLength={MAX_FIELD} className={inputCls} />
+                    <input type="text" placeholder="e.g. INV-2025-001" value={salesNo} onChange={(e) => { setSalesNo(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, salesNo: false })); }} maxLength={MAX_FIELD} className={`${inputCls} ${errors['salesNo'] ? errorRing : ''}`} />
+                    {errors['salesNo'] && <p className="text-red-500 text-xs mt-1">{errorMsgs['salesNo'] || 'Sales / Invoice No. is required.'}</p>}
                   </div>
                 )}
               </>
             )}
           </div>
-        </Card>
+          </Card>
+        )}
+
+        {/* Navigation controls for product step */}
+        {currentStep === 1 && (
+          <div className="flex justify-between gap-3">
+            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
+            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
+          </div>
+        )}
 
         {productPickerOpen && (
           <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
@@ -1191,7 +1365,8 @@ export default function AdminCreateTicket() {
         )}
 
         {/* Section 3: Type of Service */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
+        {currentStep === 2 && (
+          <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>3. Type of Service <span className="text-red-500 ml-1">*</span></h3>
           {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
           {serviceTypes.length === 0 && (
@@ -1242,33 +1417,81 @@ export default function AdminCreateTicket() {
               </div>
             ) : null;
           })()}
-        </Card>
+          </Card>
+        )}
 
-        {/* Section 4: Support Type */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>4. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
-          {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a support type</p>}
-          <div className="flex flex-wrap gap-4">
-            {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) => (
-              <button key={type} type="button" onClick={() => { setSupportType((prev) => prev === type ? '' : type); setErrors((p) => ({ ...p, supportType: false })); }} className={`px-6 py-3 rounded-full text-sm font-medium transition-all border ${supportType === type ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>{type}</button>
+        {currentStep === 2 && (
+          <div className="flex justify-between gap-3">
+            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
+            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
+          </div>
+        )}
+
+        {/* Section 4: Support (Preferred Type of Support + Description) */}
+        {currentStep === 3 && (
+          <>
+            <Card className="border-l-4 border-l-[#3BC25B]">
+              <h3 className={sectionHeaderCls}>4. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
+              {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['supportType'] || 'Please select a support type'}</p>}
+              <div className="flex flex-wrap gap-4">
+                {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) => (
+                  <button key={type} type="button" onClick={() => { setSupportType((prev) => prev === type ? '' : type); setErrors((p) => ({ ...p, supportType: false })); }} className={`px-6 py-3 rounded-full text-sm font-medium transition-all border ${supportType === type ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>{type}</button>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="border-l-4 border-l-[#3BC25B]">
+              <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+              <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
+              <div className="flex justify-between mt-1">
+                {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
+                <span className="text-xs text-gray-400">{description.length}/{MAX_DESCRIPTION}</span>
+              </div>
+            </Card>
+          </>
+        )}
+
+        {currentStep === 3 && (
+          <div className="flex justify-between gap-3">
+            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
+            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
+          </div>
+        )}
+
+        {/* Section 5: Review & Submit */}
+        {currentStep === 4 && (
+          <Card className="border-l-4 border-l-[#3BC25B]">
+          <h3 className={sectionHeaderCls}>5. Review & Submit</h3>
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2 text-sm">
+            {[
+              ['STF No.', stfNo],
+              ['Client', contactValues.client],
+              ['Contact Person', contactValues.contactPerson],
+              ['Mobile', contactValues.mobile],
+              ['Landline', contactValues.landline || '—'],
+              ['Email', email || '—'],
+              ['Project Title', projectTitle || '—'],
+              ['Product', isExistingProduct ? (selectedProduct ? selectedProduct.product_name || selectedProduct.device_equipment : '—') : (newProductInfo.product_name || '—')],
+              ['Type of Service', serviceType === 'Others' ? `Others — ${serviceOthersText}` : serviceType || '—'],
+              ['Support Type', supportType || '—'],
+              ['Description', description || '—'],
+            ].map(([label, value]) => (
+              <div key={label} className="flex gap-2">
+                <span className="text-gray-500 dark:text-gray-400 w-36 shrink-0 font-medium">{label}:</span>
+                <span className="text-gray-900 dark:text-white break-words">{value}</span>
+              </div>
             ))}
           </div>
-        </Card>
+          </Card>
+        )}
 
-        {/* Section 5: Description */}
-        <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
-          <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
-          <div className="flex justify-between mt-1">
-            {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
-            <span className="text-xs text-gray-400">{description.length}/{MAX_DESCRIPTION}</span>
+        {currentStep === 4 && (
+          <div className="flex justify-between items-center pt-4">
+            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
+            <div className="flex-1 mx-4 text-center text-xs text-gray-500">By submitting, you agree to our support terms and conditions.</div>
+            <GreenButton type="submit" className="py-3 px-6 text-lg shadow-lg shadow-green-500/20">Submit Service Ticket and Call Client</GreenButton>
           </div>
-        </Card>
-
-        <div className="pt-4">
-          <GreenButton fullWidth className="py-4 text-lg shadow-lg shadow-green-500/20">Submit Service Ticket</GreenButton>
-          <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">By submitting, you agree to our support terms and conditions.</p>
-        </div>
+        )}
       </form>
 
       {/* Modal Flow: calling → ongoing → priority → assign */}
@@ -1355,6 +1578,45 @@ export default function AdminCreateTicket() {
                     Continue to Assign
                   </button>
                 </div>
+
+                {/* Call events summary shown after call completed */}
+                {callCompleted && (
+                  <div className="mt-4 bg-white dark:bg-gray-800/50 rounded-lg p-3 border border-gray-100 dark:border-gray-700 text-sm">
+                    <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Call Log Preview</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-green-500 mt-1" />
+                        <div>
+                          <div className="font-medium">Call Connected</div>
+                          <div className="text-xs text-gray-500">{callStartTime ? callStartTime.toLocaleString() : '—'} • {contactValues.mobile || '—'}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-1" />
+                        <div>
+                          <div className="font-medium">Ongoing</div>
+                          <div className="text-xs text-gray-500">Duration: {formatCallDuration(callTimer)}</div>
+                        </div>
+                      </div>
+                      {holdOffset > 0 && (
+                        <div className="flex items-start gap-3">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500 mt-1" />
+                          <div>
+                            <div className="font-medium">On Hold</div>
+                            <div className="text-xs text-gray-500">Total hold: {formatCallDuration(Math.floor(holdOffset / 1000))}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-3">
+                        <div className="w-2 h-2 rounded-full bg-red-500 mt-1" />
+                        <div>
+                          <div className="font-medium">End Call</div>
+                          <div className="text-xs text-gray-500">{callEndTime ? callEndTime.toLocaleString() : '—'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
