@@ -1,5 +1,6 @@
 from django.db import models
 from .lookup import Category
+from .client import Client
 
 
 class Product(models.Model):
@@ -8,6 +9,11 @@ class Product(models.Model):
         Category, related_name='products', null=True, blank=True,
         on_delete=models.SET_NULL,
         help_text='Product category',
+    )
+    client = models.ForeignKey(
+        Client, related_name='products', null=True, blank=True,
+        on_delete=models.SET_NULL,
+        help_text='Client that owns this product',
     )
     device_equipment = models.CharField(max_length=300, blank=True)
     version_no = models.CharField(max_length=100, blank=True)
@@ -20,7 +26,8 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    date_purchased = models.DateField(null=True, blank=True)
+    others = models.TextField(blank=True, default='')
     class Meta:
         ordering = ['-created_at']
 

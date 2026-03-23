@@ -78,9 +78,16 @@ class TicketSerializer(serializers.ModelSerializer):
     def get_email_address(self, obj):
         return obj.client_record.email_address if obj.client_record else ''
 
-    # ── Product fields: now stored directly on the Ticket model ──
-    # 'product' is an alias for the model's product_name field
-    product = serializers.CharField(source='product_name', required=False, allow_blank=True, default='')
+    # ── Product fields: read-only views of linked `product_record` (Product)
+    product = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+    model_name = serializers.SerializerMethodField()
+    device_equipment = serializers.SerializerMethodField()
+    version_no = serializers.SerializerMethodField()
+    date_purchased = serializers.SerializerMethodField()
+    serial_no = serializers.SerializerMethodField()
+    sales_no = serializers.SerializerMethodField()
+    others = serializers.SerializerMethodField()
 
     # Role-based writable fields
     TICKET_FIELDS = {
@@ -112,7 +119,7 @@ class TicketSerializer(serializers.ModelSerializer):
             'type_of_service', 'type_of_service_detail', 'type_of_service_others',
             'priority', 'confirmed_by_admin',
             'preferred_support_type', 'description_of_problem',
-            'has_warranty', 'product', 'brand', 'model_name',
+            'product', 'brand', 'model_name',
             'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others',
             'action_taken', 'remarks',
             'job_status',
@@ -136,6 +143,43 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def get_linked_ticket_stfs(self, obj):
         return list(obj.linked_tickets.values_list('stf_no', flat=True))
+
+    # Product field accessors (read from linked `product_record`)
+    def _product_field(self, obj, field_name):
+        pr = getattr(obj, 'product_record', None)
+        if not pr:
+            return ''
+        val = getattr(pr, field_name, None)
+        if val is None:
+            return ''
+        return val
+
+    def get_product(self, obj):
+        return self._product_field(obj, 'product_name')
+
+    def get_brand(self, obj):
+        return self._product_field(obj, 'brand')
+
+    def get_model_name(self, obj):
+        return self._product_field(obj, 'model_name')
+
+    def get_device_equipment(self, obj):
+        return self._product_field(obj, 'device_equipment')
+
+    def get_version_no(self, obj):
+        return self._product_field(obj, 'version_no')
+
+    def get_date_purchased(self, obj):
+        return self._product_field(obj, 'date_purchased')
+
+    def get_serial_no(self, obj):
+        return self._product_field(obj, 'serial_no')
+
+    def get_sales_no(self, obj):
+        return self._product_field(obj, 'sales_no')
+
+    def get_others(self, obj):
+        return self._product_field(obj, 'others')
 
     def get_was_for_observation(self, obj):
         if obj.status == Ticket.STATUS_FOR_OBSERVATION:

@@ -127,10 +127,9 @@ class TicketViewSet(viewsets.ModelViewSet):
                     }
                     serializer.validated_data['product_record'] = Product.objects.create(**product_record_data)
 
-            # Store product details directly on the ticket as well
-            for field, val in product_text.items():
-                if val not in (None, '', False):
-                    serializer.validated_data[field] = val
+            # Product details are stored on the linked `Product` record (`product_record`).
+            # Do not inject product fields into `validated_data` — the Ticket model no longer
+            # contains those columns and passing them to `Ticket.objects.create()` raises.
 
             ticket = serializer.save(created_by=user)
 

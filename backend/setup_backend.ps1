@@ -67,7 +67,6 @@ try {
     & $pythonExe manage.py seed_users
     & $pythonExe manage.py seed_services
     & $pythonExe manage.py seed_categories
-    & $pythonExe manage.py seed_products
 } catch {
     Write-Warning "A seed command failed or is not present. Continuing..."
 }

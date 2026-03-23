@@ -225,8 +225,8 @@ export default function AdminCreateTicket() {
       .catch(() => {});
   }, []);
 
-  // Multi-step form state
-  const steps = ['Contact', 'Product', 'Service', 'Support', 'Review & Submit'];
+  // Multi-step form state (reduced to 4 steps; Service now includes Support+Description)
+  const steps = ['Contact', 'Product', 'Service', 'Review & Submit'];
   const [currentStep, setCurrentStep] = useState(0);
 
   const lastStep = steps.length - 1;
@@ -277,10 +277,9 @@ export default function AdminCreateTicket() {
       if (!salesNo.trim()) { newErrors['salesNo'] = true; msgs['salesNo'] = 'Sales / Invoice No. is required.'; }
     }
     if (step === 2) {
+      // Step 2 now includes: Type of Service (3), Preferred Type of Support (4), Description (5)
       if (!serviceType) { newErrors['serviceType'] = true; msgs['serviceType'] = 'Please select a type of service'; }
       if (serviceType === 'Others' && !serviceOthersText.trim()) { newErrors['serviceOthersText'] = true; msgs['serviceOthersText'] = 'Please specify the service'; }
-    }
-    if (step === 3) {
       if (!supportType) { newErrors['supportType'] = true; msgs['supportType'] = 'Please select a support type'; }
       const descErr = validateDescription(description, 'Description of problem');
       if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
@@ -1364,72 +1363,62 @@ export default function AdminCreateTicket() {
           </div>
         )}
 
-        {/* Section 3: Type of Service */}
+        {/* Section 3: Type of Service (now includes Preferred Support and Description) */}
         {currentStep === 2 && (
-          <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>3. Type of Service <span className="text-red-500 ml-1">*</span></h3>
-          {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
-          {serviceTypes.length === 0 && (
-            <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {serviceTypes.filter((s) => s.is_active).map((svc) => {
-              const Icon = getServiceIcon(svc.name);
-              const isSelected = serviceType === svc.name;
-              return (
-                <div key={svc.id} onClick={() => { setServiceType((prev) => prev === svc.name ? '' : svc.name); setErrors((p) => ({ ...p, serviceType: false })); }} className={`group cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                  <div className={`p-2 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
-                  <div className="flex-1 min-w-0">
-                    <span className={`text-sm font-medium block ${isSelected ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{svc.name}</span>
-                    {svc.description && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500 block overflow-hidden transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mt-1 opacity-0 group-hover:opacity-100">{svc.description}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-            <div onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-full ${serviceType === 'Others' ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><FileText className="w-4 h-4" /></div>
-                <span className={`text-sm font-medium ${serviceType === 'Others' ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Others</span>
-              </div>
-              {serviceType === 'Others' && (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <input type="text" placeholder="Please specify the service..." value={serviceOthersText} onChange={(e) => { setServiceOthersText(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, serviceOthersText: false })); }} className={`mt-1 w-full text-sm border-b ${errors['serviceOthersText'] ? 'border-red-400' : 'border-[#3BC25B]'} bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none`} autoFocus />
-                  {errors['serviceOthersText'] && <p className="text-red-500 text-xs mt-1">Please specify the service</p>}
-                  <div className="mt-3">
-                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Est. Resolution Days</label>
-                    <input type="number" min={1} placeholder="e.g. 5" value={estimatedDaysOverride} onChange={(e) => setEstimatedDaysOverride(e.target.value ? parseInt(e.target.value) : '')} className="mt-1 w-full text-sm border-b border-[#3BC25B] bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none" />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Show estimated resolution days for the selected service */}
-          {serviceType && serviceType !== 'Others' && (() => {
-            const selected = serviceTypes.find((s) => s.name === serviceType);
-            return selected && selected.estimated_resolution_days > 0 ? (
-              <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-                <Clock className="w-4 h-4 text-blue-500" />
-                <span className="text-sm text-blue-700 dark:text-blue-300">
-                  Estimated Resolution: <span className="font-bold">{selected.estimated_resolution_days} day{selected.estimated_resolution_days !== 1 ? 's' : ''}</span>
-                </span>
-              </div>
-            ) : null;
-          })()}
-          </Card>
-        )}
-
-        {currentStep === 2 && (
-          <div className="flex justify-between gap-3">
-            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
-            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
-          </div>
-        )}
-
-        {/* Section 4: Support (Preferred Type of Support + Description) */}
-        {currentStep === 3 && (
           <>
+            <Card className="border-l-4 border-l-[#3BC25B]">
+            <h3 className={sectionHeaderCls}>3. Type of Service <span className="text-red-500 ml-1">*</span></h3>
+            {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
+            {serviceTypes.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {serviceTypes.filter((s) => s.is_active).map((svc) => {
+                const Icon = getServiceIcon(svc.name);
+                const isSelected = serviceType === svc.name;
+                return (
+                  <div key={svc.id} onClick={() => { setServiceType((prev) => prev === svc.name ? '' : svc.name); setErrors((p) => ({ ...p, serviceType: false })); }} className={`group cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    <div className={`p-2 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-medium block ${isSelected ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{svc.name}</span>
+                      {svc.description && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 block overflow-hidden transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mt-1 opacity-0 group-hover:opacity-100">{svc.description}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${serviceType === 'Others' ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><FileText className="w-4 h-4" /></div>
+                  <span className={`text-sm font-medium ${serviceType === 'Others' ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Others</span>
+                </div>
+                {serviceType === 'Others' && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <input type="text" placeholder="Please specify the service..." value={serviceOthersText} onChange={(e) => { setServiceOthersText(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, serviceOthersText: false })); }} className={`mt-1 w-full text-sm border-b ${errors['serviceOthersText'] ? 'border-red-400' : 'border-[#3BC25B]'} bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none`} autoFocus />
+                    {errors['serviceOthersText'] && <p className="text-red-500 text-xs mt-1">Please specify the service</p>}
+                    <div className="mt-3">
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Est. Resolution Days</label>
+                      <input type="number" min={1} placeholder="e.g. 5" value={estimatedDaysOverride} onChange={(e) => setEstimatedDaysOverride(e.target.value ? parseInt(e.target.value) : '')} className="mt-1 w-full text-sm border-b border-[#3BC25B] bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Show estimated resolution days for the selected service */}
+            {serviceType && serviceType !== 'Others' && (() => {
+              const selected = serviceTypes.find((s) => s.name === serviceType);
+              return selected && selected.estimated_resolution_days > 0 ? (
+                <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+                  <Clock className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Estimated Resolution: <span className="font-bold">{selected.estimated_resolution_days} day{selected.estimated_resolution_days !== 1 ? 's' : ''}</span>
+                  </span>
+                </div>
+              ) : null;
+            })()}
+            </Card>
+
             <Card className="border-l-4 border-l-[#3BC25B]">
               <h3 className={sectionHeaderCls}>4. Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
               {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['supportType'] || 'Please select a support type'}</p>}
@@ -1441,7 +1430,7 @@ export default function AdminCreateTicket() {
             </Card>
 
             <Card className="border-l-4 border-l-[#3BC25B]">
-              <h3 className={sectionHeaderCls}>4. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+              <h3 className={sectionHeaderCls}>5. Description of Problem <span className="text-red-500 ml-1">*</span></h3>
               <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
               <div className="flex justify-between mt-1">
                 {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
@@ -1451,15 +1440,17 @@ export default function AdminCreateTicket() {
           </>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 2 && (
           <div className="flex justify-between gap-3">
             <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
             <GreenButton type="button" onClick={goNext}>Next</GreenButton>
           </div>
         )}
 
+        {/* Support & Description moved into step 3 (rendered above). */}
+
         {/* Section 5: Review & Submit */}
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <Card className="border-l-4 border-l-[#3BC25B]">
           <h3 className={sectionHeaderCls}>5. Review & Submit</h3>
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 space-y-2 text-sm">
@@ -1485,7 +1476,7 @@ export default function AdminCreateTicket() {
           </Card>
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 3 && (
           <div className="flex justify-between items-center pt-4">
             <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
             <div className="flex-1 mx-4 text-center text-xs text-gray-500">By submitting, you agree to our support terms and conditions.</div>
