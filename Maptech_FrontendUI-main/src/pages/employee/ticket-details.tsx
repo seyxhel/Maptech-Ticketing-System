@@ -1,1 +1,0 @@
-﻿export { TicketView as default } from '../shared/TicketView';

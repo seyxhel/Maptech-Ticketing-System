@@ -1,1 +1,0 @@
-﻿export { AuditLogs as default } from '../shared/AuditLogs';

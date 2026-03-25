@@ -1,1 +1,0 @@
-﻿export { Reports as default } from '../shared/Reports';
