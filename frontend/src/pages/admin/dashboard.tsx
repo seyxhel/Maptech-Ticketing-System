@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { StatCard } from '../../components/ui/StatCard';
@@ -432,8 +433,8 @@ export default function AdminDashboard() {
       </div>
 
       {/* Edit Ticket Modal */}
-      {editTicket && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditTicket(null)}>
+      {editTicket && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" onClick={() => setEditTicket(null)}>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Edit Ticket</h3>
@@ -477,11 +478,11 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* Filter Modal */}
-      {showFilter && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setShowFilter(false)}>
+      {showFilter && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowFilter(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">Filter Tickets</h3>
@@ -511,7 +512,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

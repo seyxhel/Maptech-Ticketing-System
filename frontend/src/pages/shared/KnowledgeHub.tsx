@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/Card';
 import {
   Search,
@@ -546,9 +547,9 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
       )}
 
       {/* Detail Modal */}
-      {selected && (
+      {selected && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
           onClick={() => setSelected(null)}
         >
           <div
@@ -695,13 +696,14 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Publish Modal */}
-      {publishTarget && (
+      {publishTarget && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
           onClick={() => setPublishTarget(null)}
         >
           <div
@@ -846,13 +848,14 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Modal */}
-      {editTarget && (
+      {editTarget && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
           onClick={() => setEditTarget(null)}
         >
           <div
@@ -996,7 +999,8 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

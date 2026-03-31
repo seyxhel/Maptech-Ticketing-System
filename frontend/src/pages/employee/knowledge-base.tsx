@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/Card';
 import {
   Search,
@@ -283,9 +284,9 @@ export default function EmployeeKnowledgeBase() {
       </div>
 
       {/* Detail Modal */}
-      {selected && (
+      {selected && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
           onClick={() => setSelected(null)}
         >
           <div
@@ -372,7 +373,8 @@ export default function EmployeeKnowledgeBase() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Quick Links */}

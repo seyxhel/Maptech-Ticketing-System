@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
 import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
@@ -257,9 +258,9 @@ export default function EmployeeSettings() {
         </div>
 
         {/* Lightbox */}
-        {avatarLightboxOpen && avatarSrc && (
+        {avatarLightboxOpen && avatarSrc && createPortal(
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
             onClick={() => setAvatarLightboxOpen(false)}
           >
             <div className="relative max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
@@ -275,7 +276,8 @@ export default function EmployeeSettings() {
                 className="w-full rounded-2xl object-cover shadow-2xl"
               />
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         <div className="flex items-center justify-between mb-4">

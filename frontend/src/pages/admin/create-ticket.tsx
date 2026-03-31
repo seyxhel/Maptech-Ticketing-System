@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
@@ -1105,8 +1106,8 @@ export default function AdminCreateTicket() {
         )}
 
         {/* Device selection modal */}
-        {deviceModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
+        {deviceModalOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
             <div className="absolute inset-0 bg-black/40" onClick={() => setDeviceModalOpen(false)} />
             <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-xl max-h-[80vh] overflow-auto p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1161,10 +1162,10 @@ export default function AdminCreateTicket() {
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
-        {salesRepModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
+        {salesRepModalOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
             <div className="absolute inset-0 bg-black/40" />
             <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-xl max-h-[80vh] overflow-auto p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1263,10 +1264,10 @@ export default function AdminCreateTicket() {
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
-        {clientPickerOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
+        {clientPickerOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
             <div className="absolute inset-0 bg-black/40" onClick={() => setClientPickerOpen(false)} />
             <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-auto p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1370,7 +1371,7 @@ export default function AdminCreateTicket() {
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
         {/* Section 2: Product Information */}
         {currentStep === 1 && (
@@ -1579,8 +1580,8 @@ export default function AdminCreateTicket() {
           </div>
         )}
 
-        {productPickerOpen && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center p-4">
+        {productPickerOpen && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
             <div className="absolute inset-0 bg-black/40" onClick={() => setProductPickerOpen(false)} />
             <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-3xl max-h-[80vh] overflow-auto p-4">
               <div className="flex items-center justify-between mb-3">
@@ -1699,7 +1700,7 @@ export default function AdminCreateTicket() {
               </div>
             </div>
           </div>
-        )}
+        , document.body)}
 
         {/* Section 3: Type of Service (now includes Preferred Support and Description) */}
         {currentStep === 2 && (
@@ -1824,8 +1825,8 @@ export default function AdminCreateTicket() {
       </form>
 
       {/* Modal Flow: calling → ongoing → priority → assign */}
-      {modalStep !== 'none' && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+      {modalStep !== 'none' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
 
           {/* ── Step 1: STF Details Review ── */}
           {modalStep === 'stf-details' && (
@@ -2115,7 +2116,7 @@ export default function AdminCreateTicket() {
             </div>
           )}
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }

@@ -91,7 +91,7 @@ export function Login() {
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               Email Address
             </label>
-            <div className="relative flex items-center bg-gray-800 border border-gray-700 rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all">
+            <div className={`relative flex items-center bg-gray-800 border rounded-lg focus-within:ring-2 focus-within:ring-[#3BC25B] focus-within:border-[#3BC25B] transition-all ${fieldErrors.email ? 'border-red-500' : 'border-gray-700'}`}>
               <Mail className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0" />
               <input
                 type="email"
@@ -99,7 +99,7 @@ export function Login() {
                 onChange={(e) => { setEmail(e.target.value); setFieldErrors({}); }}
                 placeholder="name@company.com"
                 maxLength={MAX_EMAIL}
-                className={`w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm${fieldErrors.email ? ' ring-1 ring-red-500' : ''}`}
+                className="w-full bg-transparent border-none py-3 pl-3 pr-4 text-white placeholder-gray-500 focus:outline-none text-sm [&:-webkit-autofill]:bg-gray-800 [&:-webkit-autofill]:text-white [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0_1000px_#1f2937_inset]"
                 autoComplete="email"
               />
             </div>
@@ -118,7 +118,7 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 maxLength={MAX_PASSWORD}
-                className="w-full bg-transparent border-none py-3 pl-3 pr-12 text-white placeholder-gray-500 focus:outline-none text-sm"
+                className="w-full bg-transparent border-none py-3 pl-3 pr-12 text-white placeholder-gray-500 focus:outline-none text-sm [&:-webkit-autofill]:bg-gray-800 [&:-webkit-autofill]:text-white [&:-webkit-autofill]:[-webkit-text-fill-color:white] [&:-webkit-autofill]:[-webkit-box-shadow:0_0_0_1000px_#1f2937_inset]"
                 autoComplete="current-password"
               />
               <button
