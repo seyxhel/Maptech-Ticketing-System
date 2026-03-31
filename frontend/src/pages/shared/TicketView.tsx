@@ -1329,9 +1329,6 @@ export function TicketView() {
     const ticketIdValue = ticket.id || 'N/A';
     const jobStatusValue = ticket.jobStatus || 'N/A';
     const signedByValue = ticket.signedByName || 'N/A';
-    const signatureHtml = ticket.signature
-      ? `<div class="signature-box"><img src="${ticket.signature}" alt="Signature" /></div>`
-      : '<span class="info-value">N/A</span>';
     const escLogs = btData.escalation_logs || [];
     const atts = btData.attachments || [];
     const body = `
@@ -1381,11 +1378,21 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Time In:</span><span class="info-value">${ticket.timeIn}</span></div>
         <div class="info-row"><span class="info-label">Time Out:</span><span class="info-value">${ticket.timeOut}</span></div>
       </div>
-      ${ticket.actionTaken ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Action Taken:</span><span class="info-value">${ticket.actionTaken}</span></div>` : ''}
-      ${ticket.remarks ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Remarks:</span><span class="info-value">${ticket.remarks}</span></div>` : ''}
-      ${ticket.observation ? `<div class="info-row" style="margin:0 16px 8px"><span class="info-label">Observation:</span><span class="info-value">${ticket.observation}</span></div>` : ''}
-      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signed By:</span><span class="info-value">${signedByValue}</span></div>
-      <div class="info-row" style="margin:0 16px 8px"><span class="info-label">Signature:</span><span class="info-value">${signatureHtml}</span></div>
+      ${ticket.actionTaken ? `<div class="info-grid" style="margin-top:-8px;"><div class="info-row" style="grid-column:span 2;"><span class="info-label">Action Taken:</span><span class="info-value">${ticket.actionTaken}</span></div></div>` : ''}
+      ${ticket.remarks ? `<div class="info-grid" style="margin-top:-8px;"><div class="info-row" style="grid-column:span 2;"><span class="info-label">Remarks:</span><span class="info-value">${ticket.remarks}</span></div></div>` : ''}
+      ${ticket.observation ? `<div class="info-grid" style="margin-top:-8px;"><div class="info-row" style="grid-column:span 2;"><span class="info-label">Observation:</span><span class="info-value">${ticket.observation}</span></div></div>` : ''}
+      <div class="signature-section">
+        <div class="signature-row">
+          <div class="signature-item">
+            <span class="info-label">Signed By:</span>
+            <span class="info-value">${signedByValue}</span>
+          </div>
+          <div class="signature-item">
+            <span class="info-label">Signature:</span>
+            ${ticket.signature ? `<div class="signature-box"><img src="${ticket.signature}" alt="Signature" /></div>` : '<span class="info-value">N/A</span>'}
+          </div>
+        </div>
+      </div>
       ${escLogs.length > 0 ? `<h2>Escalation History</h2>
       <table><thead><tr><th>Date</th><th>From</th><th>To</th><th>Type</th><th>Notes</th></tr></thead>
       <tbody>${escLogs.map((esc: any) => `<tr><td>${esc.created_at ? new Date(esc.created_at).toLocaleString() : ''}</td><td>${esc.from_user_name || ''}</td><td>${esc.to_user_name || esc.external_escalated_to || ''}</td><td>${esc.cascade_type || ''}</td><td>${esc.notes || ''}</td></tr>`).join('')}</tbody></table>` : ''}
