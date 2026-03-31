@@ -1330,7 +1330,7 @@ export function TicketView() {
     const jobStatusValue = ticket.jobStatus || 'N/A';
     const signedByValue = ticket.signedByName || 'N/A';
     const signatureHtml = ticket.signature
-      ? `<img src="${ticket.signature}" alt="Signature" style="max-height:62px;max-width:220px;border:1px solid #d1fae5;border-radius:6px;background:#ffffff;padding:4px;object-fit:contain;" />`
+      ? `<div class="signature-box"><img src="${ticket.signature}" alt="Signature" /></div>`
       : '<span class="info-value">N/A</span>';
     const escLogs = btData.escalation_logs || [];
     const atts = btData.attachments || [];

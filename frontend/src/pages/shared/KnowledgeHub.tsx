@@ -100,6 +100,8 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
   const [editTags, setEditTags] = useState<string[]>([]);
   const [editTagInput, setEditTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxType, setLightboxType] = useState<'image' | 'video' | null>(null);
 
   // Build API filter params based on the active filter
   const getFilterParams = useCallback(() => {
@@ -185,6 +187,24 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
     setEditSteps(parseSteps(att.published_description).length ? parseSteps(att.published_description) : ['']);
     setEditTags(att.published_tags || []);
     setEditTagInput('');
+  };
+
+  const openLightbox = (url: string) => {
+    if (isImageFile(url)) {
+      setLightboxUrl(url);
+      setLightboxType('image');
+    } else if (isVideoFile(url)) {
+      setLightboxUrl(url);
+      setLightboxType('video');
+    } else {
+      // For non-image/video files, open in new tab (PDFs, docs, etc.)
+      window.open(url, '_blank');
+    }
+  };
+
+  const closeLightbox = () => {
+    setLightboxUrl(null);
+    setLightboxType(null);
   };
 
   const handleEdit = async () => {
@@ -578,7 +598,9 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
                   <img
                     src={selected.file}
                     alt={getFileName(selected.file)}
-                    className="w-full max-h-96 object-contain"
+                    className="w-full max-h-96 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => openLightbox(selected.file)}
+                    title="Click to view full size"
                   />
                 ) : isVideoFile(selected.file) ? (
                   <div className="w-full aspect-video bg-black">
@@ -591,14 +613,12 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
                   <div className="flex flex-col items-center justify-center py-12 gap-3">
                     <FileTypeIcon url={selected.file} />
                     <p className="text-sm text-gray-500 dark:text-gray-400">{getFileName(selected.file)}</p>
-                    <a
-                      href={selected.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      onClick={() => openLightbox(selected.file)}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0E8F79] text-white text-sm font-medium hover:bg-[#0b7a67] transition-colors"
                     >
                       <ExternalLink className="w-4 h-4" /> Open File
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>
@@ -646,14 +666,12 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
 
               {/* Actions */}
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-                <a
-                  href={selected.file}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => openLightbox(selected.file)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0E8F79] text-white text-sm font-medium hover:bg-[#0b7a67] transition-colors"
                 >
-                  <ExternalLink className="w-4 h-4" /> Open File
-                </a>
+                  <Eye className="w-4 h-4" /> View File
+                </button>
                 {filter === 'uploaded' && (
                   <button
                     onClick={() => { setSelected(null); openPublishModal(selected); }}
@@ -998,6 +1016,51 @@ export default function KnowledgeHub({ filter }: { filter?: 'uploaded' | 'publis
                 </button>
               </div>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Lightbox Modal for full-size image/video viewing */}
+      {lightboxUrl && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
+          onClick={closeLightbox}
+        >
+          {/* Close button */}
+          <button
+            onClick={closeLightbox}
+            className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+
+          {/* Content */}
+          <div
+            className="max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {lightboxType === 'image' ? (
+              <img
+                src={lightboxUrl}
+                alt="Full size view"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              />
+            ) : lightboxType === 'video' ? (
+              <video
+                src={lightboxUrl}
+                controls
+                autoPlay
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              >
+                Your browser does not support the video tag.
+              </video>
+            ) : null}
+          </div>
+
+          {/* File name at bottom */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-black/50 text-white text-sm">
+            {getFileName(lightboxUrl)}
           </div>
         </div>,
         document.body

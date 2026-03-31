@@ -12,10 +12,10 @@ export const PDF_CSS = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
-    color: #1f2937; background: #fff; padding: 0 0 60px 0;
+    color: #1f2937; background: #fff; padding: 0 0 80px 0;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .page-wrapper { padding: 0 40px 40px 40px; }
+  .page-wrapper { padding: 0 40px 80px 40px; }
   /* ── Header Banner ── */
   .header-banner {
     background: #ffffff;
@@ -34,9 +34,6 @@ export const PDF_CSS = `
     font-size: 10px; color: #6b7280; text-transform: uppercase;
     letter-spacing: 2px; font-weight: 500;
   }
-  .header-signature { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
-  .header-signature img { height:64px; border-radius:6px; border:1px solid #e5e7eb; object-fit:contain; background:#fff; padding:4px; }
-  .header-signature .sig-name { font-size:10px; color:#6b7280; }
   /* ── Sub-header ── */
   .sub-header {
     background: #e8faf0; padding: 10px 40px;
@@ -101,6 +98,25 @@ export const PDF_CSS = `
     border-radius: 8px; font-size: 12px; line-height: 1.7; margin-bottom: 16px;
     white-space: pre-wrap; color: #374151;
   }
+  /* ── Signature Box (in body content) ── */
+  .signature-box {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #ffffff;
+    border: 1px solid #d1fae5;
+    border-radius: 8px;
+    text-align: center;
+  }
+  .signature-box img {
+    max-height: 80px;
+    max-width: 220px;
+    object-fit: contain;
+  }
+  /* ── Page Break Control ── */
+  h2 { page-break-after: avoid; }
+  .info-grid, .stat-grid, table { page-break-inside: avoid; }
+  tr { page-break-inside: avoid; }
+  .desc { page-break-inside: avoid; }
   /* ── Badge ── */
   .badge {
     display: inline-block; padding: 3px 10px; border-radius: 20px;
@@ -126,8 +142,8 @@ export const PDF_CSS = `
   .footer-right { color: rgba(255,255,255,0.7); font-size: 10px; text-align: right; }
   /* ── Print ── */
   @media print {
-    body { padding: 0 0 60px 0; }
-    .page-wrapper { padding: 0 32px 32px 32px; }
+    body { padding: 0 0 80px 0; }
+    .page-wrapper { padding: 0 32px 80px 32px; }
     .header-banner { padding: 24px 32px 20px 32px; }
     .sub-header { padding: 8px 32px; }
     .footer-wrap {
@@ -146,8 +162,6 @@ export function pdfHeader(
   reportTitle: string,
   dateStr: string,
   timeStr: string,
-  signatureData?: string,
-  signedBy?: string,
 ): string {
   return `
     <div class="header-banner">
@@ -156,7 +170,6 @@ export function pdfHeader(
         <div class="header-title">${reportTitle}</div>
         <div class="header-company">Maptech Information Solutions Inc.</div>
       </div>
-      ${signatureData ? `<div class="header-signature"><img src="${signatureData}" alt="Signature" /><div class="sig-name">${signedBy || ''}</div></div>` : ''}
     </div>
     <div class="sub-header">
       <span class="sub-header-left">Official Document</span>
@@ -187,8 +200,8 @@ export function buildPdfDocument(
   reportTitle: string,
   bodyContent: string,
   recordSummary: string,
-  signatureData?: string,
-  signedBy?: string,
+  _signatureData?: string,
+  _signedBy?: string,
 ): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -199,7 +212,7 @@ export function buildPdfDocument(
     <title>${title}</title>
     <style>${PDF_CSS}</style>
   </head><body>
-    ${pdfHeader(reportTitle, dateStr, timeStr, signatureData, signedBy)}
+    ${pdfHeader(reportTitle, dateStr, timeStr)}
     <div class="page-wrapper">
       ${bodyContent}
     </div>
