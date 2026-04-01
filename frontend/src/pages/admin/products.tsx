@@ -32,6 +32,7 @@ const EMPTY_FORM = {
   device_equipment: '',
   device_equipment_id: '' as string | number,
   version_no: '',
+  date_purchased: '',
   serial_no: '',
   has_warranty: false,
   is_active: true,
@@ -51,6 +52,10 @@ export default function Products() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [deviceModalOpen, setDeviceModalOpen] = useState(false);
+  const [deviceSearch, setDeviceSearch] = useState('');
+  const [devicePage, setDevicePage] = useState(1);
+  const DEVICE_PAGE_SIZE = 8;
 
   // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
@@ -94,6 +99,8 @@ export default function Products() {
     setEditingProduct(null);
     setFormData({ ...EMPTY_FORM });
     setFieldErrors({});
+    setDeviceSearch('');
+    setDevicePage(1);
     setIsModalOpen(true);
   };
 
@@ -105,17 +112,21 @@ export default function Products() {
       model_name: product.model_name || '',
       device_equipment: product.device_equipment || '',
       version_no: product.version_no || '',
+      date_purchased: product.date_purchased || '',
       serial_no: product.serial_no || '',
       has_warranty: product.has_warranty,
       is_active: product.is_active,
       device_equipment_id: product.category || '',
     });
     setFieldErrors({});
+    setDeviceSearch('');
+    setDevicePage(1);
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
+    setDeviceModalOpen(false);
     setEditingProduct(null);
     setFieldErrors({});
   };
@@ -127,6 +138,7 @@ export default function Products() {
     if (!formData.brand.trim()) errors.brand = 'Brand is required.';
     if (!formData.model_name.trim()) errors.model_name = 'Model is required.';
     if (!formData.version_no.trim()) errors.version_no = 'Version number is required.';
+    if (!formData.date_purchased) errors.date_purchased = 'Date purchased is required.';
     if (!formData.serial_no.trim()) errors.serial_no = 'Serial number is required.';
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -144,6 +156,7 @@ export default function Products() {
         model_name: formData.model_name.trim(),
         device_equipment: formData.device_equipment.trim(),
         version_no: formData.version_no.trim(),
+        date_purchased: formData.date_purchased || null,
         serial_no: formData.serial_no.trim(),
         has_warranty: formData.has_warranty,
         is_active: formData.is_active,
@@ -373,27 +386,29 @@ export default function Products() {
                   {fieldErrors.product_name && <p className="mt-1 text-xs text-red-500">{fieldErrors.product_name}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device / Equipment <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.device_equipment_id}
-                    onChange={(e) => {
-                      const selectedId = e.target.value ? Number(e.target.value) : '';
-                      const selected = selectedId
-                        ? deviceEquipment.find((item) => item.id === Number(selectedId))
-                        : null;
-                      setFormData({
-                        ...formData,
-                        device_equipment_id: selectedId,
-                        device_equipment: selected ? selected.name : '',
-                      });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
-                  >
-                    <option value="">— Select Device/Equipment (Category) —</option>
-                    {deviceEquipment.filter((item) => item.is_active).map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Device / Equipment (Category) <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeviceModalOpen(true);
+                        setFieldErrors((prev) => ({ ...prev, device_equipment: '' }));
+                      }}
+                      className={`w-full text-left px-3 py-2 pr-20 border rounded-lg text-sm bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${formData.device_equipment ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'} ${fieldErrors.device_equipment ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`}
+                    >
+                      {formData.device_equipment || 'Select Device / Equipment (Category)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeviceModalOpen(true);
+                        setFieldErrors((prev) => ({ ...prev, device_equipment: '' }));
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 rounded bg-[#0E8F79] text-white text-xs"
+                    >
+                      Select
+                    </button>
+                  </div>
                   {fieldErrors.device_equipment && <p className="mt-1 text-xs text-red-500">{fieldErrors.device_equipment}</p>}
                 </div>
                 <div>
@@ -410,6 +425,11 @@ export default function Products() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Version No. <span className="text-red-500">*</span></label>
                   <input type="text" value={formData.version_no} onChange={(e) => setFormData({ ...formData, version_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.version_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. v2.1" />
                   {fieldErrors.version_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.version_no}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date Purchased <span className="text-red-500">*</span></label>
+                  <input type="date" value={formData.date_purchased} onChange={(e) => setFormData({ ...formData, date_purchased: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.date_purchased ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} />
+                  {fieldErrors.date_purchased && <p className="mt-1 text-xs text-red-500">{fieldErrors.date_purchased}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Serial No. <span className="text-red-500">*</span></label>
@@ -445,6 +465,115 @@ export default function Products() {
                 </GreenButton>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deviceModalOpen && createPortal(
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl relative max-h-[90vh] overflow-hidden border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Select Device / Equipment (Category)</h4>
+              <button
+                type="button"
+                onClick={() => setDeviceModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-88px)]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  value={deviceSearch}
+                  onChange={(e) => {
+                    setDeviceSearch(e.target.value);
+                    setDevicePage(1);
+                  }}
+                  placeholder="Search device/equipment (category)..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                />
+              </div>
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {(() => {
+                    const filtered = deviceEquipment
+                      .filter((d) => d.is_active !== false)
+                      .filter((d) => (d.name || '').toLowerCase().includes(deviceSearch.toLowerCase()));
+                    const total = filtered.length;
+                    const totalPages = Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE));
+                    const currentPage = Math.min(devicePage, totalPages);
+                    const start = (currentPage - 1) * DEVICE_PAGE_SIZE;
+                    const pageItems = filtered.slice(start, start + DEVICE_PAGE_SIZE);
+
+                    return (
+                      <>
+                        {pageItems.map((d) => {
+                          const title = d.name || 'Unnamed';
+                          const isSelected = Number(formData.device_equipment_id) === d.id || (formData.device_equipment || '').toLowerCase() === title.toLowerCase();
+                          return (
+                            <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                              <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{title}</div>
+                              {isSelected ? (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs font-semibold">Selected</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      device_equipment_id: d.id,
+                                      device_equipment: title,
+                                    }));
+                                    setFieldErrors((prev) => ({ ...prev, device_equipment: '' }));
+                                    setDeviceModalOpen(false);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg bg-[#0E8F79] hover:bg-[#0B7A68] text-white text-sm font-medium transition-colors"
+                                >
+                                  Select
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {total === 0 && (
+                          <div className="px-4 py-10 text-sm text-center text-gray-500">No device/equipment (category) found.</div>
+                        )}
+
+                        {total > DEVICE_PAGE_SIZE && (
+                          <div className="px-4 py-3 flex items-center justify-between bg-gray-50/70 dark:bg-gray-800/50">
+                            <div className="text-sm text-gray-500">Page {currentPage} of {totalPages}</div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setDevicePage((p) => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
+                              >
+                                Prev
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDevicePage((p) => Math.min(totalPages, p + 1))}
+                                disabled={currentPage >= totalPages}
+                                className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
           </div>
         </div>,
         document.body

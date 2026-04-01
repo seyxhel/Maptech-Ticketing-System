@@ -1,4 +1,58 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
+import Stepper from '@mui/material/Stepper';
+import Step from '@mui/material/Step';
+import StepLabel, { stepLabelClasses } from '@mui/material/StepLabel';
+import StepConnector, { stepConnectorClasses } from '@mui/material/StepConnector';
+import { styled } from '@mui/material/styles';
+// Custom connector: green gradient for completed and active, gray for others
+const GradientConnector = styled(StepConnector)(({ theme }) => ({
+  [`&.${stepConnectorClasses.alternativeLabel}`]: {
+    top: 22,
+  },
+  [`& .${stepConnectorClasses.line}`]: {
+    height: 3,
+    border: 0,
+    borderRadius: 1,
+    background: '#e0e0e0',
+    transition: 'background 0.3s',
+  },
+  [`&.${stepConnectorClasses.active} .${stepConnectorClasses.line}`]: {
+    background: 'linear-gradient(90deg, #3BC25B 0%, #0E8F79 100%)',
+  },
+  [`&.${stepConnectorClasses.completed} .${stepConnectorClasses.line}`]: {
+    background: 'linear-gradient(90deg, #3BC25B 0%, #0E8F79 100%)',
+  },
+}));
+
+// Custom icon with gradient background for active/completed
+const GradientStepIconRoot = styled('div', {
+  shouldForwardProp: (prop) => prop !== 'ownerState',
+})(({ ownerState }) => ({
+  background: ownerState.active || ownerState.completed
+    ? 'linear-gradient(135deg, #3BC25B 0%, #0E8F79 100%)'
+    : '#e0e0e0',
+  zIndex: 1,
+  color: '#fff',
+  width: 32,
+  height: 32,
+  display: 'flex',
+  borderRadius: '50%',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontWeight: 700,
+  fontSize: 18,
+  boxShadow: ownerState.active || ownerState.completed ? '0 2px 8px 0 rgba(62, 199, 93, 0.15)' : 'none',
+  transition: 'background 0.3s',
+}));
+
+function GradientStepIcon(props) {
+  const { active, completed, className, icon } = props;
+  return (
+    <GradientStepIconRoot ownerState={{ active, completed }} className={className}>
+      {icon}
+    </GradientStepIconRoot>
+  );
+}
 import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
@@ -952,24 +1006,32 @@ export default function AdminCreateTicket() {
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); if (currentStep === lastStep) handleSubmit(e); else goNext(); }} className="space-y-6">
-        {/* Progress tracker */}
-        <div className="mb-4">
-          <div className="relative max-w-3xl mx-auto">
-            {/* full background line inset from the edges so it doesn't pass under the outer circles */}
-            <div className="absolute top-6 h-0.5 bg-gray-200 rounded left-6 right-6" />
-            {/* progress line (scaled) inset between the same left/right so scaling doesn't overlap circles */}
-            <div className="absolute top-6 h-0.5 bg-[#3BC25B] rounded left-6 right-6 transform origin-left" style={{ transform: `scaleX(${steps.length > 1 ? currentStep / (steps.length - 1) : 0})` }} />
-            <div className="flex items-center justify-between relative z-10">
-              {steps.map((s, i) => (
-                <div key={s} className="flex-1 flex flex-col items-center text-center">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${i === currentStep ? 'bg-[#0E8F79] text-white' : i < currentStep ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 text-gray-600'}`}>{i+1}</div>
-                    <div className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">{s}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {/* Progress tracker (MUI Stepper) */}
+        <div className="mb-8">
+          <Stepper
+            activeStep={currentStep}
+            alternativeLabel
+            connector={<GradientConnector />}
+            sx={{
+              [`& .${stepLabelClasses.label}`]: {
+                color: '#0E8F79',
+                fontWeight: 500,
+                fontSize: 16,
+                '&.Mui-active': {
+                  color: '#0E8F79',
+                },
+                '&.Mui-completed': {
+                  color: '#3BC25B',
+                },
+              },
+            }}
+          >
+            {steps.map((label, idx) => (
+              <Step key={label}>
+                <StepLabel StepIconComponent={GradientStepIcon}>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
         </div>
         {/* Section 1: Contact Info */}
         {currentStep === 0 && (
@@ -1107,78 +1169,101 @@ export default function AdminCreateTicket() {
 
         {/* Device selection modal */}
         {deviceModalOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setDeviceModalOpen(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-xl max-h-[80vh] overflow-auto p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Select Device / Equipment</h4>
-                <button type="button" onClick={() => setDeviceModalOpen(false)} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Close</button>
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl relative max-h-[90vh] overflow-hidden border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Select Device / Equipment (Category)</h4>
+                <button
+                  type="button"
+                  onClick={() => setDeviceModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
-              <div className="mb-3">
-                <input value={deviceSearch} onChange={(e) => setDeviceSearch(e.target.value)} placeholder="Search device/equipment (category)..." className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm" />
-              </div>
-              <div className="space-y-2">
-                {(() => {
-                  const filtered = deviceEquipments.filter((d) => d.is_active !== false).filter((d) => ((d.name || d.device_equipment || d.device_name) || '').toLowerCase().includes(deviceSearch.toLowerCase()));
-                  const total = filtered.length;
-                  const totalPages = Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE));
-                  const start = (devicePage - 1) * DEVICE_PAGE_SIZE;
-                  const pageItems = filtered.slice(start, start + DEVICE_PAGE_SIZE);
-                  return (
-                    <>
-                      {pageItems.map((d) => {
-                        const title = d.name || d.device_equipment || d.device_name || 'Unnamed';
-                        const isSelectedDevice = (newProductInfo.device_equipment || '').toLowerCase() === title.toLowerCase();
-                        return (
-                          <div key={d.id} className="flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <div className="text-sm text-gray-800 dark:text-gray-100">{title}</div>
-                            <div>
-                              {isSelectedDevice ? (
-                                <button type="button" className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Selected</button>
-                              ) : (
-                                <button type="button" onClick={() => { setNewProductInfo((p) => ({ ...p, device_equipment: title })); setErrors((p) => ({ ...p, device_equipment: false })); setDeviceModalOpen(false); }} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Select</button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {total === 0 && (
-                        <div className="text-sm text-gray-500">No device/equipment (category) found.</div>
-                      )}
+              <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-88px)]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    value={deviceSearch}
+                    onChange={(e) => { setDeviceSearch(e.target.value); setDevicePage(1); }}
+                    placeholder="Search device/equipment (category)..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                  />
+                </div>
 
-                      {/* Pagination controls */}
-                      {total > DEVICE_PAGE_SIZE && (
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-sm text-gray-500">Page {devicePage} of {Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE))}</div>
-                          <div className="flex items-center gap-2">
-                            <button type="button" onClick={() => setDevicePage((p) => Math.max(1, p - 1))} disabled={devicePage === 1} className={`px-2 py-1 rounded border ${devicePage === 1 ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}>Prev</button>
-                            <button type="button" onClick={() => setDevicePage((p) => Math.min(Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE)), p + 1))} disabled={devicePage >= Math.ceil(total / DEVICE_PAGE_SIZE)} className={`px-2 py-1 rounded border ${devicePage >= Math.ceil(total / DEVICE_PAGE_SIZE) ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}>Next</button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {(() => {
+                      const filtered = deviceEquipments.filter((d) => d.is_active !== false).filter((d) => ((d.name || d.device_equipment || d.device_name) || '').toLowerCase().includes(deviceSearch.toLowerCase()));
+                      const total = filtered.length;
+                      const totalPages = Math.max(1, Math.ceil(total / DEVICE_PAGE_SIZE));
+                      const currentPage = Math.min(devicePage, totalPages);
+                      const start = (currentPage - 1) * DEVICE_PAGE_SIZE;
+                      const pageItems = filtered.slice(start, start + DEVICE_PAGE_SIZE);
+                      return (
+                        <>
+                          {pageItems.map((d) => {
+                            const title = d.name || d.device_equipment || d.device_name || 'Unnamed';
+                            const isSelectedDevice = (newProductInfo.device_equipment || '').toLowerCase() === title.toLowerCase();
+                            return (
+                              <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{title}</div>
+                                {isSelectedDevice ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs font-semibold">Selected</span>
+                                ) : (
+                                  <button type="button" onClick={() => { setNewProductInfo((p) => ({ ...p, device_equipment: title })); setErrors((p) => ({ ...p, device_equipment: false })); setDeviceModalOpen(false); }} className="px-3 py-1.5 rounded-lg bg-[#0E8F79] hover:bg-[#0B7A68] text-white text-sm font-medium transition-colors">Select</button>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {total === 0 && (
+                            <div className="px-4 py-10 text-sm text-center text-gray-500">No device/equipment (category) found.</div>
+                          )}
+
+                          {total > DEVICE_PAGE_SIZE && (
+                            <div className="px-4 py-3 flex items-center justify-between bg-gray-50/70 dark:bg-gray-800/50">
+                              <div className="text-sm text-gray-500">Page {currentPage} of {totalPages}</div>
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => setDevicePage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}>Prev</button>
+                                <button type="button" onClick={() => setDevicePage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}>Next</button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         , document.body)}
 
         {salesRepModalOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-xl max-h-[80vh] overflow-auto p-4">
-              <div className="flex items-center justify-between mb-3">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl relative max-h-[90vh] overflow-hidden border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Additional Sales Representatives</h4>
-                <button type="button" onClick={() => setSalesRepModalOpen(false)} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Done</button>
+                <button
+                  type="button"
+                  onClick={() => setSalesRepModalOpen(false)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
+              <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-88px)]">
 
-              <div className="mb-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50">
+              <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50">
                 <p className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-300">Primary Sales Representative</p>
                 <p className="text-sm text-gray-900 dark:text-gray-100 mt-1">{selectedSalesRep.trim() || 'Not set'}</p>
               </div>
 
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={newAdditionalSalesRep}
@@ -1190,18 +1275,19 @@ export default function AdminCreateTicket() {
                     }
                   }}
                   placeholder="Type additional sales representative"
-                  className={inputCls}
+                  className={`${inputCls} flex-1`}
                 />
                 <button
                   type="button"
                   onClick={addAdditionalSalesRep}
-                  className="px-3 py-2 rounded-lg bg-[#0E8F79] text-white text-sm font-medium"
+                  className="px-4 py-2.5 rounded-lg bg-[#0E8F79] hover:bg-[#0B7A68] text-white text-sm font-medium transition-colors"
                 >
                   Add
                 </button>
               </div>
 
-              <div className="space-y-2">
+              <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {(() => {
                   const total = additionalSalesReps.length;
                   const totalPages = Math.max(1, Math.ceil(total / SALES_REP_PAGE_SIZE));
@@ -1214,8 +1300,8 @@ export default function AdminCreateTicket() {
                 {pageItems.map((rep, index) => {
                   const actualIndex = start + index;
                   return (
-                  <div key={`${rep}-${index}`} className="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-gray-700">
-                    <span className="text-sm text-gray-800 dark:text-gray-100">{rep}</span>
+                  <div key={`${rep}-${index}`} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{rep}</span>
                     <button
                       type="button"
                       onClick={() => setAdditionalSalesReps((prev) => {
@@ -1223,7 +1309,7 @@ export default function AdminCreateTicket() {
                         setSalesRepPage((p) => Math.min(p, Math.max(1, Math.ceil(updated.length / SALES_REP_PAGE_SIZE))));
                         return updated;
                       })}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition-colors"
                       aria-label={`Remove ${rep}`}
                       title={`Remove ${rep}`}
                     >
@@ -1233,17 +1319,17 @@ export default function AdminCreateTicket() {
                   );
                 })}
                 {additionalSalesReps.length === 0 && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No additional sales representatives yet.</p>
+                  <p className="px-4 py-10 text-sm text-center text-gray-500 dark:text-gray-400">No additional sales representatives yet.</p>
                 )}
                 {total > SALES_REP_PAGE_SIZE && (
-                  <div className="mt-3 flex items-center justify-between">
+                  <div className="px-4 py-3 flex items-center justify-between bg-gray-50/70 dark:bg-gray-800/50">
                     <div className="text-sm text-gray-500">Page {currentPage} of {totalPages}</div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => setSalesRepPage((p) => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className={`px-2 py-1 rounded border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}
+                        className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
                       >
                         Prev
                       </button>
@@ -1251,7 +1337,7 @@ export default function AdminCreateTicket() {
                         type="button"
                         onClick={() => setSalesRepPage((p) => Math.min(totalPages, p + 1))}
                         disabled={currentPage >= totalPages}
-                        className={`px-2 py-1 rounded border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}
+                        className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
                       >
                         Next
                       </button>
@@ -1261,113 +1347,139 @@ export default function AdminCreateTicket() {
                     </>
                   );
                 })()}
+                </div>
+              </div>
+
+              <div className="flex justify-end border-t border-gray-100 dark:border-gray-700 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setSalesRepModalOpen(false)}
+                  className="px-4 py-2.5 rounded-lg bg-[#0E8F79] hover:bg-[#0B7A68] text-white text-sm font-medium transition-colors"
+                >
+                  Done
+                </button>
               </div>
             </div>
+          </div>
           </div>
         , document.body)}
 
         {clientPickerOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] flex items-start justify-center p-4">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setClientPickerOpen(false)} />
-            <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl max-h-[80vh] overflow-auto p-4">
-              <div className="flex items-center justify-between mb-3">
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl relative max-h-[90vh] overflow-hidden border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Select Existing Client</h4>
-                <button type="button" onClick={() => setClientPickerOpen(false)} className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm">Close</button>
+                <button
+                  type="button"
+                  onClick={() => setClientPickerOpen(false)}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
-              <div className="mb-3">
-                <input
-                  value={clientSearch}
-                  onChange={(e) => setClientSearch(e.target.value)}
-                  placeholder="Search by client, contact person, email, or mobile..."
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                {(() => {
-                  const query = clientSearch.trim().toLowerCase();
-                  const filtered = existingClients
-                    .filter((c) => c.is_active)
-                    .filter((c) => {
-                      if (!query) return true;
-                      const haystack = [
-                        c.client_name,
-                        c.contact_person,
-                        c.email_address,
-                        c.mobile_no,
-                        c.landline,
-                        c.department_organization,
-                      ]
-                        .filter(Boolean)
-                        .join(' ')
-                        .toLowerCase();
-                      return haystack.includes(query);
-                    });
-                  const total = filtered.length;
-                  const totalPages = Math.max(1, Math.ceil(total / CLIENT_PAGE_SIZE));
-                  const currentPage = Math.min(clientPage, totalPages);
-                  const start = (currentPage - 1) * CLIENT_PAGE_SIZE;
-                  const pageItems = filtered.slice(start, start + CLIENT_PAGE_SIZE);
+              <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-88px)]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    value={clientSearch}
+                    onChange={(e) => { setClientSearch(e.target.value); setClientPage(1); }}
+                    placeholder="Search by client, contact person, email, or mobile..."
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                  />
+                </div>
 
-                  return (
-                    <>
-                      {pageItems.map((c) => {
-                        const isSelected = selectedClientId === c.id;
-                        return (
-                          <div key={c.id} className="flex items-center justify-between p-3 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{c.client_name}</div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                {c.contact_person || 'No contact person'}
-                                {c.mobile_no ? ` • ${c.mobile_no}` : ''}
-                                {c.email_address ? ` • ${c.email_address}` : ''}
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {(() => {
+                      const query = clientSearch.trim().toLowerCase();
+                      const filtered = existingClients
+                        .filter((c) => c.is_active)
+                        .filter((c) => {
+                          if (!query) return true;
+                          const haystack = [
+                            c.client_name,
+                            c.contact_person,
+                            c.email_address,
+                            c.mobile_no,
+                            c.landline,
+                            c.department_organization,
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                            .toLowerCase();
+                          return haystack.includes(query);
+                        });
+                      const total = filtered.length;
+                      const totalPages = Math.max(1, Math.ceil(total / CLIENT_PAGE_SIZE));
+                      const currentPage = Math.min(clientPage, totalPages);
+                      const start = (currentPage - 1) * CLIENT_PAGE_SIZE;
+                      const pageItems = filtered.slice(start, start + CLIENT_PAGE_SIZE);
+
+                      return (
+                        <>
+                          {pageItems.map((c) => {
+                            const isSelected = selectedClientId === c.id;
+                            return (
+                              <div key={c.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                                <div className="min-w-0 pr-3">
+                                  <div className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{c.client_name}</div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                    {c.contact_person || 'No contact person'}
+                                    {c.mobile_no ? ` • ${c.mobile_no}` : ''}
+                                    {c.email_address ? ` • ${c.email_address}` : ''}
+                                  </div>
+                                </div>
+                                {isSelected ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 text-xs font-semibold">Selected</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleClientSelect(c.id);
+                                      setClientPickerOpen(false);
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-[#0E8F79] hover:bg-[#0B7A68] text-white text-sm font-medium transition-colors"
+                                  >
+                                    Select
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {total === 0 && (
+                            <div className="px-4 py-10 text-sm text-center text-gray-500">No clients found.</div>
+                          )}
+
+                          {total > CLIENT_PAGE_SIZE && (
+                            <div className="px-4 py-3 flex items-center justify-between bg-gray-50/70 dark:bg-gray-800/50">
+                              <div className="text-sm text-gray-500">Page {currentPage} of {totalPages}</div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setClientPage((p) => Math.max(1, p - 1))}
+                                  disabled={currentPage === 1}
+                                  className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
+                                >
+                                  Prev
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setClientPage((p) => Math.min(totalPages, p + 1))}
+                                  disabled={currentPage >= totalPages}
+                                  className={`px-3 py-1.5 rounded-lg text-sm border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-gray-700'}`}
+                                >
+                                  Next
+                                </button>
                               </div>
                             </div>
-                            {isSelected ? (
-                              <button type="button" className="px-3 py-1 rounded bg-blue-600 text-white text-sm">Selected</button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  handleClientSelect(c.id);
-                                  setClientPickerOpen(false);
-                                }}
-                                className="px-3 py-1 rounded bg-[#0E8F79] text-white text-sm"
-                              >
-                                Select
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {total === 0 && (
-                        <div className="text-sm text-gray-500">No clients found.</div>
-                      )}
-                      {total > CLIENT_PAGE_SIZE && (
-                        <div className="mt-3 flex items-center justify-between">
-                          <div className="text-sm text-gray-500">Page {currentPage} of {totalPages}</div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setClientPage((p) => Math.max(1, p - 1))}
-                              disabled={currentPage === 1}
-                              className={`px-2 py-1 rounded border ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}
-                            >
-                              Prev
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setClientPage((p) => Math.min(totalPages, p + 1))}
-                              disabled={currentPage >= totalPages}
-                              className={`px-2 py-1 rounded border ${currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'bg-white dark:bg-gray-700'}`}
-                            >
-                              Next
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
