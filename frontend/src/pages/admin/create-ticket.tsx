@@ -1990,7 +1990,7 @@ export default function AdminCreateTicket() {
                 </div>
 
                 <div className="mb-5">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Client Availability</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Client Call Availability</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -2007,7 +2007,7 @@ export default function AdminCreateTicket() {
                       }}
                       className={`px-3 py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${clientAvailabilityChoice === 'unavailable' ? 'border-amber-500 bg-amber-500 text-white ring-2 ring-amber-200 dark:ring-amber-900/50' : 'border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:border-amber-400'}`}
                     >
-                      Client is Not Available
+                      Client is Not Currently Available
                     </button>
                   </div>
                 </div>
