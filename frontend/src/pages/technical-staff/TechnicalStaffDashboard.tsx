@@ -11,6 +11,7 @@ import { mapBackendTicketToTechnicalStaff } from '../../services/ticketMapper';
 import type { UITechnicalStaffTicket } from '../../services/ticketMapper';
 import { useAuth } from '../../context/AuthContext';
 import { AnnouncementBanner } from '../../components/ui/AnnouncementBanner';
+import { Calendar } from '../../components/ui/Calendar';
 import {
   CheckCircle,
   Clock,
@@ -276,6 +277,8 @@ export function TechnicalStaffDashboard({ onNavigate }: TechnicalStaffDashboardP
               )}
             </div>
           </Card>
+
+          <Calendar tickets={tickets} />
 
           <Card className="bg-gradient-to-br from-[#0E8F79] to-[#0a0a0a] text-white border-none">
             <h3 className="text-lg font-bold mb-2">Need Help?</h3>

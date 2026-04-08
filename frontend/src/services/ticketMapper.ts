@@ -135,6 +135,8 @@ export interface UITechnicalStaffTicket {
   contact: string;
   description: string;
   assignedTo: string;
+  job_status?: string;
+  time_in?: string | null;
 }
 
 export function mapBackendTicketToTechnicalStaff(bt: BackendTicket): UITechnicalStaffTicket {
@@ -154,5 +156,7 @@ export function mapBackendTicketToTechnicalStaff(bt: BackendTicket): UITechnical
     contact: bt.contact_person || 'N/A',
     description: bt.description_of_problem || '',
     assignedTo: getAssigneeName(bt) || 'unassigned',
+    job_status: bt.job_status,
+    time_in: bt.time_in,
   };
 }
