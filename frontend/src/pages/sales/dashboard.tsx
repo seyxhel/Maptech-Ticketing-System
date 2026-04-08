@@ -25,7 +25,8 @@ import type { UITicket } from '../../services/ticketMapper';
 
 const ITEMS_PER_PAGE = 5;
 
-function truncateText(value: string, maxLength: number): string {
+function truncateText(value: string | undefined | null, maxLength: number): string {
+  if (!value) return '';
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength)}...`;
 }
@@ -91,8 +92,7 @@ export default function SalesDashboard() {
     return (
       t.id.toLowerCase().includes(q) ||
       t.client.toLowerCase().includes(q) ||
-      t.product?.toLowerCase().includes(q) ||
-      t.concern.toLowerCase().includes(q)
+      t.subject.toLowerCase().includes(q)
     );
   });
 
@@ -291,7 +291,7 @@ export default function SalesDashboard() {
                     Client
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                    Concern
+                    Subject
                   </th>
                   <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
                     Status
@@ -318,7 +318,7 @@ export default function SalesDashboard() {
                       {truncateText(ticket.client, 20)}
                     </td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300">
-                      {truncateText(ticket.concern, 30)}
+                      {truncateText(ticket.subject, 30)}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={ticket.status} />
