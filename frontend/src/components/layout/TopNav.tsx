@@ -142,7 +142,7 @@ export function TopNav({
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const badgeLabel = unreadCount > 99 ? '99+' : unreadCount > 0 ? String(unreadCount) : null;
-  const showSettings = role !== 'Sales';
+  const showSettings = true;
   const goToSettings = () => {
     const rolePathMap: Record<string, string> = { 'Technical Staff': 'technical-staff', SuperAdmin: 'superadmin', Admin: 'admin', Employee: 'technical-staff', Client: 'client', Sales: 'sales' };
     const segment = rolePathMap[role] || role.toLowerCase();

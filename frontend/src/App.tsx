@@ -45,6 +45,7 @@ import SalesTicketDetails from './pages/sales/ticket-details';
 import SalesProducts from './pages/sales/products';
 import SalesClients from './pages/sales/clients';
 import SalesCategories from './pages/sales/categories';
+import SalesSettings from './pages/sales/settings';
 
 import TechnicalStaffDashboard from './pages/technical-staff/dashboard';
 import TechnicalStaffMyTickets from './pages/technical-staff/my-tickets';
@@ -144,6 +145,7 @@ export function App() {
               <Route path="device-equipment" element={<SalesCategories />} />
               <Route path="categories" element={<SalesCategories />} />
               <Route path="clients" element={<SalesClients />} />
+              <Route path="settings" element={<SalesSettings />} />
             </Route>
 
             <Route
