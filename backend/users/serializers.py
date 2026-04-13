@@ -36,7 +36,7 @@ class AdminUserCreateSerializer(serializers.Serializer):
     suffix = serializers.CharField(max_length=3, required=False, allow_blank=True)
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=13, required=False, allow_blank=True)
-    role = serializers.ChoiceField(choices=[('employee', 'Employee'), ('sales', 'Sales'), ('admin', 'Admin')])
+    role = serializers.ChoiceField(choices=[('employee', 'Technical Staff'), ('sales', 'Sales'), ('admin', 'Supervisor')])
 
     def validate_role(self, value):
         """Admin can only create employees; superadmin can create employees, sales, and admins."""

@@ -88,7 +88,7 @@ const ROLE_LABELS: Record<string, string> = {
   supervisor: 'Supervisor',
   sales: 'Sales',
   superadmin: 'Superadmin',
-  admin: 'Admin',
+  admin: 'Supervisor',
   employee: 'Technical Staff',
 };
 

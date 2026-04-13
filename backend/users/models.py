@@ -19,9 +19,9 @@ class User(AbstractUser):
     ROLE_ADMIN = 'admin'
     ROLE_SUPERADMIN = 'superadmin'
     ROLE_CHOICES = [
-        (ROLE_EMPLOYEE, 'Employee'),
+        (ROLE_EMPLOYEE, 'Technical Staff'),
         (ROLE_SALES, 'Sales'),
-        (ROLE_ADMIN, 'Admin'),
+        (ROLE_ADMIN, 'Supervisor'),
         (ROLE_SUPERADMIN, 'Superadmin'),
     ]
 

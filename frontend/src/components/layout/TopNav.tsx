@@ -34,12 +34,12 @@ interface TopNavProps {
   isSidebarExpanded?: boolean;
 }
 const ROLE_LABELS: Record<string, string> = {
-  SuperAdmin: 'Super Administrator',
+  SuperAdmin: 'Superadmin',
   Admin: 'Supervisor',
   Employee: 'Technical Staff',
   Client: 'Client Portal',
   // Also support lowercase backend role values
-  superadmin: 'Super Administrator',
+  superadmin: 'Superadmin',
   admin: 'Supervisor',
   employee: 'Technical Staff',
   sales: 'Sales',

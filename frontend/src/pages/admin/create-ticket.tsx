@@ -1513,7 +1513,7 @@ export default function AdminCreateTicket() {
                   <option value="">Select assigned supervisor</option>
                   {supervisors.map((supervisor) => (
                     <option key={supervisor.id} value={supervisor.id}>
-                      {supervisor.name} ({supervisor.role === 'admin' ? 'Admin' : 'Supervisor'})
+                      {supervisor.name} (Supervisor)
                     </option>
                   ))}
                 </select>
