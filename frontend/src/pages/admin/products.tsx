@@ -167,7 +167,7 @@ export default function Products() {
 
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = {
+      const payload: Partial<Product> = {
         client: Number(formData.client_id),
         project_title: formData.project_title.trim(),
         product_name: formData.product_name.trim(),
@@ -189,14 +189,14 @@ export default function Products() {
       payload.device_equipment = selectedDevice ? selectedDevice.name : formData.device_equipment.trim();
 
       if (editingProduct) {
-        const updated = await updateProduct(editingProduct.id, payload as any);
+        const updated = await updateProduct(editingProduct.id, payload);
         setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
         toast.success(`"${updated.product_name || updated.device_equipment}" updated successfully.`);
         closeModal();
         return;
       }
 
-      const created = await createProduct(payload as any);
+      const created = await createProduct(payload);
       setProducts((prev) => [...prev, created]);
       toast.success(`"${created.product_name || created.device_equipment}" created successfully.`);
 
@@ -246,7 +246,7 @@ export default function Products() {
 
   const toggleActive = async (product: Product) => {
     try {
-      const updated = await updateProduct(product.id, { is_active: !product.is_active } as any);
+      const updated = await updateProduct(product.id, { is_active: !product.is_active });
       setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
       toast.success(`"${updated.product_name || updated.device_equipment}" ${updated.is_active ? 'activated' : 'deactivated'}.`);
     } catch (err: unknown) {

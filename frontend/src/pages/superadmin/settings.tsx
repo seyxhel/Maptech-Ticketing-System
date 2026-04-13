@@ -146,7 +146,7 @@ export default function Settings() {
   const [pwError, setPwError] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
   const [pwRules, setPwRules] = useState<PasswordRules | null>(null);
-  const [breachChecking, setBreachChecking] = useState(false);
+  const [, setBreachChecking] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -164,7 +164,7 @@ export default function Settings() {
           setRetentionPolicy(p);
           setRetentionForm({ audit_log_retention_days: p.audit_log_retention_days, call_log_retention_days: p.call_log_retention_days });
         })
-        .catch(() => {});
+        .catch(() => undefined);
     }
   }, [user?.role]);
   const hibpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

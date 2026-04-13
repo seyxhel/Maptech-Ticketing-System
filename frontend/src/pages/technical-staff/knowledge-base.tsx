@@ -1,10 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/Card';
 import {
   Search,
-  BookOpen,
-  ArrowUpRight,
   Eye,
   X,
   ChevronLeft,
@@ -79,7 +77,7 @@ export default function TechnicalStaffKnowledgeBase() {
   const [articles, setArticles] = useState<PublishedArticle[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadArticles = async () => {
+  const loadArticles = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchPublishedArticles(search ? { search } : undefined);
@@ -89,11 +87,11 @@ export default function TechnicalStaffKnowledgeBase() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   useEffect(() => {
-    loadArticles();
-  }, []);
+    void loadArticles();
+  }, [loadArticles]);
 
   // Collect unique tags across all articles
   const allTags = Array.from(new Set(articles.flatMap((a) => a.published_tags || [])));

@@ -12,7 +12,6 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-// @ts-ignore
 import XLSXStyle from 'xlsx-js-style';
 import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 import {
@@ -378,7 +377,7 @@ export function Reports() {
           for (const t of resolved) {
             const created = new Date(t.created_at).getTime();
             const updated = new Date(t.updated_at).getTime();
-            const slaDays = t.sla_estimated_days ?? (t.type_of_service_detail?.estimated_resolution_days ?? null) ?? 0;
+            const slaDays = t.sla_estimated_days ?? t.type_of_service_detail?.estimated_resolution_days ?? 0;
             const allowed = slaDays * 24 * 60 * 60 * 1000;
             if (allowed === 0) {
               within += 1; // unknown SLA treated as within

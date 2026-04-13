@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/Card';
 import { GreenButton } from '../../components/ui/GreenButton';
-import { User, Lock, Mail, Phone, Building, Shield, Pencil, X, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, Mail, Phone, Building, Shield, X, Loader2, Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { changePassword, updateProfile, uploadAvatar, removeAvatar } from '../../services/authService';
 import { toast } from 'sonner';
@@ -32,18 +32,6 @@ export default function AdminSettings() {
     phone: user?.phone || '',
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const startEdit = () => {
-    setForm({
-      first_name: user?.first_name || '',
-      middle_name: user?.middle_name || '',
-      last_name: user?.last_name || '',
-      suffix: user?.suffix || '',
-      phone: user?.phone || '',
-    });
-    setFieldErrors({});
-    setEditing(true);
-  };
 
   const cancelEdit = () => { setEditing(false); setFieldErrors({}); };
 

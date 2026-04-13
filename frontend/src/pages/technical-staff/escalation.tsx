@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../components/ui/Card';
-import { GreenButton } from '../../components/ui/GreenButton';
 import {
-  ArrowUpRight,
-  Share2,
   History,
   Clock,
   AlertTriangle,
-  CheckCircle2,
   Loader2,
   RefreshCw,
   ChevronLeft,
@@ -16,18 +12,12 @@ import {
 import { toast } from 'sonner';
 import {
   fetchTickets,
-  escalateTicket,
-  escalateExternal,
   fetchEscalationLogs,
   type BackendTicket,
   type EscalationLog,
 } from '../../services/api';
-import { validateReason, MAX_REASON } from '../../utils/validation';
 
-const ESCALABLE_STATUSES = ['open', 'in_progress'];
 const ITEMS_PER_PAGE = 4;
-
-type EscalationType = 'internal' | 'external';
 
 export default function TechnicalStaffEscalation() {
   /* ── Data ── */
@@ -35,21 +25,8 @@ export default function TechnicalStaffEscalation() {
   const [logs, setLogs] = useState<EscalationLog[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  /* ── Form ── */
-  const [selectedId, setSelectedId] = useState<number | ''>('');
-  const [escalationType, setEscalationType] = useState<EscalationType>('internal');
-  const [escalateTo, setEscalateTo] = useState('');
-  const [notes, setNotes] = useState('');
-  const [notesError, setNotesError] = useState('');
-  const [escalateToError, setEscalateToError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
   /* ── Pagination ── */
   const [currentPage, setCurrentPage] = useState(1);
-
-  const escalableTickets = tickets.filter((t) =>
-    ESCALABLE_STATUSES.includes(t.status)
-  );
 
   const loadData = useCallback(async () => {
     setLoadingData(true);
@@ -60,11 +37,6 @@ export default function TechnicalStaffEscalation() {
       ]);
       setTickets(fetchedTickets);
       setLogs(fetchedLogs);
-      // Default to first escalable ticket
-      if (fetchedTickets.length > 0) {
-        const first = fetchedTickets.find((t) => ESCALABLE_STATUSES.includes(t.status));
-        if (first) setSelectedId(first.id);
-      }
     } catch {
       toast.error('Failed to load tickets or escalation history.');
     } finally {
@@ -73,44 +45,6 @@ export default function TechnicalStaffEscalation() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
-
-  const handleSubmit = async () => {
-    let hasError = false;
-
-    const notesErr = validateReason(notes, 'Notes / Reason');
-    if (notesErr) { setNotesError(notesErr); hasError = true; }
-
-    if (escalationType === 'external' && !escalateTo.trim()) {
-      setEscalateToError('Distributors / vendor name is required.');
-      hasError = true;
-    }
-
-    if (!selectedId) { toast.error('Please select a ticket.'); return; }
-    if (hasError) return;
-
-    setSubmitting(true);
-    try {
-      if (escalationType === 'internal') {
-        await escalateTicket(selectedId as number, { notes });
-        toast.success('Ticket escalated internally. A supervisor will reassign it.');
-      } else {
-        await escalateExternal(selectedId as number, {
-          external_escalated_to: escalateTo.trim(),
-          external_escalation_notes: notes,
-        });
-        toast.success(`Ticket escalated externally to "${escalateTo.trim()}".`);
-      }
-      setNotes('');
-      setEscalateTo('');
-      setNotesError('');
-      setEscalateToError('');
-      await loadData();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to submit escalation.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   /* ── History pagination ── */
   const sortedLogs = [...logs].sort(

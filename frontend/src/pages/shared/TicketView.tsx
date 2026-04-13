@@ -4,11 +4,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { PriorityBadge } from '../../components/ui/PriorityBadge';
 import { StatusBadge } from '../../components/ui/StatusBadge';
-import { SLATimer } from '../../components/ui/SLATimer';
 import { GreenButton } from '../../components/ui/GreenButton';
 import {
   MessageSquare, ArrowLeft, Camera, Video, Upload, FileText, ClipboardList, Package,
-  Paperclip, CheckCircle, Wifi, WifiOff, Send, X, Smile, Reply, ChevronDown,
+  Paperclip, CheckCircle, WifiOff, Send, X, Smile, Reply, ChevronDown,
   Search as SearchIcon, Check, CheckCheck, CornerDownRight, Maximize2, Minimize2,
   User as UserIcon, Shield, Image, Film, File, Download, Play, Phone, PhoneOff, Pause, ArrowUpRight, Share2,
   FileDown, FileSpreadsheet
@@ -17,19 +16,18 @@ import { useAuth } from '../../context/AuthContext';
 import { TicketChatSocket } from '../../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../../services/chatService';
 import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createFeedbackRating, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees, fetchTickets, createCallLog, endCallLog, reviewTicket, confirmTicket, fetchCallLogs } from '../../services/api';
-import type { Product, CallLog } from '../../services/api';
+import type { Product, CallLog, UploadedAttachment } from '../../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../../services/api';
 import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority, getUserDisplayName } from '../../services/ticketMapper';
-import { Loader2, Trash2, Star, Clock, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus, UserCheck } from 'lucide-react';
+import { Loader2, Trash2, Star, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus, UserCheck } from 'lucide-react';
 import { SignaturePad } from '../../components/ui/SignaturePad';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import XLSXStyle from 'xlsx-js-style';
 import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 
 const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
 type ReassignModalStep = 'stf-details' | 'ongoing' | 'assign';
+type TicketLocationState = { ticketId?: string; backendTicketId?: number };
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👀'];
 
@@ -142,6 +140,10 @@ function priorityBadgeClass(priority?: string | null): string {
   if (key === 'medium') return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
   if (key === 'low') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
   return 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300';
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
 }
 
 function renderTrackerIcon(key: string, state: TrackerStepState): React.ReactElement {
@@ -286,8 +288,7 @@ export function TicketView() {
   const isSales = user?.role === 'sales';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const routeBase = user?.role === 'sales' ? '/sales' : '/admin';
-  const isRoleEditable = isEmployee || isAdmin;
-  const { search, pathname } = useLocation();
+  const { search } = useLocation();
   const params = new URLSearchParams(search);
   const stfFromUrl = params.get('stf') || undefined;
 
@@ -312,7 +313,7 @@ export function TicketView() {
         const assignedToLabel =
           getAssigneeName(btData) ||
           String(btData?.feedback_rating?.employee_name || '').trim() ||
-          String((btData as any)?.assigned_to_name || '').trim() ||
+          String(btData.assigned_to_name || '').trim() ||
           'Unassigned';
         return {
           id: btData.stf_no,
@@ -358,7 +359,7 @@ export function TicketView() {
           actionTaken: btData.action_taken || '',
           remarks: btData.remarks || '',
           jobStatus: btData.job_status || '',
-          ticketAttachments: (btData.attachments || []).map((a: any) => ({
+          ticketAttachments: (btData.attachments || []).map((a) => ({
             name: a.file?.split('/').pop() || 'file',
             type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
           })),
@@ -426,11 +427,12 @@ export function TicketView() {
         observation: '',
         signature: null as string | null,
         signedByName: '',
-        feedbackRating: null as any,
+          feedbackRating: null as BackendTicket['feedback_rating'],
       };
 
   const navigate = useNavigate();
   const location = useLocation();
+        const locationState = (location.state as TicketLocationState | null) ?? null;
   const [showChat, setShowChat] = useState(false);
 
   // ── WebSocket Chat State ──
@@ -474,13 +476,13 @@ export function TicketView() {
 
   // Resolve the numeric ticket ID for the WebSocket
   const [backendTicketId, setBackendTicketId] = useState<number | null>(
-    (location.state as any)?.backendTicketId ?? null
+    locationState?.backendTicketId ?? null
   );
 
   // Fetch backend ticket data
   useEffect(() => {
-    const stf = stfFromUrl || (location.state as any)?.ticketId;
-    const existingId = (location.state as any)?.backendTicketId ?? null;
+    const stf = stfFromUrl || locationState?.ticketId;
+    const existingId = locationState?.backendTicketId ?? null;
 
     if (!stf && !existingId) { setBtLoading(false); return; }
 
@@ -489,7 +491,9 @@ export function TicketView() {
 
     const doFetch = existingId
       ? fetchTicketById(existingId)
-      : fetchTicketByStf(stf!);
+      : stf
+        ? fetchTicketByStf(stf)
+        : Promise.resolve(null);
 
     doFetch.then((bt) => {
       if (!cancelled && bt) {
@@ -499,7 +503,7 @@ export function TicketView() {
     }).finally(() => { if (!cancelled) setBtLoading(false); });
 
     return () => { cancelled = true; };
-  }, [stfFromUrl, location.state]);
+  }, [stfFromUrl, locationState]);
 
   const handleChatEvent = useCallback((event: ChatEvent) => {
     switch (event.type) {
@@ -605,7 +609,7 @@ export function TicketView() {
           sender_role: user?.role || 'employee',
           content: newMsg.trim(),
           attachments: localAttachments.length > 0 ? localAttachments : undefined,
-          reply_to: replyTo ? { id: replyTo.id!, content: replyTo.content.slice(0, 100), sender_id: replyTo.sender_id, sender_username: replyTo.sender_username } : null,
+          reply_to: replyTo ? { id: replyTo.id ?? 0, content: replyTo.content.slice(0, 100), sender_id: replyTo.sender_id, sender_username: replyTo.sender_username } : null,
           is_system_message: false,
           reactions: {},
           read_by: [],
@@ -725,12 +729,6 @@ export function TicketView() {
     setPreviewUrls([]);
   };
 
-  const getAttachmentTypeFromMime = (mime: string): 'image' | 'video' | 'file' => {
-    if (mime.startsWith('image')) return 'image';
-    if (mime.startsWith('video')) return 'video';
-    return 'file';
-  };
-
   const getFileIcon = (fileType: string) => {
     if (fileType === 'image') return Image;
     if (fileType === 'video') return Film;
@@ -778,7 +776,6 @@ export function TicketView() {
   const [callStartTime, setCallStartTime] = useState<Date | null>(null);
   const [callTimer, setCallTimer] = useState(0);
   const [callCompleted, setCallCompleted] = useState(false);
-  const [callEndTime, setCallEndTime] = useState<Date | null>(null);
   const [callOnHold, setCallOnHold] = useState(false);
   const [holdStartTime, setHoldStartTime] = useState<number | null>(null);
   const [holdOffset, setHoldOffset] = useState(0);
@@ -831,7 +828,6 @@ export function TicketView() {
     setCallStartTime(null);
     setCallTimer(0);
     setCallCompleted(false);
-    setCallEndTime(null);
     setCallOnHold(false);
     setHoldStartTime(null);
     setHoldOffset(0);
@@ -880,7 +876,6 @@ export function TicketView() {
     }
     setCallCompleted(false);
     setCallTimer(0);
-    setCallEndTime(null);
     setCallOnHold(false);
     setHoldStartTime(null);
     setHoldOffset(0);
@@ -895,8 +890,8 @@ export function TicketView() {
       setCallStartTime(new Date(log.call_start));
       setActiveTicketCall(log);
       setReassignModalStep('ongoing');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to start call log.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to start call log.'));
     }
   };
 
@@ -913,7 +908,6 @@ export function TicketView() {
       setHoldStartTime(null);
       setCallOnHold(false);
     }
-    setCallEndTime(new Date());
     setCallStartTime(null);
     setCallCompleted(true);
     setActiveTicketCall(null);
@@ -956,8 +950,8 @@ export function TicketView() {
       setReassignSearch('');
       setReassignEmployeeId('');
       resetCallAndPriorityState();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save call status.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to save call status.'));
     } finally {
       setSubmittingSalesCallStatus(false);
     }
@@ -1022,7 +1016,7 @@ export function TicketView() {
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
   useEffect(() => {
-    fetchProducts().then(setProductCatalog).catch(() => {});
+    fetchProducts().then(setProductCatalog).catch(() => undefined);
   }, []);
 
   const handleProductSelect = (productId: string) => {
@@ -1065,7 +1059,7 @@ export function TicketView() {
 
       // Populate uploadedAttachments from backend data
       if (btData.attachments && btData.attachments.length > 0) {
-        setUploadedAttachments(btData.attachments.map((a: any) => ({
+        setUploadedAttachments(btData.attachments.map((a) => ({
           id: a.id,
           name: a.file?.split('/').pop() || 'file',
           type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
@@ -1141,8 +1135,8 @@ export function TicketView() {
       setBtData(updated);
       setIsEditingProductDetails(false);
       toast.success('Product details saved successfully.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save product details.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to save product details.'));
     } finally {
       setSavingProductDetails(false);
     }
@@ -1167,8 +1161,8 @@ export function TicketView() {
       });
       setBtData(updated);
       toast.success('Ticket resolved successfully.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to resolve ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to resolve ticket.'));
     } finally {
       setSavingFields(false);
     }
@@ -1189,8 +1183,8 @@ export function TicketView() {
       });
       setBtData(updated);
       toast.success('Ticket submitted for observation.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to submit for observation.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to submit for observation.'));
     } finally {
       setSubmittingObservation(false);
     }
@@ -1221,8 +1215,8 @@ export function TicketView() {
       setEscalateTo('');
       setEscalateNotesErr('');
       setEscalateToErr('');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to escalate ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to escalate ticket.'));
     } finally {
       setSubmittingEscalation(false);
     }
@@ -1237,8 +1231,8 @@ export function TicketView() {
       const updated = await closeTicket(backendTicketId);
       setBtData(updated);
       toast.success('Ticket closed successfully.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to close ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to close ticket.'));
     } finally {
       setClosingTicket(false);
     }
@@ -1275,8 +1269,8 @@ export function TicketView() {
       setReassignSearch('');
       setShowReassignModal(false);
       resetCallAndPriorityState();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to reassign ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to reassign ticket.'));
     } finally {
       setReassigning(false);
     }
@@ -1290,8 +1284,8 @@ export function TicketView() {
       const updated = await startWork(backendTicketId);
       setBtData(updated);
       toast.success('Work started! Time In has been recorded.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to start work.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to start work.'));
     } finally {
       setStartingWork(false);
     }
@@ -1300,23 +1294,18 @@ export function TicketView() {
   const ADMIN_PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
   const ADMIN_STATUSES = ['Pending', 'Assigned', 'In Progress', 'Escalated', 'For Observation', 'Unresolved', 'Resolved', 'Closed'];
 
-  const openAdminEdit = () => {
-    setAdminEditFields({ status: ticket.status, priority: ticket.priority });
-    setAdminEditOpen(true);
-  };
-
   const saveAdminEdit = async () => {
     if (!backendTicketId) return;
     try {
       const updated = await updateTicket(backendTicketId, {
         status: reverseMapStatus(adminEditFields.status),
         priority: reverseMapPriority(adminEditFields.priority),
-      } as any);
+      });
       setBtData(updated);
       toast.success('Ticket updated.');
       setAdminEditOpen(false);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to update ticket.'));
     }
   };
 
@@ -1331,8 +1320,8 @@ export function TicketView() {
       await apiDeleteTicket(backendTicketId);
       toast.success('Ticket deleted.');
       navigate(`${routeBase}/tickets`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to delete ticket.'));
     } finally {
       setDeletingAdmin(false);
       setShowDeleteConfirm(false);
@@ -1361,8 +1350,8 @@ export function TicketView() {
       setFeedbackRatingValue(0);
       setFeedbackComments('');
       toast.success('Feedback ratings submitted and ticket closed.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to submit feedback ratings or close ticket.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to submit feedback ratings or close ticket.'));
     } finally {
       setSubmittingFeedbackRating(false);
     }
@@ -1418,7 +1407,7 @@ export function TicketView() {
     setUploadingAttachments(true);
     try {
       const result = await uploadResolutionProof(backendTicketId, allFiles);
-      const uploaded = (result as any[]).map((att: any) => ({
+      const uploaded = (result as UploadedAttachment[]).map((att) => ({
         id: att.id,
         name: att.file?.split('/').pop() || 'file',
         type: (att.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
@@ -1427,8 +1416,8 @@ export function TicketView() {
       setUploadedAttachments((prev) => [...prev, ...uploaded]);
       setScreenshotFiles([]);
       setRecordingFiles([]);
-    } catch (err: any) {
-      toast.error(err?.message || 'Upload failed. Please try again.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Upload failed. Please try again.'));
     } finally {
       setUploadingAttachments(false);
     }
@@ -1440,8 +1429,8 @@ export function TicketView() {
     try {
       await deleteAttachment(backendTicketId, att.id);
       setUploadedAttachments((prev) => prev.filter((a) => a.id !== att.id));
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to remove attachment.');
+    } catch (err: unknown) {
+      toast.error(getErrorMessage(err, 'Failed to remove attachment.'));
     }
   };
 
@@ -1536,10 +1525,10 @@ export function TicketView() {
       </div>
       ${escLogs.length > 0 ? `<h2>Escalation History</h2>
       <table><thead><tr><th>Date</th><th>From</th><th>To</th><th>Type</th><th>Notes</th></tr></thead>
-      <tbody>${escLogs.map((esc: any) => `<tr><td>${esc.created_at ? new Date(esc.created_at).toLocaleString() : ''}</td><td>${esc.from_user_name || ''}</td><td>${esc.to_user_name || esc.external_escalated_to || ''}</td><td>${esc.cascade_type || ''}</td><td>${esc.notes || ''}</td></tr>`).join('')}</tbody></table>` : ''}
+      <tbody>${escLogs.map((esc) => `<tr><td>${esc.created_at ? new Date(esc.created_at).toLocaleString() : ''}</td><td>${esc.from_user_name || ''}</td><td>${esc.to_user_name || esc.external_escalated_to || ''}</td><td>${esc.cascade_type || ''}</td><td>${esc.notes || ''}</td></tr>`).join('')}</tbody></table>` : ''}
       ${atts.length > 0 ? `<h2>Attachments</h2>
       <table><thead><tr><th>#</th><th>File Name</th><th>Type</th></tr></thead>
-      <tbody>${atts.map((att: any, i: number) => { const fname = att.file?.split('/').pop() || 'file'; const ftype = fname.match(/\\.(mp4|webm)$/i) ? 'Recording' : fname.match(/\\.(jpg|jpeg|png|gif)$/i) ? 'Screenshot' : 'Document'; return `<tr><td>${i+1}</td><td>${fname}</td><td>${ftype}</td></tr>`; }).join('')}</tbody></table>` : ''}
+      <tbody>${atts.map((att, i: number) => { const fname = att.file?.split('/').pop() || 'file'; const ftype = fname.match(/\.(mp4|webm)$/i) ? 'Recording' : fname.match(/\.(jpg|jpeg|png|gif)$/i) ? 'Screenshot' : 'Document'; return `<tr><td>${i+1}</td><td>${fname}</td><td>${ftype}</td></tr>`; }).join('')}</tbody></table>` : ''}
       ${ticket.feedbackRating ? `<h2>Feedback Ratings</h2>
       <div class="info-grid">
         <div class="info-row"><span class="info-label">Assignee:</span><span class="info-value">${ticket.assignedTo || 'Unassigned'}</span></div>
@@ -1740,7 +1729,7 @@ export function TicketView() {
         const escHeaders = ['Date', 'From', 'To', 'Type', 'Notes', ''];
         escHeaders.forEach((h, c) => setCell(R, c, sc(h, C.GREEN_DARK, C.WHITE, { bold: true, sz: 10, center: true })));
         rowHeights[R] = { hpt: 24 }; R++;
-        btData.escalation_logs.forEach((esc: any, i: number) => {
+        btData.escalation_logs.forEach((esc, i: number) => {
           const bg = i % 2 === 0 ? C.WHITE : C.ALT_ROW;
           setCell(R, 0, sc(esc.created_at ? new Date(esc.created_at).toLocaleString() : '', bg, '000000', { sz: 9 }));
           setCell(R, 1, sc(esc.from_user_name || '', bg, '000000', { sz: 9 }));
@@ -1760,7 +1749,7 @@ export function TicketView() {
         const attHeaders = ['#', 'File Name', '', 'Type', 'Uploaded', ''];
         attHeaders.forEach((h, c) => setCell(R, c, sc(h, C.GREEN_DARK, C.WHITE, { bold: true, sz: 10, center: true })));
         rowHeights[R] = { hpt: 24 }; R++;
-        atts.forEach((att: any, i: number) => {
+        atts.forEach((att, i: number) => {
           const bg = i % 2 === 0 ? C.WHITE : C.ALT_ROW;
           const fname = att.file?.split('/').pop() || 'file';
           const ftype = fname.match(/\.(mp4|webm)$/i) ? 'Recording' : fname.match(/\.(jpg|jpeg|png|gif)$/i) ? 'Screenshot' : 'Document';
@@ -1925,13 +1914,13 @@ export function TicketView() {
             {/* Progress Tracker */}
             <div className="mb-5">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-3 block">Progress Tracker</span>
-              {React.createElement(TicketProgressTracker, {
-                backendStatus: btData?.status || 'open',
-                timeIn: btData?.time_in || null,
-                wasObserved: !!(btData?.was_for_observation),
-                wasEscalatedInternal: !!(btData?.escalation_logs?.some((l: any) => l.escalation_type === 'internal')),
-                wasEscalatedExternal: !!(btData?.external_escalated_to),
-              })}
+              <TicketProgressTracker
+                backendStatus={btData?.status || 'open'}
+                timeIn={btData?.time_in || null}
+                wasObserved={!!btData?.was_for_observation}
+                wasEscalatedInternal={!!btData?.escalation_logs?.some((l) => l.escalation_type === 'internal')}
+                wasEscalatedExternal={!!btData?.external_escalated_to}
+              />
               {ticket.slaEstimatedDays ? (
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
                   SLA Estimated Resolution: <span className="font-medium">{ticket.slaEstimatedDays} day{ticket.slaEstimatedDays !== 1 ? 's' : ''}</span>
@@ -2030,7 +2019,7 @@ export function TicketView() {
               {/* Description - Full Width */}
               <div className="sm:col-span-2 mt-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-[#0E8F79] mb-1">Description</div>
-                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
+                <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-l-4 border-[#0E8F79]">
                   {ticket.description}
                 </p>
               </div>
@@ -2467,7 +2456,9 @@ export function TicketView() {
                       {att.type === 'screenshot' && att.url ? (
                         <button
                           type="button"
-                          onClick={() => setLightboxUrl(att.url!)}
+                          onClick={() => {
+                            if (att.url) setLightboxUrl(att.url);
+                          }}
                           className="block w-full cursor-pointer hover:opacity-90 transition-opacity"
                         >
                           <img
@@ -2479,7 +2470,9 @@ export function TicketView() {
                       ) : att.type === 'recording' && att.url ? (
                         <button
                           type="button"
-                          onClick={() => setVideoLightboxUrl(att.url!)}
+                          onClick={() => {
+                            if (att.url) setVideoLightboxUrl(att.url);
+                          }}
                           className="relative block w-full cursor-pointer hover:opacity-90 transition-opacity bg-gray-900"
                         >
                           <video src={att.url} className="w-full h-32 object-cover" muted playsInline preload="metadata" />
@@ -2557,11 +2550,11 @@ export function TicketView() {
                 </div>
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className={`w-5 h-5 ${s <= ticket.feedbackRating.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                    <Star key={s} className={`w-5 h-5 ${s <= (ticket.feedbackRating?.rating ?? 0) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 dark:text-gray-600'}`} />
                   ))}
-                  <span className="ml-2 text-sm font-bold text-gray-700 dark:text-gray-300">{ticket.feedbackRating.rating}/5</span>
+                  <span className="ml-2 text-sm font-bold text-gray-700 dark:text-gray-300">{ticket.feedbackRating?.rating ?? 0}/5</span>
                   <span className="ml-1 text-xs text-gray-400">
-                    {ticket.feedbackRating.rating <= 2 ? 'Needs Improvement' : ticket.feedbackRating.rating <= 3 ? 'Satisfactory' : ticket.feedbackRating.rating <= 4 ? 'Good' : 'Excellent'}
+                    {(ticket.feedbackRating?.rating ?? 0) <= 2 ? 'Needs Improvement' : (ticket.feedbackRating?.rating ?? 0) <= 3 ? 'Satisfactory' : (ticket.feedbackRating?.rating ?? 0) <= 4 ? 'Good' : 'Excellent'}
                   </span>
                 </div>
                 {ticket.feedbackRating.comments && (
@@ -2902,7 +2895,10 @@ export function TicketView() {
                               {QUICK_EMOJIS.map((emoji) => (
                                 <button
                                   key={emoji}
-                                  onClick={() => { chatSocketRef.current?.react(m.id!, emoji); setShowEmojiPicker(null); }}
+                                  onClick={() => {
+                                    if (m.id != null) chatSocketRef.current?.react(m.id, emoji);
+                                    setShowEmojiPicker(null);
+                                  }}
                                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-base transition-all hover:scale-125 active:scale-90"
                                 >
                                   {emoji}
@@ -3019,7 +3015,9 @@ export function TicketView() {
                                   return (
                                     <button
                                       key={emoji}
-                                      onClick={() => chatSocketRef.current?.react(m.id!, emoji)}
+                                      onClick={() => {
+                                        if (m.id != null) chatSocketRef.current?.react(m.id, emoji);
+                                      }}
                                       className={`flex items-center gap-0.5 px-1 py-0.5 rounded-full text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                                         iReacted ? 'bg-[#0E8F79]/10' : ''
                                       }`}
@@ -3040,8 +3038,8 @@ export function TicketView() {
                           <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatTime(m.created_at)}</span>
                           {mine && (
                             m.read_by.length > 0
-                              ? <CheckCheck className="w-3 h-3 text-blue-400" title={`Read by ${m.read_by.map((r) => r.username).join(', ')}`} />
-                              : <Check className="w-3 h-3 text-gray-400" title="Sent" />
+                              ? <span title={`Read by ${m.read_by.map((r) => r.username).join(', ')}`}><CheckCheck className="w-3 h-3 text-blue-400" /></span>
+                              : <span title="Sent"><Check className="w-3 h-3 text-gray-400" /></span>
                           )}
                         </div>
                       </div>
@@ -3801,7 +3799,7 @@ export function TicketView() {
                     ['Designation', btData?.designation || '—'],
                     ['Department', btData?.department_organization || '—'],
                     ['Address', btData?.address || '—'],
-                    ['Type of Service', btData?.type_of_service_detail?.name || btData?.type_of_service_others || ticket.service || '—'],
+                    ['Type of Service', btData?.type_of_service_detail?.name || btData?.type_of_service_others || ticket.typeOfService || '—'],
                     ['Support Type', btData?.preferred_support_type || '—'],
                     ['Description', btData?.description_of_problem || ticket.description || '—'],
                   ].map(([label, value]) => (
@@ -3953,7 +3951,7 @@ export function TicketView() {
                   {needsCallPriorityWorkflow && (
                     <div>
                       <span className="text-gray-500 dark:text-gray-400">Service: </span>
-                      <span className="font-medium text-gray-900 dark:text-white">{btData?.type_of_service_detail?.name || btData?.type_of_service_others || ticket.service || '—'}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{btData?.type_of_service_detail?.name || btData?.type_of_service_others || ticket.typeOfService || '—'}</span>
                     </div>
                   )}
                 </div>

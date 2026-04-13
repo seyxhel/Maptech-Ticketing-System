@@ -170,7 +170,7 @@ export function AuditLogs() {
 
   // Load retention policy once
   useEffect(() => {
-    fetchRetentionPolicy().then(setRetentionPolicy).catch(() => {});
+    fetchRetentionPolicy().then(setRetentionPolicy).catch(() => undefined);
   }, []);
 
   // Debounced search

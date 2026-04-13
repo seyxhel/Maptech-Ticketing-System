@@ -37,7 +37,7 @@ export function AnnouncementBanner() {
   useEffect(() => {
     fetchAnnouncements()
       .then(setAnnouncements)
-      .catch(() => {});
+      .catch(() => undefined);
   }, []);
 
   const visible = announcements.filter((a) => !dismissed.has(a.id));

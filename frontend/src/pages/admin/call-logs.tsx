@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchCallLogs, fetchRetentionPolicy, type CallLog, type RetentionPolicyData } from '../../services/api';
-// @ts-ignore
 import XLSXStyle from 'xlsx-js-style';
 import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 
@@ -223,7 +222,7 @@ export default function CallLogs() {
 
   // Load retention policy once
   useEffect(() => {
-    fetchRetentionPolicy().then(setRetentionPolicy).catch(() => {});
+    fetchRetentionPolicy().then(setRetentionPolicy).catch(() => undefined);
   }, []);
 
   // Client-side filtering

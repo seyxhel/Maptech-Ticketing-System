@@ -19,7 +19,6 @@ import {
 import { toast } from 'sonner';
 import { AnnouncementBanner } from '../../components/ui/AnnouncementBanner';
 import { fetchTickets, fetchClients, fetchProducts } from '../../services/api';
-import type { BackendTicket } from '../../services/api';
 import { mapBackendTicketToUI } from '../../services/ticketMapper';
 import type { UITicket } from '../../services/ticketMapper';
 

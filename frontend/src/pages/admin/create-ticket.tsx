@@ -340,10 +340,10 @@ export default function AdminCreateTicket() {
     fetchEmployees()
       .then((emps) => {
         setEmployees(
-          emps.map((e: any) => ({
+          emps.map((e) => ({
             id: e.id,
             name: `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username,
-            role: e.role || 'Technical',
+            role: 'Technical',
             avatar: `${(e.first_name || 'E')[0]}${(e.last_name || '')[0] || ''}`.toUpperCase(),
             available: e.is_active !== false,
             activeTickets: e.active_ticket_count ?? 0,
@@ -354,7 +354,7 @@ export default function AdminCreateTicket() {
     fetchSalesUsers()
       .then((users) => {
         setSalesUsers(
-          users.map((salesUser: any) => ({
+          users.map((salesUser) => ({
             id: salesUser.id,
             name: `${salesUser.first_name || ''} ${salesUser.last_name || ''}`.trim() || salesUser.username,
             username: salesUser.username,
@@ -366,7 +366,7 @@ export default function AdminCreateTicket() {
     fetchSupervisors()
       .then((users) => {
         setSupervisors(
-          users.map((supervisor: any) => ({
+          users.map((supervisor) => ({
             id: supervisor.id,
             name: `${supervisor.first_name || ''} ${supervisor.last_name || ''}`.trim() || supervisor.username,
             role: supervisor.role,
@@ -646,14 +646,14 @@ export default function AdminCreateTicket() {
         : await fetchProducts();
       setProducts(refreshed);
       toast.success('Product details saved.');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save product details.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save product details.');
     } finally {
       setSavingProductDetails(false);
     }
   };
 
-  const applySelectedProductToTicketData = (ticketData: Record<string, unknown>) => {
+  const applySelectedProductToTicketData = (ticketData: Partial<BackendTicket>) => {
     if (!selectedProductId) return;
 
     ticketData.product_record = selectedProductId;
@@ -689,7 +689,7 @@ export default function AdminCreateTicket() {
     return blocks.join('\n\n');
   };
 
-  const applyAdditionalProductDetailsToTicketData = (ticketData: Record<string, unknown>) => {
+  const applyAdditionalProductDetailsToTicketData = (ticketData: Partial<BackendTicket>) => {
     ticketData.client_purchase_no = additionalProductDetails.client_purchase_no.trim();
     ticketData.maptech_dr = additionalProductDetails.maptech_dr.trim();
     ticketData.maptech_sales_invoice = additionalProductDetails.maptech_sales_invoice.trim();
@@ -733,8 +733,8 @@ export default function AdminCreateTicket() {
       });
       setEmail(client.email_address || '');
       setAddress(client.address || '');
-      setSelectedSalesRep(isSalesUser ? currentSalesRepName : ((client as any).sales_representative || '').trim());
-      setAdditionalSalesReps(Array.isArray((client as any).additional_sales_reps) ? (client as any).additional_sales_reps.filter(Boolean).map((rep: string) => String(rep).trim()) : []);
+      setSelectedSalesRep(isSalesUser ? currentSalesRepName : (client.sales_representative || '').trim());
+      setAdditionalSalesReps(Array.isArray(client.additional_sales_reps) ? client.additional_sales_reps.filter(Boolean).map((rep: string) => String(rep).trim()) : []);
       setErrors((prev) => ({ ...prev, salesRepresentative: false }));
       setErrorMsgs((prev) => ({ ...prev, salesRepresentative: '' }));
     }
@@ -941,8 +941,8 @@ export default function AdminCreateTicket() {
             : `Priority: ${priorityLevel} | Service: ${serviceType}`,
         });
         navigate(`${routeBase}/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
-      } catch (err: any) {
-        toast.error(err?.message || 'Failed to create ticket.');
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : 'Failed to create ticket.');
       } finally {
         setIsAssigning(false);
       }
@@ -977,7 +977,7 @@ export default function AdminCreateTicket() {
     };
 
     const matchedService = serviceTypes.find((s) => s.name === serviceType);
-    const ticketData: Record<string, unknown> = {
+    const ticketData: Partial<BackendTicket> = {
       project_title: projectTitle.trim(),
       client: contactValues.client,
       contact_person: contactValues.contactPerson,
@@ -1083,8 +1083,8 @@ export default function AdminCreateTicket() {
           : `Priority: ${priorityLevel} | Service: ${serviceType}`,
       });
       navigate(`${routeBase}/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to create ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create ticket.');
     } finally {
       setIsAssigning(false);
     }
@@ -1124,8 +1124,8 @@ export default function AdminCreateTicket() {
           : `Priority: ${priorityLevel} | Service: ${serviceType}`,
       });
       navigate(`${routeBase}/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to create ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create ticket.');
     } finally {
       setIsAssigning(false);
     }
@@ -1163,8 +1163,8 @@ export default function AdminCreateTicket() {
           : 'Assignment will remain blocked until client call and priority review are completed.',
       });
       navigate(`${routeBase}/ticket-details?stf=${encodeURIComponent(created.stf_no)}`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to create pending ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create pending ticket.');
     } finally {
       setIsAssigning(false);
     }

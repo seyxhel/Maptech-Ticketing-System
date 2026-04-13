@@ -28,13 +28,6 @@ import {
   Legend } from
 'recharts';
 
-const PRIORITY_COLORS: Record<string, string> = {
-  Low: '#3BC25B',
-  Medium: '#F59E0B',
-  High: '#EF4444',
-  Critical: '#991B1B',
-};
-
 function normalize(value: string | null | undefined) {
   return (value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
 }
