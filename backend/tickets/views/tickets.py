@@ -413,6 +413,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                     'id': None,
                     'sender_id': sender.id,
                     'sender_username': sender.username,
+                    'sender_name': sender.get_full_name() or sender.username,
                     'sender_role': sender.role,
                     'content': content,
                     'reply_to': None,

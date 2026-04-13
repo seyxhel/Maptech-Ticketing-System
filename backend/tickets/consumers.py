@@ -115,7 +115,13 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
             # Notify others that typing stopped
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {'type': 'typing_indicator', 'user_id': self.user.id, 'username': self.user.username, 'is_typing': False}
+                {
+                    'type': 'typing_indicator',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                    'display_name': self._user_display_name(self.user),
+                    'is_typing': False,
+                }
             )
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
@@ -136,7 +142,13 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
         elif action == 'typing':
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {'type': 'typing_indicator', 'user_id': self.user.id, 'username': self.user.username, 'is_typing': content.get('is_typing', False)}
+                {
+                    'type': 'typing_indicator',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                    'display_name': self._user_display_name(self.user),
+                    'is_typing': content.get('is_typing', False),
+                }
             )
 
         elif action == 'react':
@@ -170,6 +182,7 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
                 'type': 'typing',
                 'user_id': event['user_id'],
                 'username': event['username'],
+                'display_name': event.get('display_name', event['username']),
                 'is_typing': event['is_typing'],
             })
 
@@ -306,7 +319,16 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
         reactions = MessageReaction.objects.filter(message=msg).select_related('user')
         return {
             'message_id': msg.id,
-            'reactions': [{'id': r.id, 'emoji': r.emoji, 'user_id': r.user.id, 'username': r.user.username} for r in reactions],
+            'reactions': [
+                {
+                    'id': r.id,
+                    'emoji': r.emoji,
+                    'user_id': r.user.id,
+                    'username': r.user.username,
+                    'name': self._user_display_name(r.user),
+                }
+                for r in reactions
+            ],
         }
 
     @database_sync_to_async
@@ -320,19 +342,42 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
                 msg = Message.objects.get(id=mid)
                 obj, created = MessageReadReceipt.objects.get_or_create(message=msg, user=self.user)
                 if created:
-                    results.append({'message_id': mid, 'user_id': self.user.id, 'username': self.user.username, 'read_at': obj.read_at.isoformat()})
+                    results.append({
+                        'message_id': mid,
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                        'name': self._user_display_name(self.user),
+                        'read_at': obj.read_at.isoformat(),
+                    })
             except Message.DoesNotExist:
                 continue
         return results if results else None
+
+    @staticmethod
+    def _user_display_name(user):
+        full_name = user.get_full_name()
+        return full_name if full_name else user.username
 
     def _serialize_message(self, msg):
         reactions = {}
         for r in msg.reactions.all():
             if r.emoji not in reactions:
                 reactions[r.emoji] = []
-            reactions[r.emoji].append({'user_id': r.user.id, 'username': r.user.username})
+            reactions[r.emoji].append({
+                'user_id': r.user.id,
+                'username': r.user.username,
+                'name': self._user_display_name(r.user),
+            })
 
-        read_by = [{'user_id': rr.user.id, 'username': rr.user.username, 'read_at': rr.read_at.isoformat()} for rr in msg.read_receipts.all()]
+        read_by = [
+            {
+                'user_id': rr.user.id,
+                'username': rr.user.username,
+                'name': self._user_display_name(rr.user),
+                'read_at': rr.read_at.isoformat(),
+            }
+            for rr in msg.read_receipts.all()
+        ]
 
         reply_to_data = None
         if msg.reply_to:
@@ -341,12 +386,14 @@ class TicketChatConsumer(AsyncJsonWebsocketConsumer):
                 'content': msg.reply_to.content[:100],
                 'sender_id': msg.reply_to.sender.id,
                 'sender_username': msg.reply_to.sender.username,
+                'sender_name': self._user_display_name(msg.reply_to.sender),
             }
 
         return {
             'id': msg.id,
             'sender_id': msg.sender.id,
             'sender_username': msg.sender.username,
+            'sender_name': self._user_display_name(msg.sender),
             'sender_role': msg.sender.role,
             'content': msg.content,
             'reply_to': reply_to_data,

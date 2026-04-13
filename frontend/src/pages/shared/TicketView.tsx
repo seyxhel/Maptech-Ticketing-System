@@ -517,7 +517,7 @@ export function TicketView() {
         setTypingUsers((prev) => {
           const next = new Map(prev);
           if (event.is_typing) {
-            next.set(event.user_id, event.username);
+            next.set(event.user_id, event.display_name || event.username);
           } else {
             next.delete(event.user_id);
           }
@@ -599,17 +599,28 @@ export function TicketView() {
       }
       sock.sendTyping(false);
     } else {
+      const localSenderName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim()
+        || user?.name
+        || user?.username
+        || (isAdmin ? 'Supervisor' : 'Technical');
       // Offline fallback – show locally
       setChatMessages((prev) => [
         ...prev,
         {
           id: null,
           sender_id: user?.id ?? 0,
-          sender_username: user?.username || user?.name || (isAdmin ? 'Supervisor' : 'Technical'),
+          sender_username: user?.username || localSenderName,
+          sender_name: localSenderName,
           sender_role: user?.role || 'employee',
           content: newMsg.trim(),
           attachments: localAttachments.length > 0 ? localAttachments : undefined,
-          reply_to: replyTo ? { id: replyTo.id ?? 0, content: replyTo.content.slice(0, 100), sender_id: replyTo.sender_id, sender_username: replyTo.sender_username } : null,
+          reply_to: replyTo ? {
+            id: replyTo.id ?? 0,
+            content: replyTo.content.slice(0, 100),
+            sender_id: replyTo.sender_id,
+            sender_username: replyTo.sender_username,
+            sender_name: replyTo.sender_name || replyTo.sender_username,
+          } : null,
           is_system_message: false,
           reactions: {},
           read_by: [],
@@ -2822,6 +2833,7 @@ export function TicketView() {
 
                 {group.messages.map((m, i) => {
                   const mine = isMine(m);
+                  const senderDisplayName = (m.sender_name || m.sender_username || '').trim() || m.sender_username;
                   const prevMsg = i > 0 ? group.messages[i - 1] : null;
                   const isConsecutive = prevMsg && prevMsg.sender_id === m.sender_id && !m.is_system_message && !prevMsg.is_system_message;
                   const RoleIcon = getRoleIcon(m.sender_role);
@@ -2849,7 +2861,7 @@ export function TicketView() {
                       {/* Avatar */}
                       {!isConsecutive ? (
                         <div className={`flex-shrink-0 w-8 h-8 rounded-full ${getAvatarColor(m.sender_role)} flex items-center justify-center shadow-sm`}>
-                          <span className="text-[10px] font-bold text-white">{getInitials(m.sender_username)}</span>
+                          <span className="text-[10px] font-bold text-white">{getInitials(senderDisplayName)}</span>
                         </div>
                       ) : (
                         <div className="w-8 flex-shrink-0" />
@@ -2860,7 +2872,7 @@ export function TicketView() {
                         {/* Sender Name + Role badge (first in group) */}
                         {!isConsecutive && !mine && (
                           <div className="flex items-center gap-1.5 mb-1 ml-1">
-                            <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{m.sender_username}</span>
+                            <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">{senderDisplayName}</span>
                             <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-wider ${
                               m.sender_role === 'admin' || m.sender_role === 'superadmin'
                                 ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
@@ -2881,7 +2893,7 @@ export function TicketView() {
                           }`}>
                             <div className="flex items-center gap-1 mb-0.5">
                               <CornerDownRight className="w-2.5 h-2.5 flex-shrink-0" />
-                              <span className="font-semibold truncate">{m.reply_to.sender_username}</span>
+                              <span className="font-semibold truncate">{(m.reply_to.sender_name || m.reply_to.sender_username || '').trim() || m.reply_to.sender_username}</span>
                             </div>
                             <p className="truncate opacity-80">{m.reply_to.content}</p>
                           </div>
@@ -3038,7 +3050,7 @@ export function TicketView() {
                           <span className="text-[10px] text-gray-400 dark:text-gray-500">{formatTime(m.created_at)}</span>
                           {mine && (
                             m.read_by.length > 0
-                              ? <span title={`Read by ${m.read_by.map((r) => r.username).join(', ')}`}><CheckCheck className="w-3 h-3 text-blue-400" /></span>
+                              ? <span title={`Read by ${m.read_by.map((r) => r.name || r.username).join(', ')}`}><CheckCheck className="w-3 h-3 text-blue-400" /></span>
                               : <span title="Sent"><Check className="w-3 h-3 text-gray-400" /></span>
                           )}
                         </div>
@@ -3087,7 +3099,7 @@ export function TicketView() {
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-[#0E8F79]/5 dark:bg-[#0E8F79]/10">
               <CornerDownRight className="w-4 h-4 text-[#0E8F79] flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-[10px] font-semibold text-[#0E8F79]">Replying to {replyTo.sender_username}</div>
+                <div className="text-[10px] font-semibold text-[#0E8F79]">Replying to {(replyTo.sender_name || replyTo.sender_username || '').trim() || replyTo.sender_username}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 truncate break-words" style={{ overflowWrap: 'anywhere' }}>{replyTo.content}</div>
               </div>
               <button
@@ -3202,7 +3214,7 @@ export function TicketView() {
                   onChange={(e) => { setNewMsg(e.target.value); handleTyping(); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); setShowInputEmoji(false); } }}
                   onFocus={() => { /* keep picker open */ }}
-                  placeholder={replyTo ? `Reply to ${replyTo.sender_username}...` : pendingFiles.length > 0 ? 'Add a caption...' : 'Type a message...'}
+                  placeholder={replyTo ? `Reply to ${(replyTo.sender_name || replyTo.sender_username || '').trim() || replyTo.sender_username}...` : pendingFiles.length > 0 ? 'Add a caption...' : 'Type a message...'}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] transition-all placeholder:text-gray-400"
                 />
               </div>

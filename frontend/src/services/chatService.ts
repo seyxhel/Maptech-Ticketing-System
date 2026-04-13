@@ -23,6 +23,7 @@ export type ChatMessage = {
   id: number | null;
   sender_id: number;
   sender_username: string;
+  sender_name?: string;
   sender_role: string;
   content: string;
   attachments?: ChatAttachment[];
@@ -31,33 +32,35 @@ export type ChatMessage = {
     content: string;
     sender_id: number;
     sender_username: string;
+    sender_name?: string;
   } | null;
   is_system_message: boolean;
-  reactions: Record<string, { user_id: number; username: string }[]>;
-  read_by: { user_id: number; username: string; read_at: string }[];
+  reactions: Record<string, { user_id: number; username: string; name?: string }[]>;
+  read_by: { user_id: number; username: string; name?: string; read_at: string }[];
   created_at: string;
 };
 
 export type TypingEvent = {
   user_id: number;
   username: string;
+  display_name?: string;
   is_typing: boolean;
 };
 
 export type ChatEvent =
   | { type: 'message_history'; messages: ChatMessage[] }
   | { type: 'new_message'; message: ChatMessage }
-  | { type: 'typing'; user_id: number; username: string; is_typing: boolean }
+  | { type: 'typing'; user_id: number; username: string; display_name?: string; is_typing: boolean }
   | {
       type: 'reaction_update';
       data: {
         message_id: number;
-        reactions: { id: number; emoji: string; user_id: number; username: string }[];
+        reactions: { id: number; emoji: string; user_id: number; username: string; name?: string }[];
       };
     }
   | {
       type: 'read_receipt';
-      data: { message_id: number; user_id: number; username: string; read_at: string }[];
+      data: { message_id: number; user_id: number; username: string; name?: string; read_at: string }[];
     }
   | { type: 'force_disconnect'; reason: string };
 
