@@ -6,16 +6,14 @@ import { StatCard } from '../../components/ui/StatCard';
 import { GreenButton } from '../../components/ui/GreenButton';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { PriorityBadge } from '../../components/ui/PriorityBadge';
-import { SLATimer } from '../../components/ui/SLATimer';
 import {
   Ticket,
   UserCheck,
   Clock,
   AlertOctagon,
-  ArrowUpRight,
-  Share2,
   Building2,
   History,
+  Pencil,
   ChevronRight as ChevronRightIcon,
   X,
 } from 'lucide-react';
@@ -35,19 +33,15 @@ import {
   fetchTicketStats,
   fetchEscalationLogs,
   fetchEmployees,
-  deleteTicket as apiDeleteTicket,
   updateTicket as apiUpdateTicket,
   assignTicket,
-  escalateExternal,
 } from '../../services/api';
-import type { BackendTicket, TicketStats } from '../../services/api';
+import type { BackendTicket, TicketStats, EscalationLog } from '../../services/api';
 import { mapBackendTicketToUI, mapBackendTicketToTechnicalStaff, reverseMapStatus, reverseMapPriority } from '../../services/ticketMapper';
 import type { UITicket } from '../../services/ticketMapper';
 
 const STATUSES = ['Pending', 'Assigned', 'In Progress', 'Escalated', 'For Observation', 'Unresolved', 'Resolved', 'Closed'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
-
-const ITEMS_PER_PAGE = 10;
 
 function truncateText(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
@@ -58,9 +52,6 @@ function truncateText(value: string, maxLength: number): string {
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [escalationType, setEscalationType] = useState<'Higher' | 'Distributor' | 'Principal'>('Higher');
-  const [escalationReason, setEscalationReason] = useState('');
-  const [selectedEscalationTicket, setSelectedEscalationTicket] = useState('');
   const [tickets, setTickets] = useState<UITicket[]>([]);
   const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
   const [editTicket, setEditTicket] = useState<UITicket | null>(null);
@@ -68,11 +59,8 @@ export default function AdminDashboard() {
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TicketStats | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [ticketFeedView, setTicketFeedView] = useState<'submitted' | 'escalated'>('submitted');
   const [escalationHistory, setEscalationHistory] = useState<
@@ -95,10 +83,9 @@ export default function AdminDashboard() {
         setBackendTickets(raw);
         const mapped = raw.map(mapBackendTicketToUI);
         setTickets(mapped);
-        if (mapped.length > 0) setSelectedEscalationTicket(mapped[0].id);
         if (statsData) setStats(statsData);
         // Map escalation logs
-        const escMapped = (escLogs as any[]).map((log: any) => {
+        const escMapped = (escLogs as EscalationLog[]).map((log) => {
           const ticketBt = raw.find((t) => t.id === log.ticket);
           const isExternal = log.escalation_type === 'external';
           const elapsed = Date.now() - new Date(log.created_at).getTime();
@@ -126,17 +113,9 @@ export default function AdminDashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  // Close open menu when clicking anywhere outside
-  useEffect(() => {
-    const handler = () => setOpenMenuId(null);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, []);
-
   const openEdit = (ticket: UITicket) => {
     setEditTicket(ticket);
     setEditFields({ status: ticket.status, priority: ticket.priority, assigneeId: ticket.assigneeId != null ? String(ticket.assigneeId) : '' });
-    setOpenMenuId(null);
   };
 
   const saveEdit = async () => {
@@ -146,7 +125,7 @@ export default function AdminDashboard() {
       let updatedBackendTicket = await apiUpdateTicket(editTicket.backendId, {
         status: reverseMapStatus(editFields.status),
         priority: reverseMapPriority(editFields.priority),
-      } as any);
+      });
 
       if (assignedToId && assignedToId !== editTicket.assigneeId) {
         updatedBackendTicket = await assignTicket(editTicket.backendId, assignedToId);
@@ -163,38 +142,12 @@ export default function AdminDashboard() {
         )
       );
       toast.success(`Ticket ${editTicket.id} updated.`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update ticket.');
     }
     setEditTicket(null);
   };
 
-  const deleteTicket = async (id: string) => {
-    const bt = backendTickets.find((t) => t.stf_no === id);
-    if (!bt) return;
-    try {
-      await apiDeleteTicket(bt.id);
-      setBackendTickets((prev) => prev.filter((t) => t.id !== bt.id));
-      setTickets((prev) => prev.filter((t) => t.id !== id));
-      toast.success(`Ticket ${id} deleted.`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete ticket.');
-    }
-    setOpenMenuId(null);
-  };
-
-  const filteredTickets = tickets.filter((t) => {
-    if (filterPriority.length > 0 && !filterPriority.includes(t.priority)) return false;
-    if (filterStatus.length > 0 && !filterStatus.includes(t.status)) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      if (!t.id.toLowerCase().includes(q) && !t.subject.toLowerCase().includes(q) && !t.client.toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / ITEMS_PER_PAGE));
-  const pagedTickets = filteredTickets.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   const toggleFilter = (arr: string[], val: string) => arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val];
 
   const sortedBackendTickets = [...backendTickets].sort(
@@ -231,30 +184,6 @@ export default function AdminDashboard() {
     const bt = backendTickets.find((t) => t.stf_no === stfNo);
     if (!bt?.updated_at) return 'N/A';
     return new Date(bt.updated_at).toLocaleString();
-  };
-
-  const handleEscalate = async () => {
-    if (!escalationReason) { toast.error('Please provide a reason for escalation.'); return; }
-    const bt = backendTickets.find((t) => t.stf_no === selectedEscalationTicket);
-    if (!bt) { toast.error('Ticket not found.'); return; }
-    try {
-      const targetName = escalationType === 'Distributor' ? 'Distributor' : escalationType === 'Principal' ? 'Principal' : 'Higher Position';
-      const updatedBackendTicket = await escalateExternal(bt.id, { external_escalated_to: targetName, external_escalation_notes: escalationReason } as any);
-      setBackendTickets((prev) =>
-        prev.map((ticket) =>
-          ticket.id === updatedBackendTicket.id ? updatedBackendTicket : ticket
-        )
-      );
-      setTickets((prev) =>
-        prev.map((ticket) =>
-          ticket.id === selectedEscalationTicket ? mapBackendTicketToUI(updatedBackendTicket) : ticket
-        )
-      );
-      toast.success(`Ticket ${selectedEscalationTicket} escalated successfully`);
-      setEscalationReason('');
-    } catch (err: any) {
-      toast.error(err?.message || 'Escalation failed.');
-    }
   };
 
   if (loading) {
@@ -328,6 +257,13 @@ export default function AdminDashboard() {
                     >
                       View Details
                       <ChevronRightIcon className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => openEdit(ticket)}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
                     </button>
                   </div>
 
@@ -512,7 +448,7 @@ export default function AdminDashboard() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => { setFilterPriority([]); setFilterStatus([]); }} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Clear All</button>
-              <button onClick={() => { setCurrentPage(1); setShowFilter(false); }} className="flex-1 px-4 py-2 rounded-lg bg-[#3BC25B] hover:bg-[#2ea34a] text-white text-sm font-medium">Apply Filters</button>
+              <button onClick={() => setShowFilter(false)} className="flex-1 px-4 py-2 rounded-lg bg-[#3BC25B] hover:bg-[#2ea34a] text-white text-sm font-medium">Apply Filters</button>
             </div>
           </div>
         </div>

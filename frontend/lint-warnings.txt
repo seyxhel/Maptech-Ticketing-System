@@ -1,0 +1,122 @@
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\components\NotificationPanel.tsx:43:17 [react-refresh/only-export-components] Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\components\layout\Sidebar.tsx:162:48 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\components\layout\Sidebar.tsx:170:95 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\components\layout\Sidebar.tsx:184:22 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\context\AuthContext.tsx:201:17 [react-refresh/only-export-components] Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\context\ThemeContext.tsx:35:17 [react-refresh/only-export-components] Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\layouts\SuperAdminLayout.tsx:6:10 [@typescript-eslint/no-unused-vars] 'Sidebar' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:155:40 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:156:41 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:198:44 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:199:45 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:623:39 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:632:34 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:638:57 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:644:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\clients.tsx:653:53 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:343:24 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:357:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:369:34 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:649:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:736:75 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:737:55 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:737:96 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:918:58 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:936:21 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1050:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1070:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1084:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1103:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1116:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\create-ticket.tsx:1134:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:9:10 [@typescript-eslint/no-unused-vars] 'SLATimer' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:15:3 [@typescript-eslint/no-unused-vars] 'ArrowUpRight' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:16:3 [@typescript-eslint/no-unused-vars] 'Share2' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:61:26 [@typescript-eslint/no-unused-vars] 'setEscalationType' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:74:23 [@typescript-eslint/no-unused-vars] 'setSearchQuery' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:75:10 [@typescript-eslint/no-unused-vars] 'openMenuId' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:101:39 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:101:56 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:136:9 [@typescript-eslint/no-unused-vars] 'openEdit' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:149:12 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:166:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:172:9 [@typescript-eslint/no-unused-vars] 'deleteTicket' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:180:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:196:9 [@typescript-eslint/no-unused-vars] 'totalPages' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:197:9 [@typescript-eslint/no-unused-vars] 'pagedTickets' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:236:9 [@typescript-eslint/no-unused-vars] 'handleEscalate' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:242:152 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\dashboard.tsx:255:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\products.tsx:192:75 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\products.tsx:199:54 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\products.tsx:249:92 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\settings.tsx:5:53 [@typescript-eslint/no-unused-vars] 'Pencil' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\settings.tsx:36:9 [@typescript-eslint/no-unused-vars] 'startEdit' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:10:3 [@typescript-eslint/no-unused-vars] 'MoreHorizontal' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:12:3 [@typescript-eslint/no-unused-vars] 'Pencil' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:13:3 [@typescript-eslint/no-unused-vars] 'Trash2' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:50:10 [@typescript-eslint/no-unused-vars] 'openMenuId' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:88:9 [@typescript-eslint/no-unused-vars] 'openEdit' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:103:12 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:120:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:126:9 [@typescript-eslint/no-unused-vars] 'deleteTicket' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\tickets.tsx:133:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\admin\types-of-service.tsx:137:14 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\sales\dashboard.tsx:22:15 [@typescript-eslint/no-unused-vars] 'BackendTicket' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:311:29 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:357:65 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:425:33 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:473:24 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:478:50 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:479:43 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:488:26 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:604:37 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:885:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:945:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1054:59 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1130:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1156:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1178:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1210:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1226:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1264:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1279:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1295:12 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1299:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1315:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1345:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1402:35 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1402:52 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1411:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1424:19 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1520:34 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1523:31 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1724:46 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1744:28 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:1913:75 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:2451:57 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:2463:62 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:2886:81 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\shared\TicketView.tsx:3003:83 [@typescript-eslint/no-non-null-assertion] Forbidden non-null assertion.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\superadmin\dashboard.tsx:31:7 [@typescript-eslint/no-unused-vars] 'PRIORITY_COLORS' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\superadmin\settings.tsx:149:10 [@typescript-eslint/no-unused-vars] 'breachChecking' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:3:10 [@typescript-eslint/no-unused-vars] 'GreenButton' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:5:3 [@typescript-eslint/no-unused-vars] 'ArrowUpRight' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:6:3 [@typescript-eslint/no-unused-vars] 'Share2' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:10:3 [@typescript-eslint/no-unused-vars] 'CheckCircle2' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:25:26 [@typescript-eslint/no-unused-vars] 'MAX_REASON' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:40:26 [@typescript-eslint/no-unused-vars] 'setEscalationType' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:43:10 [@typescript-eslint/no-unused-vars] 'notesError' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:44:10 [@typescript-eslint/no-unused-vars] 'escalateToError' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:45:10 [@typescript-eslint/no-unused-vars] 'submitting' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:50:9 [@typescript-eslint/no-unused-vars] 'escalableTickets' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\escalation.tsx:77:9 [@typescript-eslint/no-unused-vars] 'handleSubmit' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\knowledge-base.tsx:6:3 [@typescript-eslint/no-unused-vars] 'BookOpen' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\knowledge-base.tsx:7:3 [@typescript-eslint/no-unused-vars] 'ArrowUpRight' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\knowledge-base.tsx:96:6 [react-hooks/exhaustive-deps] React Hook useEffect has a missing dependency: 'loadArticles'. Either include it or remove the dependency array.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\reports.tsx:8:42 [@typescript-eslint/no-unused-vars] 'ReTooltip' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\settings.tsx:5:53 [@typescript-eslint/no-unused-vars] 'Pencil' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\pages\technical-staff\settings.tsx:36:9 [@typescript-eslint/no-unused-vars] 'startEdit' is assigned a value but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\utils\pdfTemplate.ts:237:3 [@typescript-eslint/no-unused-vars] '_signatureData' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\utils\pdfTemplate.ts:238:3 [@typescript-eslint/no-unused-vars] '_signedBy' is defined but never used.
+C:\Users\MAPTECH\-local-Maptech-Ticketing-System\frontend\src\utils\pdfTemplate.ts:325:57 [@typescript-eslint/no-explicit-any] Unexpected any. Specify a different type.

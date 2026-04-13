@@ -7,7 +7,6 @@ import { PriorityBadge } from '../../components/ui/PriorityBadge';
 import { SLATimer } from '../../components/ui/SLATimer';
 import {
   Filter,
-  MoreHorizontal,
   Eye,
   Pencil,
   Trash2,
@@ -47,7 +46,6 @@ export default function AdminTickets() {
   const [showFilter, setShowFilter] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [tickets, setTickets] = useState<UITicket[]>([]);
   const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
   const [editTicket, setEditTicket] = useState<UITicket | null>(null);
@@ -78,17 +76,9 @@ export default function AdminTickets() {
     return () => { cancelled = true; };
   }, []);
 
-  // Close open menu when clicking anywhere outside
-  useEffect(() => {
-    const handler = () => setOpenMenuId(null);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
-  }, []);
-
   const openEdit = (ticket: UITicket) => {
     setEditTicket(ticket);
     setEditFields({ status: ticket.status, priority: ticket.priority, assigneeId: ticket.assigneeId != null ? String(ticket.assigneeId) : '' });
-    setOpenMenuId(null);
   };
 
   const saveEdit = async () => {
@@ -100,7 +90,7 @@ export default function AdminTickets() {
       await apiUpdateTicket(editTicket.backendId, {
         status: reverseMapStatus(editFields.status),
         priority: reverseMapPriority(editFields.priority),
-      } as any);
+      });
 
       // Assign employee via dedicated endpoint (if changed)
       if (assignedToId && assignedToId !== editTicket.assigneeId) {
@@ -117,8 +107,8 @@ export default function AdminTickets() {
         )
       );
       toast.success(`Ticket ${editTicket.id} updated.`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to update ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update ticket.');
     }
     setEditTicket(null);
   };
@@ -130,10 +120,9 @@ export default function AdminTickets() {
       await apiDeleteTicket(bt.id);
       setTickets((prev) => prev.filter((t) => t.id !== id));
       toast.success(`Ticket ${id} deleted.`);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to delete ticket.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete ticket.');
     }
-    setOpenMenuId(null);
   };
 
   const filtered = tickets.filter((t) => {
@@ -225,7 +214,11 @@ export default function AdminTickets() {
                     <div className="text-[11px] text-gray-400 dark:text-gray-500">{ticket.created}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button onClick={() => navigate(`${routeBase}/ticket-details?stf=${ticket.id}`)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="View ticket details"><Eye className="w-5 h-5" /></button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button onClick={() => navigate(`${routeBase}/ticket-details?stf=${ticket.id}`)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" aria-label="View ticket details"><Eye className="w-5 h-5" /></button>
+                      <button onClick={() => openEdit(ticket)} className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400" aria-label="Edit ticket"><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => void deleteTicket(ticket.id)} className="text-gray-400 hover:text-red-600 dark:hover:text-red-400" aria-label="Delete ticket"><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}

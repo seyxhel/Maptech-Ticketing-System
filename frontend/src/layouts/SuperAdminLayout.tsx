@@ -3,7 +3,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Layout } from '../components/layout/Layout';
-import { Sidebar, type NavItem } from '../components/layout/Sidebar';
+import { type NavItem } from '../components/layout/Sidebar';
 import { LayoutDashboard, Users, BarChart3, Settings, ScrollText, Award } from 'lucide-react';
 import { NetworkErrorModal, useNetworkStatus } from '../shared';
 

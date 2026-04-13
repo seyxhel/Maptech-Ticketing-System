@@ -234,18 +234,21 @@ export function buildPdfDocument(
   reportTitle: string,
   bodyContent: string,
   recordSummary: string,
-  _signatureData?: string,
-  _signedBy?: string,
+  signatureData?: string,
+  signedBy?: string,
 ): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString();
   const dateIso = now.toISOString().slice(0, 10);
+  const signatureMeta = signatureData ? 'present' : 'none';
+  const signedByMeta = signedBy || 'n/a';
 
   return `<!DOCTYPE html><html><head>
     <title>${title}</title>
     <style>${PDF_CSS}</style>
   </head><body>
+    <!-- signature:${signatureMeta}; signedBy:${signedByMeta} -->
     ${pdfHeader(reportTitle, dateStr, timeStr)}
     <div class="page-wrapper">
       ${bodyContent}
@@ -322,7 +325,7 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
       if (subHeader) headerWrapper.appendChild(subHeader.cloneNode(true));
       // place the wrapper at the top so CSS applies correctly
       frameDoc.body.insertBefore(headerWrapper, frameDoc.body.firstChild);
-      headerCanvas = await html2canvas(headerWrapper as any, {
+      headerCanvas = await html2canvas(headerWrapper as HTMLElement, {
         useCORS: true,
         backgroundColor: null,
         scale: 2,

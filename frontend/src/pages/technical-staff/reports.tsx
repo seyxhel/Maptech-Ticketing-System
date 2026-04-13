@@ -5,7 +5,7 @@ import { StatCard } from '../../components/ui/StatCard';
 import { fetchTickets } from '../../services/api';
 import type { BackendTicket } from '../../services/api';
 import { BarChart3, FileDown, FileSpreadsheet, ChevronDown } from 'lucide-react';
-import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { toast } from 'sonner';
 import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
 

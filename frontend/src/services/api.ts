@@ -106,6 +106,7 @@ export interface BackendUser {
 export interface BackendTicket {
   id: number;
   stf_no: string;
+  assigned_to_name?: string;
   status: string;
   priority: string;
   client: string;
@@ -117,7 +118,7 @@ export interface BackendTicket {
   mobile_no: string;
   email_address: string;
   type_of_service: number | null;
-  type_of_service_detail: { id: number; name: string; type_of_service_others?: string; description: string; is_active: boolean } | null;
+  type_of_service_detail: { id: number; name: string; type_of_service_others?: string; description: string; is_active: boolean; estimated_resolution_days?: number } | null;
   type_of_service_others: string;
   preferred_support_type: string;
   description_of_problem: string;
@@ -157,7 +158,19 @@ export interface BackendTicket {
   // Nested
   tasks: { id: number; description: string; assigned_to: number | null; status: string }[];
   attachments: { id: number; file: string; uploaded_by: number; uploaded_at: string; is_resolution_proof: boolean }[];
-  escalation_logs: { id: number; escalation_type: string; from_user: number; to_user: number | null; to_external: string; notes: string; created_at: string }[];
+  escalation_logs: {
+    id: number;
+    escalation_type: string;
+    from_user: number;
+    to_user: number | null;
+    to_external: string;
+    notes: string;
+    created_at: string;
+    from_user_name?: string;
+    to_user_name?: string;
+    external_escalated_to?: string;
+    cascade_type?: string;
+  }[];
   // New fields
   client_record: number | null;
   client_record_detail: ClientRecord | null;
@@ -172,6 +185,8 @@ export interface BackendTicket {
   progress_percentage: number;
   sla_estimated_days: number;
   feedback_rating: FeedbackRating | null;
+  linked_ticket_ids?: number[];
+  linked_ticket_stfs?: string[];
   [key: string]: unknown;
 }
 
@@ -666,7 +681,7 @@ export async function fetchTypesOfService(): Promise<TypeOfService[]> {
 }
 
 /** Create a service type. */
-export async function createTypeOfService(data: { name: string; description?: string }): Promise<TypeOfService> {
+export async function createTypeOfService(data: { name: string; description?: string; estimated_resolution_days?: number }): Promise<TypeOfService> {
   const res = await apiFetch(`${API_BASE}/type-of-service/`, {
     method: 'POST',
     headers: authHeaders(),

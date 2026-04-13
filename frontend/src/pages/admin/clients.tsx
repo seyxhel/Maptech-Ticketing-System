@@ -152,8 +152,8 @@ export default function Clients() {
       email_address: client.email_address || '',
       address: client.address || '',
       is_active: client.is_active,
-      sales_representative: (client as any).sales_representative || '',
-      additional_sales_reps: (client as any).additional_sales_reps || [],
+      sales_representative: client.sales_representative || '',
+      additional_sales_reps: client.additional_sales_reps || [],
     });
     setFieldErrors({});
     setIsModalOpen(true);
@@ -172,7 +172,7 @@ export default function Clients() {
     if (!formData.email_address.trim()) {
       errors.email_address = 'Email address is required.';
     } else {
-      const re = /^(([^<>()[\]\\.,;:\s@\"]+(\.([^<>()[\]\\.,;:\s@\"]+))*)|(\".+\"))@(([^<>()[\]\\.,;:\s@\"]+\.)+[^<>()[\]\\.,;:\s@\"]{2,})$/i;
+      const re = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
       if (!re.test(formData.email_address)) errors.email_address = 'Enter a valid email address.';
     }
     if (!formData.address.trim()) errors.address = 'Full address is required.';
@@ -195,8 +195,8 @@ export default function Clients() {
         email_address: formData.email_address.trim(),
         address: formData.address.trim(),
         is_active: formData.is_active,
-        sales_representative: (formData as any).sales_representative?.trim() || '',
-        additional_sales_reps: (formData as any).additional_sales_reps || [],
+        sales_representative: formData.sales_representative?.trim() || '',
+        additional_sales_reps: formData.additional_sales_reps || [],
       };
       if (editingClient) {
         const updated = await updateClient(editingClient.id, payload);
@@ -620,7 +620,7 @@ export default function Clients() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sales Representative <span className="text-red-500">*</span></label>
                 <input
                   type="text"
-                  value={(formData as any).sales_representative || ''}
+                  value={formData.sales_representative || ''}
                   onChange={(e) => setFormData({ ...formData, sales_representative: e.target.value })}
                   className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.sales_representative ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`}
                   placeholder="Primary sales representative"
@@ -629,19 +629,19 @@ export default function Clients() {
 
                 {/* Additional sales reps list */}
                 <div className="mt-3 space-y-2">
-                  {((formData as any).additional_sales_reps || []).map((rep: string, idx: number) => (
+                  {(formData.additional_sales_reps || []).map((rep: string, idx: number) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input
                         type="text"
                         value={rep || ''}
                         onChange={(e) => {
-                          const arr = [...((formData as any).additional_sales_reps || [])]; arr[idx] = e.target.value; setFormData({ ...formData, additional_sales_reps: arr });
+                          const arr = [...(formData.additional_sales_reps || [])]; arr[idx] = e.target.value; setFormData({ ...formData, additional_sales_reps: arr });
                         }}
                         className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none"
                         placeholder="Optional sales rep"
                       />
                       <button type="button" onClick={() => {
-                        const arr = [...((formData as any).additional_sales_reps || [])]; arr.splice(idx, 1); setFormData({ ...formData, additional_sales_reps: arr });
+                        const arr = [...(formData.additional_sales_reps || [])]; arr.splice(idx, 1); setFormData({ ...formData, additional_sales_reps: arr });
                       }} className="inline-flex items-center px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -650,7 +650,7 @@ export default function Clients() {
 
                   <div>
                     <button type="button" onClick={() => {
-                      const arr = [...((formData as any).additional_sales_reps || [])]; arr.push(''); setFormData({ ...formData, additional_sales_reps: arr });
+                      const arr = [...(formData.additional_sales_reps || [])]; arr.push(''); setFormData({ ...formData, additional_sales_reps: arr });
                     }} className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-700 dark:text-gray-200">
                       <Plus className="w-4 h-4" />
                       Add Sales Representative

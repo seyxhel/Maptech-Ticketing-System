@@ -158,8 +158,9 @@ export function Sidebar({
         {navItems.map((item) => {
           if (item.id === 'logout') return null;
           const Icon = item.icon;
-          const hasChildren = item.children && item.children.length > 0;
-          const isChildActive = hasChildren && item.children!.some((c) => isPathMatch(c));
+          const childItems = item.children ?? [];
+          const hasChildren = childItems.length > 0;
+          const isChildActive = hasChildren && childItems.some((c) => isPathMatch(c));
           const isActive = navItemsProp ? (isPathMatch(item) || isChildActive) : currentPage === item.path;
           const isGroupOpen = expandedGroups.has(item.id) || isChildActive;
 
@@ -167,7 +168,13 @@ export function Sidebar({
             return (
               <div key={item.id}>
                 <button
-                  onClick={() => { if (sidebarExpanded) toggleGroup(item.id); else onNavigate(item.children![0].path); }}
+                  onClick={() => {
+                    if (sidebarExpanded) {
+                      toggleGroup(item.id);
+                    } else if (childItems[0]) {
+                      onNavigate(childItems[0].path);
+                    }
+                  }}
                   className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 group ${sidebarExpanded ? '' : 'justify-center'} ${isActive ? 'bg-gradient-to-r from-[#63D44A] to-[#0E8F79] text-white shadow-lg shadow-[#3BC25B]/20' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-white'}`}
                   title={!sidebarExpanded ? item.label : undefined}
                 >
@@ -181,7 +188,7 @@ export function Sidebar({
                 </button>
                 {sidebarExpanded && isGroupOpen && (
                   <div className="ml-6 mt-1 space-y-1">
-                    {item.children!.map((child) => {
+                    {childItems.map((child) => {
                       const childActive = isPathMatch(child);
                       const ChildIcon = child.icon;
                       return (

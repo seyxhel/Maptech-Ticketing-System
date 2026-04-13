@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react';
 import type { UITechnicalStaffTicket } from '../../services/ticketMapper';
 
@@ -41,7 +41,7 @@ export function Calendar({ tickets }: CalendarProps) {
     if (uiStatus === 'closed' || jobStatus === 'completed') return false;
 
     // Mirror tracker behavior: Start Work is active once time_in exists or ticket moved in lifecycle.
-    if (Boolean(ticket.time_in)) return true;
+    if (ticket.time_in) return true;
     if (['in progress', 'resolved', 'closed'].includes(uiStatus)) return true;
     if (['start work', 'in progress', 'started'].includes(jobStatus)) return true;
     return false;

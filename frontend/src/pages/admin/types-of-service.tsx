@@ -134,7 +134,7 @@ export default function TypesOfService() {
           name: formData.name.trim(),
           description: formData.description.trim(),
           estimated_resolution_days: formData.estimated_resolution_days,
-        } as any);
+        });
         setServices((prev) => [...prev, created]);
         toast.success(`"${created.name}" created successfully.`);
       }

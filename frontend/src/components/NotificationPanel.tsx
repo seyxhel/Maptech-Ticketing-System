@@ -40,6 +40,7 @@ export interface NotificationItem {
 }
 
 /** Convert backend notification shape to our panel shape. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function backendToNotificationItem(raw: {
   id: number;
   notification_type: string;
