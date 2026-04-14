@@ -42,6 +42,7 @@ export function SalesLayout() {
       isDark={isDark}
       onToggleDark={toggleDark}
       navItems={NAV_ITEMS}
+      isFluid={location.pathname === '/sales/dashboard'}
     >
       <NetworkErrorModal isOpen={isOffline} onRetry={retry} onDismiss={dismiss} retrying={retrying} />
       <Outlet />

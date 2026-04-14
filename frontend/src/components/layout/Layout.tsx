@@ -12,6 +12,7 @@ interface LayoutProps {
   isDark: boolean;
   onToggleDark: () => void;
   navItems?: NavItem[];
+  isFluid?: boolean;
 }
 export function Layout({
   children,
@@ -21,6 +22,7 @@ export function Layout({
   isDark,
   onToggleDark,
   navItems,
+  isFluid = false,
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
@@ -89,7 +91,7 @@ export function Layout({
           isSidebarExpanded={isSidebarExpanded} />
 
         <main className="flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6 lg:py-6 mt-16 overflow-x-hidden">
-          <div className="max-w-7xl mx-auto space-y-6 w-full">{children}</div>
+          <div className={`${isFluid ? 'max-w-none' : 'max-w-7xl mx-auto'} space-y-6 w-full`}>{children}</div>
         </main>
       </div>
     </div>);
