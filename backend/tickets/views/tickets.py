@@ -21,6 +21,8 @@ from ._helpers import _get_client_ip
 
 User = get_user_model()
 
+MAX_MEDIA_ATTACHMENT_SIZE = 2 * 1024 * 1024 * 1024
+
 
 class TicketViewSet(viewsets.ModelViewSet):
     queryset = Ticket.objects.all().order_by('-created_at')
@@ -833,6 +835,11 @@ class TicketViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
         attachments = []
         for f in files:
+            if f.size > MAX_MEDIA_ATTACHMENT_SIZE:
+                return Response(
+                    {'detail': f'"{f.name}" exceeds the 2 GB limit.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             att = TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=user, is_resolution_proof=True)
             attachments.append(att)
 

@@ -29,6 +29,12 @@ const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending',
 type ReassignModalStep = 'stf-details' | 'ongoing' | 'assign';
 type TicketLocationState = { ticketId?: string; backendTicketId?: number };
 
+const BYTES_PER_KB = 1024;
+const BYTES_PER_MB = BYTES_PER_KB * 1024;
+const BYTES_PER_GB = BYTES_PER_MB * 1024;
+const MAX_MEDIA_ATTACHMENT_SIZE = 2 * BYTES_PER_GB;
+const MAX_FILE_ATTACHMENT_SIZE = 1 * BYTES_PER_GB;
+
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👀'];
 
 const INPUT_EMOJIS: { label: string; emojis: string[] }[] = [
@@ -580,9 +586,14 @@ export function TicketView() {
 
     // Send attachments first (each as a separate message via WS)
     if (hasFiles && sock && sock.isConnected) {
-      pendingFiles.forEach((file) => {
-        sock.sendAttachment(file, '');
-      });
+      try {
+        pendingFiles.forEach((file) => {
+          sock.sendAttachment(file, '');
+        });
+      } catch (err: unknown) {
+        toast.error(getErrorMessage(err, 'One or more attachments exceed the allowed size.'));
+        return;
+      }
     }
 
     // Build local attachment previews for offline mode
@@ -712,15 +723,37 @@ export function TicketView() {
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < BYTES_PER_MB) return `${(bytes / BYTES_PER_KB).toFixed(1)} KB`;
+    if (bytes < BYTES_PER_GB) return `${(bytes / BYTES_PER_MB).toFixed(1)} MB`;
+    return `${(bytes / BYTES_PER_GB).toFixed(1)} GB`;
   };
+
+  const getAttachmentSizeLimit = (file: File): number => (
+    file.type.startsWith('image/') || file.type.startsWith('video/')
+      ? MAX_MEDIA_ATTACHMENT_SIZE
+      : MAX_FILE_ATTACHMENT_SIZE
+  );
+
+  const getAttachmentLimitLabel = (file: File): string => (
+    file.type.startsWith('image/') || file.type.startsWith('video/')
+      ? '2 GB'
+      : '1 GB'
+  );
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
     const newFiles = Array.from(files);
-    setPendingFiles((prev) => [...prev, ...newFiles]);
-    const newPreviews = newFiles.map((file) => ({
+    const validFiles = newFiles.filter((file) => {
+      const sizeLimit = getAttachmentSizeLimit(file);
+      if (file.size > sizeLimit) {
+        toast.error(`"${file.name}" exceeds the ${getAttachmentLimitLabel(file)} limit.`);
+        return false;
+      }
+      return true;
+    });
+    if (!validFiles.length) return;
+    setPendingFiles((prev) => [...prev, ...validFiles]);
+    const newPreviews = validFiles.map((file) => ({
       file,
       url: URL.createObjectURL(file),
       type: getFileCategory(file),
@@ -761,8 +794,6 @@ export function TicketView() {
   const [adminEditOpen, setAdminEditOpen] = useState(false);
   const [adminEditFields, setAdminEditFields] = useState({ status: ticket.status, priority: ticket.priority });
   const [savingAdminEdit, setSavingAdminEdit] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deletingAdmin, setDeletingAdmin] = useState(false);
 
   // ── New feature state ──
   const [observation, setObservation] = useState('');
@@ -1350,8 +1381,8 @@ export function TicketView() {
   };
 
   // ── Attachment file handlers ──
-  const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
-  const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50 MB
+  const MAX_IMAGE_SIZE = MAX_MEDIA_ATTACHMENT_SIZE;
+  const MAX_VIDEO_SIZE = MAX_MEDIA_ATTACHMENT_SIZE;
   const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
   const VIDEO_TYPES = ['video/mp4', 'video/webm'];
 
@@ -1363,7 +1394,7 @@ export function TicketView() {
         return false;
       }
       if (f.size > MAX_IMAGE_SIZE) {
-        toast.error(`"${f.name}" exceeds the 10 MB limit.`);
+        toast.error(`"${f.name}" exceeds the 2 GB limit.`);
         return false;
       }
       return true;
@@ -1380,7 +1411,7 @@ export function TicketView() {
         return false;
       }
       if (f.size > MAX_VIDEO_SIZE) {
-        toast.error(`"${f.name}" exceeds the 50 MB limit.`);
+        toast.error(`"${f.name}" exceeds the 2 GB limit.`);
         return false;
       }
       return true;
@@ -1863,13 +1894,6 @@ export function TicketView() {
             <MessageSquare className="w-4 h-4 text-[#0E8F79]" />
             Messages
           </button>
-          {isAdmin && (
-            <>
-              <button onClick={handleAdminDelete} title="Delete Ticket" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-800 text-sm text-red-700 dark:text-red-400">
-                <Trash2 className="w-4 h-4" /> Delete
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -3174,6 +3198,9 @@ export function TicketView() {
               >
                 <Paperclip className="w-5 h-5" />
               </button>
+              <div className="min-w-0 flex-1 pb-0.5 text-[11px] text-gray-400 dark:text-gray-500">
+                Images and videos up to 2GB, other files up to 1GB.
+              </div>
 
               {/* Emoji toggle button */}
               <button
@@ -3249,40 +3276,6 @@ export function TicketView() {
               <button type="button" onClick={() => setAdminEditOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
               <button type="button" disabled={savingAdminEdit} onClick={async () => { setSavingAdminEdit(true); await saveAdminEdit(); setSavingAdminEdit(false); }} className="flex-1 py-2.5 rounded-xl bg-[#3BC25B] text-white text-sm font-semibold hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                 {savingAdminEdit ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</> : <>Save Changes</>}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      {/* ── Delete Confirmation Modal (Admin) ── */}
-      {showDeleteConfirm && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-200 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="text-gray-900 dark:text-white font-semibold text-sm">Delete Ticket</h3>
-                  <p className="text-gray-400 dark:text-white/40 text-xs">This action cannot be undone.</p>
-                </div>
-              </div>
-              <button onClick={() => setShowDeleteConfirm(false)} className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 flex items-center justify-center text-gray-400 dark:text-white/50 hover:text-gray-600 dark:hover:text-white transition-all">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="px-6 py-5">
-              <p className="text-sm text-gray-700 dark:text-gray-300">Are you sure you want to permanently delete ticket <span className="font-mono text-xs text-[#0E8F79]">{ticket.id}</span>?</p>
-            </div>
-
-            <div className="flex items-center gap-3 px-6 pb-6">
-              <button type="button" onClick={() => setShowDeleteConfirm(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 text-gray-500 dark:text-white/60 hover:text-gray-700 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 text-sm font-medium transition-all">Cancel</button>
-              <button type="button" disabled={deletingAdmin} onClick={confirmAdminDelete} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white text-sm font-semibold hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                {deletingAdmin ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Deleting...</> : <>Delete Ticket</>}
               </button>
             </div>
           </div>

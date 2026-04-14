@@ -97,6 +97,16 @@ function getAccessToken(): string | null {
   return localStorage.getItem('maptech_access') || sessionStorage.getItem('maptech_access') || null;
 }
 
+const BYTES_PER_GB = 1024 * 1024 * 1024;
+const MAX_MEDIA_ATTACHMENT_SIZE = 2 * BYTES_PER_GB;
+const MAX_FILE_ATTACHMENT_SIZE = 1 * BYTES_PER_GB;
+
+function getAttachmentSizeLimit(file: File): number {
+  return file.type.startsWith('image/') || file.type.startsWith('video/')
+    ? MAX_MEDIA_ATTACHMENT_SIZE
+    : MAX_FILE_ATTACHMENT_SIZE;
+}
+
 // ── Socket class ───────────────────────────────────────
 
 export class TicketChatSocket {
@@ -168,6 +178,11 @@ export class TicketChatSocket {
   }
 
   sendAttachment(file: File, content?: string) {
+    const sizeLimit = getAttachmentSizeLimit(file);
+    if (file.size > sizeLimit) {
+      throw new Error(`"${file.name}" exceeds the ${sizeLimit === MAX_MEDIA_ATTACHMENT_SIZE ? '2 GB' : '1 GB'} limit.`);
+    }
+
     // For attachment uploads we use a REST endpoint because WebSocket
     // doesn't handle binary file uploads well. Fallback to base64 over WS
     // if REST isn't available.

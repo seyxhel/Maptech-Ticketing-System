@@ -6,6 +6,7 @@ from channels.middleware import BaseMiddleware
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -16,7 +17,7 @@ def get_user_from_token(token_str):
     try:
         token = AccessToken(token_str)
         return User.objects.get(id=token['user_id'])
-    except Exception:
+    except (InvalidToken, TokenError, User.DoesNotExist):
         return AnonymousUser()
 
 
@@ -35,7 +36,7 @@ class JWTAuthMiddleware(BaseMiddleware):
             access_cookie = getattr(settings, 'JWT_ACCESS_COOKIE_NAME', 'maptech_access')
             morsel = cookie.get(access_cookie)
             return morsel.value if morsel else None
-        except Exception:
+        except (KeyError, ValueError):
             return None
 
     async def __call__(self, scope, receive, send):

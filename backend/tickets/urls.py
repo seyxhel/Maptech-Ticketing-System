@@ -1,16 +1,29 @@
-from rest_framework import routers
-from django.urls import path, include
+from django.urls import include, path
+
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework import routers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
+
 from .views import (
-    TicketViewSet, TypeOfServiceViewSet, EscalationLogViewSet,
-    AuditLogViewSet, KnowledgeHubViewSet, PublishedArticleViewSet,
-    list_employees, list_sales_users, list_supervisors,
-    ProductViewSet, ClientViewSet, CallLogViewSet, FeedbackRatingViewSet,
-    NotificationViewSet, CategoryViewSet, RetentionPolicyViewSet,
     AnnouncementViewSet,
+    AuditLogViewSet,
+    CategoryViewSet,
+    CallLogViewSet,
+    ClientViewSet,
+    EscalationLogViewSet,
+    FeedbackRatingViewSet,
+    KnowledgeHubViewSet,
+    NotificationViewSet,
+    ProductViewSet,
+    PublishedArticleViewSet,
+    RetentionPolicyViewSet,
+    TicketViewSet,
+    TypeOfServiceViewSet,
+    list_employees,
+    list_sales_users,
+    list_supervisors,
 )
 from users.views import AuthViewSet, CustomTokenObtainPairView, CustomTokenRefreshView, UserViewSet
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 
 # Tag the JWT views under "Auth"
 decorated_login_view = swagger_auto_schema(
@@ -22,23 +35,27 @@ decorated_refresh_view = swagger_auto_schema(
 )(CustomTokenRefreshView.as_view())
 
 router = routers.DefaultRouter()
-router.register(r'tickets', TicketViewSet, basename='ticket')
-router.register(r'auth', AuthViewSet, basename='auth')
-router.register(r'users', UserViewSet, basename='user')
-router.register(r'type-of-service', TypeOfServiceViewSet, basename='typeofservice')
-router.register(r'escalation-logs', EscalationLogViewSet, basename='escalationlog')
-router.register(r'audit-logs', AuditLogViewSet, basename='auditlog')
-router.register(r'knowledge-hub', KnowledgeHubViewSet, basename='knowledgehub')
-router.register(r'published-articles', PublishedArticleViewSet, basename='publishedarticle')
-router.register(r'device-equipment', CategoryViewSet, basename='deviceequipment')
-router.register(r'categories', CategoryViewSet, basename='category')
-router.register(r'products', ProductViewSet, basename='product')
-router.register(r'clients', ClientViewSet, basename='client')
-router.register(r'call-logs', CallLogViewSet, basename='calllog')
-router.register(r'feedback-ratings', FeedbackRatingViewSet, basename='feedbackrating')
-router.register(r'notifications', NotificationViewSet, basename='notification')
-router.register(r'retention-policy', RetentionPolicyViewSet, basename='retentionpolicy')
-router.register(r'announcements', AnnouncementViewSet, basename='announcement')
+
+for prefix, viewset, basename in [
+    (r'tickets', TicketViewSet, 'ticket'),
+    (r'auth', AuthViewSet, 'auth'),
+    (r'users', UserViewSet, 'user'),
+    (r'type-of-service', TypeOfServiceViewSet, 'typeofservice'),
+    (r'escalation-logs', EscalationLogViewSet, 'escalationlog'),
+    (r'audit-logs', AuditLogViewSet, 'auditlog'),
+    (r'knowledge-hub', KnowledgeHubViewSet, 'knowledgehub'),
+    (r'published-articles', PublishedArticleViewSet, 'publishedarticle'),
+    (r'device-equipment', CategoryViewSet, 'deviceequipment'),
+    (r'categories', CategoryViewSet, 'category'),
+    (r'products', ProductViewSet, 'product'),
+    (r'clients', ClientViewSet, 'client'),
+    (r'call-logs', CallLogViewSet, 'calllog'),
+    (r'feedback-ratings', FeedbackRatingViewSet, 'feedbackrating'),
+    (r'notifications', NotificationViewSet, 'notification'),
+    (r'retention-policy', RetentionPolicyViewSet, 'retentionpolicy'),
+    (r'announcements', AnnouncementViewSet, 'announcement'),
+]:
+    router.register(prefix, viewset, basename=basename)
 
 urlpatterns = [
     path('', include(router.urls)),

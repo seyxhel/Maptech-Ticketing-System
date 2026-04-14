@@ -14,17 +14,8 @@ class Client(models.Model):
     address = models.TextField(blank=True)
     # Primary sales representative stored as free text (optional)
     sales_representative = models.CharField(max_length=200, blank=True)
-    # Optional additional sales representatives stored as a JSON list of names
-    try:
-        JSONField = models.JSONField
-    except AttributeError:
-        # Older Django: fallback to TextField (store JSON string)
-        JSONField = None
-
-    if JSONField:
-        additional_sales_reps = JSONField(default=list, blank=True)
-    else:
-        additional_sales_reps = models.TextField(blank=True, default='[]')
+    # Optional additional sales representatives stored as a JSON list of names.
+    additional_sales_reps = models.JSONField(default=list, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
