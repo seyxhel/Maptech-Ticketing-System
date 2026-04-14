@@ -496,10 +496,10 @@ export default function SalesDashboard() {
                     </Pie>
                     <Legend
                       verticalAlign="bottom"
-                      height={30}
+                      height={10}
                       iconType="circle"
                       payload={ticketPieLegendPayload}
-                      wrapperStyle={{ fontSize: '10px', color: '#94A3B8', paddingTop: '4px', bottom: '-3px' }}
+                      wrapperStyle={{ fontSize: '10px', color: '#94A3B8', paddingTop: '4px', bottom: '-30px' }}
                     />
                     <Tooltip
                       contentStyle={{
