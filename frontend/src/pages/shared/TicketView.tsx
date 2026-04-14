@@ -15,7 +15,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { TicketChatSocket } from '../../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createFeedbackRating, updateTicket, deleteTicket as apiDeleteTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees, fetchTickets, createCallLog, endCallLog, reviewTicket, confirmTicket, fetchCallLogs } from '../../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createFeedbackRating, updateTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees, fetchTickets, createCallLog, endCallLog, reviewTicket, confirmTicket, fetchCallLogs } from '../../services/api';
 import type { Product, CallLog, UploadedAttachment } from '../../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../../services/api';
@@ -1317,25 +1317,6 @@ export function TicketView() {
       setAdminEditOpen(false);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Failed to update ticket.'));
-    }
-  };
-
-  const handleAdminDelete = () => {
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmAdminDelete = async () => {
-    if (!backendTicketId) return;
-    setDeletingAdmin(true);
-    try {
-      await apiDeleteTicket(backendTicketId);
-      toast.success('Ticket deleted.');
-      navigate(`${routeBase}/tickets`);
-    } catch (err: unknown) {
-      toast.error(getErrorMessage(err, 'Failed to delete ticket.'));
-    } finally {
-      setDeletingAdmin(false);
-      setShowDeleteConfirm(false);
     }
   };
 
