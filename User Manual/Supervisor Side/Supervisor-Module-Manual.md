@@ -268,3 +268,22 @@ Module Line M3 (Closing Tickets): Apply review checklist and finalize closure.
 Module Line M4 (Completed Tickets): Validate closure completion and audit consistency.
 
 Module Line M5 (Knowledge Hub): Publish reusable closure evidence for future resolutions.
+
+## 21. Lifecycle Reference (Synced with Ticket Lifecycle Manual)
+This section is synchronized with `Ticket-Lifecycle-Workflow.md` for supervisor decision consistency.
+
+Lifecycle Line L1 (`Open`): Validate ticket quality and assign the right technical resource.
+
+Lifecycle Line L2 (`In Progress`): Monitor SLA and technical progress; intervene when stalled.
+
+Lifecycle Line L3 (`Escalated`): Review escalation context and route back to active resolution.
+
+Lifecycle Line L4 (`Pending Closure`): Execute closure review gate before final approval.
+
+Lifecycle Line L5 (`Closed`): Validate completed history and publish reusable proof when appropriate.
+
+Closure Gate CG1: Technical action notes and remarks are complete.
+
+Closure Gate CG2: Proof attachments are valid and relevant.
+
+Closure Gate CG3: Feedback/rating submission is completed prior to close.

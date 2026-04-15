@@ -113,3 +113,20 @@ Before a ticket can be closed, verify:
 - Follow the workflow lines in sequence to avoid process errors.
 - Always prioritize data accuracy in client, product, and service fields.
 - Use escalation paths only when standard resolution is not possible.
+
+## Supervisor Lifecycle Reference
+This quick reference mirrors the detailed supervisor lifecycle in `Ticket-Lifecycle-Workflow.md`.
+
+State Line SR1 (`Open`): Validate ticket completeness and assign technician.
+
+State Line SR2 (`In Progress`): Monitor SLA, progress quality, and blockers.
+
+State Line SR3 (`Escalated`): Validate escalation context and reassign appropriately.
+
+State Line SR4 (`Pending Closure`): Review work notes, proof attachments, and outcome quality.
+
+State Line SR5 (`Closed`): Confirm completed history entry and optional Knowledge Hub publication.
+
+Closure Gate G1: Ensure supervisor feedback/rating is submitted before final close.
+
+Closure Gate G2: Ensure closure quality is traceable through ticket history and completed queue.
