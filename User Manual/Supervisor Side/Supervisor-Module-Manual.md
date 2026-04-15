@@ -324,17 +324,21 @@ Purpose:
 4. Publish only reusable and validated knowledge items.
 
 ## 19. Supervisor End-to-End Summary
-Flow Line S1: Intake or receive confirmed ticket.
+Flow Line S1: Intake ticket (create directly or receive confirmed ticket).
 
-Flow Line S2: Validate ticket details and assign technician.
+Flow Line S2: Open STF details and verify client availability.
 
-Flow Line S3: Monitor progress and SLA urgency.
+Flow Line S3: Perform/record call validation and set priority.
 
-Flow Line S4: Handle escalation or observation branches when needed.
+Flow Line S4: Continue to assign and select best-fit technician.
 
-Flow Line S5: Review closure request and submit feedback.
+Flow Line S5: Monitor progress and SLA urgency.
 
-Flow Line S6: Close ticket and optionally publish knowledge proof.
+Flow Line S6: Handle escalation or observation branches when needed.
+
+Flow Line S7: Review closure request and submit feedback.
+
+Flow Line S8: Close ticket and optionally publish knowledge proof.
 
 ## 20. Supervisor Resolving Ticket Workflow (Per Module)
 Module Line M1 (Tickets): Route each ticket to the correct next action by state.
@@ -349,6 +353,8 @@ Module Line M5 (Knowledge Hub): Publish reusable closure evidence for future res
 
 ## 21. Lifecycle Reference (Synced with Ticket Lifecycle Manual)
 This section is synchronized with `Ticket-Lifecycle-Workflow.md` for supervisor decision consistency.
+
+Lifecycle Line L0 (Pre-Assignment Gate): Verify client availability, call status, and priority before assignment.
 
 Lifecycle Line L1 (`Open`): Validate ticket quality and assign the right technical resource.
 

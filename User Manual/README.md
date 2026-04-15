@@ -23,7 +23,7 @@ This guide is built from the official system documentation and aligned with the 
 ### Lifecycle Overview
 A service ticket follows a controlled lifecycle:
 1. Intake and ticket creation
-2. Client call verification and priority setup (Sales flow)
+2. Client availability/call verification and priority setup (Sales or Supervisor, based on ticket creator)
 3. Supervisor assignment
 4. Technical execution
 5. Resolution request or escalation
@@ -62,15 +62,19 @@ Flow Line 08: Supervisor may publish key resolution proof to Knowledge Hub.
 ### Flow B: Supervisor-Initiated Ticket to Resolution
 Flow Line 01: Supervisor creates ticket directly with complete intake details.
 
-Flow Line 02: Supervisor assigns technician immediately.
+Flow Line 02: Supervisor opens STF details, checks client availability, performs call validation, and sets priority.
 
-Flow Line 03: Technician starts work and performs diagnosis.
+Flow Line 03: If client is not reachable, supervisor logs call attempt and schedules follow-up before assignment.
 
-Flow Line 04: Technician either requests closure, submits for observation, or escalates.
+Flow Line 04: Supervisor continues to assign and selects best-fit technician based on workload/capability.
 
-Flow Line 05: If escalated, supervisor reassigns or tracks external handling.
+Flow Line 05: Technician starts work and performs diagnosis.
 
-Flow Line 06: On valid closure request, supervisor reviews and closes ticket.
+Flow Line 06: Technician either requests closure, submits for observation, or escalates.
+
+Flow Line 07: If escalated, supervisor reassigns or tracks external handling.
+
+Flow Line 08: On valid closure request, supervisor reviews and closes ticket.
 
 ## Decision Lines Inside Execution
 Flow Line D1: If issue is resolved, technician requests closure (`Pending Closure`).
@@ -116,6 +120,8 @@ Before a ticket can be closed, verify:
 
 ## Supervisor Lifecycle Reference
 This quick reference mirrors the detailed supervisor lifecycle in `Ticket-Lifecycle-Workflow.md`.
+
+State Line SR0 (Supervisor-Created Intake): Complete STF details review, client availability/call verification, and priority before assignment.
 
 State Line SR1 (`Open`): Validate ticket completeness and assign technician.
 
