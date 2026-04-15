@@ -8,13 +8,14 @@ The system operates as a client-server web application with a RESTful API backen
 
 ### Core Operational Flow
 
-1. **Ticket Creation** — Supervisors create tickets on behalf of clients, capturing client information, product/equipment details, service type, and problem description.
-2. **Assignment** — Supervisors assign tickets to available technicians based on workload and expertise.
-3. **Work Execution** — Technicians start work, diagnose issues, take action, and document their findings.
-4. **Escalation** — If needed, tickets can be escalated internally to other technicians or externally to distributors/principals.
-5. **Resolution** — Technicians submit resolution proofs and request ticket closure.
-6. **Closure** — Supervisors review resolution, provide CSAT feedback, and formally close the ticket.
-7. **Knowledge Capture** — Resolution proofs can be published to the Knowledge Hub for organizational learning.
+1. **Ticket Intake & Creation** — Supervisors or Sales create tickets on behalf of clients, capturing client information, product/equipment details, service type, and problem description.
+2. **Client Call Verification & Priority** — For newly created sales tickets, the call workflow is completed first: call log capture, ticket review, and priority confirmation.
+3. **Supervisor Assignment** — Supervisors assign confirmed tickets to available technicians based on workload and expertise.
+4. **Work Execution** — Technicians start work, diagnose issues, take action, and document findings.
+5. **Escalation** — Tickets may be escalated internally (staff handoff) or externally (vendor/distributor/principal).
+6. **Resolution Request** — Technicians upload proof and request closure (or submit for observation when monitoring is required).
+7. **Closure with Feedback** — Supervisors review final output, submit technical staff feedback rating, and close the ticket.
+8. **Knowledge Capture** — Resolution proofs can be published to the Knowledge Hub for organizational learning.
 
 ---
 
@@ -59,10 +60,11 @@ flowchart TB
 | Maptech Management | Business Owner | Defines business requirements, approves system direction, reviews reports |
 | IT Operations Team | System Operations | Deploys, monitors, and maintains the system infrastructure |
 | Development Team | System Development | Designs, develops, tests, and maintains the application codebase |
-| Supervisors (Admins) | Primary System Users | Create and manage tickets, assign technicians, monitor SLAs, close tickets |
+| Supervisors (Admins) | Primary Operations Leads | Manage ticket operations, assign technicians, monitor SLAs, and close tickets |
+| Sales Team | Intake and Client Coordination | Create tickets, complete call and priority workflow, maintain client/product master data |
 | Technicians (Employees) | Field Service Workers | Receive assignments, perform diagnostics, resolve issues, submit proofs |
 | Superadmins | System Administrators | Manage user accounts, configure system settings, review audit logs |
-| Clients (External) | Service Recipients | Report issues via phone/email; tracked in system by supervisors |
+| Clients (External) | Service Recipients | Report issues via phone/email; tracked in system by sales and supervisors |
 | QA Team | Quality Assurance | Validates system functionality and performance through testing |
 
 ---
@@ -74,9 +76,9 @@ The system implements a role-based access control (RBAC) model with the followin
 | Role | Description | Access Level |
 |------|-------------|-------------|
 | **Superadmin** | Highest-privilege system administrator. Full access to all features including user management, system configuration, audit logs, and retention policies. | Full system access |
-| **Admin (Supervisor)** | Manages day-to-day ticket operations. Creates tickets on behalf of clients, assigns technicians, reviews resolutions, manages products/clients/categories, and closes tickets. Can view audit logs scoped to employee actions. | Full ticket management, catalog management, knowledge hub management |
-| **Sales** | Sales representative with admin-level access for ticket viewing and catalog management. Can view all tickets, manage clients and products, and participate in ticket chat. Restricted from supervisor-specific actions like ticket assignment, closure, and user management. | Ticket viewing, catalog management, limited ticket actions |
-| **Employee (Technician)** | Field service technician assigned to tickets. Can view assigned tickets, start work, update findings, escalate internally, pass tickets, submit for observation, request closure, and upload resolution proofs. | Limited to assigned tickets and own profile |
+| **Admin (Supervisor)** | Manages day-to-day ticket operations. Handles assignment/reassignment, escalation handling, ticket review, closure, feedback ratings, and catalog/service maintenance. | Full operational ticket control |
+| **Sales** | Handles ticket intake and client coordination. Creates tickets, performs call verification and priority confirmation on sales-created tickets, and manages clients/products/categories. | Ticket intake and catalog management |
+| **Employee (Technician)** | Assigned technical staff. Starts work, updates work fields, uploads proof, escalates/pass tickets, submits for observation, and requests closure. | Assigned-ticket execution and updates |
 
 ### Role Hierarchy
 
@@ -97,36 +99,40 @@ flowchart TB
 | Feature | Superadmin | Admin (Supervisor) | Sales | Employee (Technician) |
 |---------|:----------:|:------------------:|:-----:|:---------------------:|
 | View Dashboard & Stats | ✅ | ✅ | ✅ | ✅ (own) |
-| Create Tickets | ✅ | ✅ | ❌ | ❌ |
-| Assign Tickets | ✅ | ✅ | ❌ | ❌ |
-| Start Work on Ticket | ✅ | ✅ | ❌ | ✅ |
-| Update Ticket Fields | ✅ | ✅ | ❌ | ✅ (limited) |
+| Create Tickets | ✅ (API) | ✅ | ✅ (own intake) | ❌ |
+| Assign Tickets | ❌ (no ticket UI) | ✅ | ❌ | ❌ |
+| Start Work on Ticket | ❌ (no ticket UI) | ✅ (escalation handling) | ❌ | ✅ |
+| Update Ticket Fields | ❌ (no ticket UI) | ✅ | ✅ (call review scope) | ✅ (assigned scope) |
 | Escalate Internally | ❌ | ❌ | ❌ | ✅ |
 | Pass Ticket | ❌ | ❌ | ❌ | ✅ |
-| Escalate Externally | ✅ | ✅ | ❌ | ✅ |
+| Escalate Externally | ❌ (no ticket UI) | ✅ | ❌ | ✅ |
 | Request Closure | ❌ | ❌ | ❌ | ✅ |
-| Close Ticket | ✅ | ✅ | ❌ | ❌ |
-| Confirm Ticket | ✅ | ✅ | ❌ | ❌ |
-| Review Ticket | ✅ | ✅ | ❌ | ❌ |
-| Link Tickets | ✅ | ✅ | ❌ | ❌ |
-| Manage Knowledge Hub | ✅ | ✅ | ✅ | ❌ |
-| View Knowledge Hub | ✅ | ✅ | ✅ | ✅ |
-| Manage Products | ✅ | ✅ | ✅ | ❌ |
-| Manage Clients | ✅ | ✅ | ✅ | ❌ |
-| Manage Categories | ✅ | ✅ | ✅ | ❌ |
-| Manage Types of Service | ✅ | ✅ | ❌ | ❌ |
-| Manage Call Logs | ✅ | ✅ | ❌ | ❌ |
-| Submit CSAT Feedback | ✅ | ✅ | ❌ | ❌ |
+| Close Ticket | ❌ (no ticket UI) | ✅ | ❌ | ❌ |
+| Confirm Ticket | ❌ (no ticket UI) | ✅ | ✅ (own intake flow) | ❌ |
+| Review Ticket | ❌ (no ticket UI) | ✅ | ✅ (own intake flow) | ❌ |
+| Link Tickets | ❌ (no ticket UI) | ✅ | ❌ | ❌ |
+| Manage Knowledge Hub | ❌ | ✅ | ❌ | ❌ |
+| View Knowledge Hub | ❌ | ✅ | ❌ | ✅ |
+| Manage Products | ❌ | ✅ | ✅ | ❌ |
+| Manage Clients | ❌ | ✅ | ✅ | ❌ |
+| Manage Categories | ❌ | ✅ | ✅ | ❌ |
+| Manage Types of Service | ❌ | ✅ | ❌ | ❌ |
+| Manage Call Logs | ✅ | ✅ | ✅ (ticket call workflow) | ✅ (ticket participant scope) |
+| Submit Feedback Ratings | ❌ | ✅ | ❌ | ❌ |
 | View Audit Logs | ✅ | ✅ (scoped) | ✅ (scoped) | ❌ |
 | Export Audit Logs | ✅ | ✅ | ✅ | ❌ |
 | Manage Users | ✅ | ❌ | ❌ | ❌ |
 | Manage Announcements | ✅ | ❌ | ❌ | ❌ |
 | Manage Retention Policy | ✅ | ❌ | ❌ | ❌ |
 | View Announcements | ✅ | ✅ | ✅ | ✅ |
-| Chat (Admin ↔ Employee) | ✅ | ✅ | ✅ | ✅ |
+| Chat (Ticket Channel) | ✅ | ✅ | ✅ | ✅ |
 | Receive Notifications | ✅ | ✅ | ✅ | ✅ |
 | Update Profile | ✅ | ✅ | ✅ | ✅ |
 | Change Password | ✅ | ✅ | ✅ | ✅ |
+
+Notes:
+Sales ticket visibility is scoped to tickets they created.
+Supervisor-only assignment controls are enforced by the `IsSupervisorLevel` permission.
 
 ---
 

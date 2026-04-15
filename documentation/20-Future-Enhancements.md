@@ -79,7 +79,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 | **Priority** | Medium |
 | **Effort** | Medium (3–4 weeks) |
 | **Description** | Enhance the existing Recharts-based dashboards with advanced analytics capabilities. |
-| **Features** | SLA compliance trending, technician performance metrics, category/service type analysis, peak hour analysis, first-response time tracking, resolution time trends, CSAT score analytics. |
+| **Features** | SLA compliance trending, technician performance metrics, category/service type analysis, peak hour analysis, first-response time tracking, resolution time trends, feedback rating analytics. |
 | **Current Foundation** | Recharts integration exists in SuperAdmin/Admin dashboards, basic statistics endpoints available. |
 
 ### ENH-08: Mobile Application

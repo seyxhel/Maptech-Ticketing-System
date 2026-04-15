@@ -24,7 +24,7 @@ The Maptech Ticketing System delivers measurable business value across several d
 
 - **Knowledge Retention:** A built-in Knowledge Hub captures resolution proofs and publishes them as reusable articles, preventing knowledge loss when staff changes.
 
-- **Client Satisfaction Tracking:** Integrated CSAT (Customer Satisfaction) feedback collection enables data-driven service quality improvement.
+- **Technical Staff Feedback Tracking:** Integrated 1-5 feedback ratings support structured performance review before ticket closure.
 
 - **Data-Driven Decisions:** Dashboard analytics, reporting, and export capabilities provide management with actionable insights into team performance, ticket volumes, and service trends.
 
@@ -43,7 +43,7 @@ The Maptech Ticketing System delivers measurable business value across several d
 | **Knowledge Hub** | Publish and manage resolution proof documents as searchable knowledge base articles |
 | **Client & Product Records** | Comprehensive client database and product/equipment registry linked to tickets |
 | **Call Log Management** | Track inbound/outbound support calls with duration tracking and notes |
-| **CSAT Feedback** | Post-resolution customer satisfaction surveys with 5-point rating scale |
+| **Feedback Rating** | Post-resolution technical staff feedback (1-5) submitted before ticket closure |
 | **Audit Logging** | Complete action audit trail with actor, timestamp, IP address, and change details |
 | **User Management** | Superadmin-controlled user creation, role assignment, activation/deactivation, and password management |
 | **Announcements** | System-wide or role-targeted announcements with scheduling and expiry |

@@ -53,7 +53,9 @@ The Maptech Ticketing System frontend follows these design principles:
 
 ```
 📊 Dashboard
-🎫 My Tickets
+🎫 Assigned Tickets
+📈 Reports
+↗️ Escalation
 📚 Knowledge Hub
 ⚙️ Settings
 ```
@@ -62,11 +64,11 @@ The Maptech Ticketing System frontend follows these design principles:
 
 ```
 📊 Dashboard
-🎫 Tickets (View Only)
-📦 Products
+🎫 Tickets
+➕ Create Ticket
 👤 Clients
-📚 Knowledge Hub
-📋 Audit Logs
+📦 Products
+🖥️ Categories
 ⚙️ Settings
 ```
 
@@ -120,23 +122,24 @@ The Maptech Ticketing System frontend follows these design principles:
 
 | Screen | Description |
 |--------|-------------|
-| **Dashboard** | Overview with ticket statistics and activity feed (read-only ticket access) |
-| **Tickets** | View-only list of all tickets with filters. Cannot create, assign, or close tickets |
+| **Dashboard** | Sales overview of intake metrics, ticket trends, and client/product summaries |
+| **Tickets** | List of sales-created tickets with filters and quick navigation to ticket details |
+| **Create Ticket** | Multi-step STF creation flow for sales intake, including client call workflow and priority setting |
 | **Products** | CRUD table for products with category, brand, model, serial, warranty filters |
 | **Clients** | CRUD table for client organizations with contact details. View client ticket history |
-| **Knowledge Hub** | Three-tab view: Uploaded (resolution proofs), Published (articles), Archived. Publish, unpublish, archive actions |
-| **Audit Logs** | Same as admin but scoped to employee-level actions |
-| **Settings** | Profile editing (name, phone, avatar), password change, announcement viewing |
+| **Categories** | CRUD table for device/equipment categories used in product registration |
+| **Settings** | Profile editing and password change |
 
 ### Employee (Technician) Pages
 
 | Screen | Description |
 |--------|-------------|
 | **Dashboard** | Assigned ticket summary, active ticket count, recent notifications, announcements |
-| **My Tickets** | List of all tickets assigned to the technician with status filters |
+| **Assigned Tickets** | List of all tickets assigned to the technician with status/SLA filters |
+| **Reports** | Personal operational report view for assigned/in-progress/resolved workload |
 | **Ticket Details** | Ticket view with: problem details, action fields (action_taken, remarks, job_status), product detail form, attachment upload, resolution proof upload, digital signature capture, chat panel with supervisor |
 | **Knowledge Hub** | Read-only searchable list of published knowledge articles |
-| **Escalation** | View escalation history for own tickets |
+| **Escalation** | Escalation history and own ticket escalation tracking |
 | **Settings** | Profile editing, password change |
 
 ### Authentication Pages
@@ -158,7 +161,7 @@ The Maptech Ticketing System frontend follows these design principles:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│ ← Back to Tickets          STF-MP-20260311000001        [Actions ▼] │
+│ ← Back to Tickets          STF-MT-20260311000001        [Actions ▼] │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌─────────────────────────────┐  ┌──────────────────────────────┐  │
@@ -220,9 +223,9 @@ The Maptech Ticketing System frontend follows these design principles:
 │  ┌────────────────────────────────────────────────────────────────┐  │
 │  │ Recent Activity                                                │  │
 │  │                                                                │  │
-│  │ • Ticket STF-MP-20260311000001 assigned to Tech A    2 min ago │  │
+│  │ • Ticket STF-MT-20260311000001 assigned to Tech A    2 min ago │  │
 │  │ • New ticket created for ABC Corp                     5 min ago │  │
-│  │ • Ticket STF-MP-20260310000003 closed               15 min ago │  │
+│  │ • Ticket STF-MT-20260310000003 closed               15 min ago │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘

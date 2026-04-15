@@ -44,7 +44,7 @@ flowchart TB
     AL ==> BL
 
     subgraph BL["BUSINESS LOGIC LAYER"]
-        BL1["• Ticket Lifecycle Management\n• Assignment & Escalation Engine\n• SLA Calculation & Progress Tracking\n• Knowledge Hub Publishing Workflow\n• CSAT Feedback Collection\n• Audit Logging Engine\n• Notification Dispatch System\n• Signal Handlers (Event-Driven Side Effects)"]
+        BL1["• Ticket Lifecycle Management\n• Assignment & Escalation Engine\n• SLA Calculation & Progress Tracking\n• Knowledge Hub Publishing Workflow\n• Feedback Rating Collection\n• Audit Logging Engine\n• Notification Dispatch System\n• Signal Handlers (Event-Driven Side Effects)"]
     end
 
     BL ==> DAL

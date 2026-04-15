@@ -76,9 +76,9 @@ The following are explicitly outside the scope of this documentation:
 
 | Term | Definition |
 |------|-----------|
-| **STF** | Service Ticket Form — the unique identifier format for support tickets (e.g., STF-MP-20260311000001) |
+| **STF** | Service Ticket Form — the unique identifier format for support tickets (e.g., STF-MT-20260311000001) |
 | **SLA** | Service Level Agreement — the agreed-upon timeframe for ticket resolution |
-| **CSAT** | Customer Satisfaction — a measurement of client satisfaction with service delivery |
+| **Feedback Rating** | A 1-5 supervisor/admin assessment of technical staff performance before ticket closure |
 | **JWT** | JSON Web Token — a compact, URL-safe token format for secure authentication |
 | **RBAC** | Role-Based Access Control — a security model where access permissions are assigned to roles |
 | **API** | Application Programming Interface — the set of endpoints through which the frontend communicates with the backend |

@@ -13,7 +13,7 @@ backend/
 │   │   ├── lifecycle.py       # EscalationLog
 │   │   ├── audit.py           # AuditLog
 │   │   ├── notification.py    # Notification
-│   │   ├── support.py         # CallLog, CSATFeedback
+│   │   ├── support.py         # CallLog, FeedbackRating
 │   │   ├── lookup.py          # TypeOfService, Category
 │   │   ├── product.py         # Product
 │   │   ├── client.py          # Client
@@ -25,7 +25,7 @@ backend/
 │   │   ├── config.py          # RetentionPolicyViewSet, AnnouncementViewSet
 │   │   ├── knowledge.py       # KnowledgeHubViewSet, PublishedArticleViewSet
 │   │   ├── notifications.py   # NotificationViewSet
-│   │   └── support.py         # CallLogViewSet, CSATFeedbackViewSet
+│   │   └── support.py         # CallLogViewSet, FeedbackRatingViewSet
 │   ├── serializers/            # DRF serializers (split by domain)
 │   ├── consumers.py           # WebSocket consumers (Chat, Notifications)
 │   ├── permissions.py         # Custom DRF permission classes
@@ -63,7 +63,7 @@ backend/
 |--------|--------|-----|------------|-------------|
 | List/Create | GET/POST | `/api/tickets/` | IsAuthenticated | List tickets (role-scoped) or create new ticket |
 | Retrieve/Update | GET/PUT | `/api/tickets/{id}/` | IsAuthenticated | Get or update ticket details |
-| Assign | POST | `/api/tickets/{id}/assign/` | IsAdminLevel | Assign/reassign ticket to technician |
+| Assign | POST | `/api/tickets/{id}/assign/` | IsSupervisorLevel | Assign/reassign ticket to technician |
 | Escalate | POST | `/api/tickets/{id}/escalate/` | IsAssignedEmployee | Internal escalation (back to admin) |
 | Pass Ticket | POST | `/api/tickets/{id}/pass_ticket/` | IsAssignedEmployee | Transfer to another technician |
 | Review | POST | `/api/tickets/{id}/review/` | IsAdminLevel | Admin reviews ticket, sets priority |
@@ -123,14 +123,15 @@ backend/
 | Remove Avatar | DELETE | `/api/auth/remove_avatar/` | IsAuthenticated | Delete profile picture |
 | Update Profile | PATCH | `/api/auth/update_profile/` | IsAuthenticated | Edit name, phone, username |
 | Change Password | POST | `/api/auth/change_password/` | IsAuthenticated | Change own password |
-| Password Reset | POST | `/api/auth/password_reset/` | Public | Request email-based reset |
-| Reset by Key | POST | `/api/auth/password_reset_by_key/` | Public | Reset via recovery key |
-| Reset Confirm | POST | `/api/auth/password_reset_confirm/` | Public | Complete email-based reset |
-| List Users | GET | `/api/users/` | IsSuperAdmin | List all user accounts |
-| Create User | POST | `/api/users/` | IsSuperAdmin | Create new user account |
-| Update User | PATCH | `/api/users/{id}/` | IsSuperAdmin | Edit user profile/role |
+| Logout | POST | `/api/auth/logout/` | IsAuthenticated | Clear auth cookies and log logout event |
+| Password Reset | POST | `/api/auth/password-reset/` | Public | Request email-based reset |
+| Reset by Key | POST | `/api/auth/password-reset-by-key/` | Public | Reset via recovery key |
+| Reset Confirm | POST | `/api/auth/password-reset-confirm/` | Public | Complete email-based reset |
+| List Users | GET | `/api/users/list_users/` | IsSuperAdmin | List all user accounts |
+| Create User | POST | `/api/users/create_user/` | IsSuperAdmin | Create new user account |
+| Update User | PATCH | `/api/users/{id}/update_user/` | IsSuperAdmin | Edit user profile/role |
 | Toggle Active | POST | `/api/users/{id}/toggle_active/` | IsSuperAdmin | Activate/deactivate account |
-| Reset Password | POST | `/api/users/{id}/admin_reset_password/` | IsSuperAdmin | Reset user password |
+| Reset Password | POST | `/api/users/{id}/reset_password/` | IsSuperAdmin | Reset user password |
 
 ### Dependencies
 - Django auth system (AbstractUser, token_generator)
@@ -254,10 +255,10 @@ backend/
 | Attribute | Details |
 |-----------|---------|
 | **Module Name** | Support Operations |
-| **Description** | Call log tracking and customer satisfaction feedback |
-| **Responsibilities** | Call log CRUD with duration tracking; CSAT feedback submission |
-| **Primary ViewSets** | `CallLogViewSet`, `CSATFeedbackViewSet` |
-| **Serializers** | `CallLogSerializer`, `CSATFeedbackSerializer` |
+| **Description** | Call log tracking and employee feedback ratings |
+| **Responsibilities** | Call log CRUD with duration tracking; feedback rating submission before closure |
+| **Primary ViewSets** | `CallLogViewSet`, `FeedbackRatingViewSet` |
+| **Serializers** | `CallLogSerializer`, `FeedbackRatingSerializer` |
 | **Permissions** | IsAuthenticated + IsAdminLevel |
 
 ---

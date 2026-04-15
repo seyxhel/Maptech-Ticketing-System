@@ -25,7 +25,7 @@ flowchart TB
 
     subgraph AppServer["APPLICATION SERVER (Daphne ASGI)"]
         subgraph DRF["Django REST Framework"]
-            TV["tickets/views/\nTicketViewSet\nAuditLogViewSet\nNotificationViewSet\nAnnouncementViewSet\nCSATFeedbackViewSet\nCallLogViewSet"]
+            TV["tickets/views/\nTicketViewSet\nAuditLogViewSet\nNotificationViewSet\nAnnouncementViewSet\nFeedbackRatingViewSet\nCallLogViewSet"]
             UV["users/views/\nAuthViewSet\nUserViewSet"]
             AUTH["Authentication\nSimpleJWT\nArgon2 Hashing"]
         end
@@ -70,7 +70,7 @@ Ticket (1) ────────── (N) TicketAttachment
 Ticket (1) ────────── (N) TicketTask
 Ticket (1) ────────── (N) Message
 Ticket (1) ────────── (N) EscalationLog
-Ticket (1) ────────── (N) CSATFeedback
+Ticket (1) ────────── (1) FeedbackRating
 Message (1) ─────────(N) MessageReaction
 Message (1) ─────────(N) MessageReadReceipt
 User (1) ─────────── (N) Notification
@@ -96,7 +96,7 @@ Client (1) ─────────── (N) Ticket
 | **AuditLog** | user, action, model_name, object_id, changes (JSON), ip_address |
 | **Notification** | user, title, message, notification_type, is_read, related_ticket |
 | **CallLog** | caller, receiver, related_ticket, call_type, duration, notes |
-| **CSATFeedback** | ticket, rating, comment, submitted_by |
+| **FeedbackRating** | ticket, employee, admin, rating, comments |
 | **TypeOfService** | name, description, is_active |
 | **Category** | name, type_of_service, description, is_active |
 | **Product** | name, description, is_active |
@@ -114,26 +114,31 @@ Client (1) ─────────── (N) Ticket
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/auth/register/` | User registration |
 | POST | `/api/auth/login/` | User login (returns JWT pair) |
 | POST | `/api/auth/token/refresh/` | Refresh access token |
 | POST | `/api/auth/logout/` | User logout |
-| POST | `/api/auth/forgot-password/` | Request password reset |
-| POST | `/api/auth/reset-password/` | Reset password with token |
-| GET | `/api/auth/check-token/` | Validate current token |
+| GET | `/api/auth/me/` | Get current user profile |
+| POST | `/api/auth/upload_avatar/` | Upload profile picture |
+| DELETE | `/api/auth/remove_avatar/` | Remove profile picture |
+| PATCH | `/api/auth/update_profile/` | Update own profile |
+| POST | `/api/auth/change_password/` | Change own password |
+| POST | `/api/auth/password-reset/` | Request password reset (email) |
+| POST | `/api/auth/password-reset-by-key/` | Reset password via recovery key |
+| POST | `/api/auth/password-reset-confirm/` | Confirm password reset token + new password |
 
 ### User Endpoints (`/api/users/`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/users/` | List users (admin+) |
-| POST | `/api/users/` | Create user |
-| GET | `/api/users/{id}/` | Retrieve user detail |
-| PUT/PATCH | `/api/users/{id}/` | Update user |
-| DELETE | `/api/users/{id}/` | Delete user |
-| GET | `/api/users/me/` | Current user profile |
-| PATCH | `/api/users/{id}/change-password/` | Change password |
-| PATCH | `/api/users/{id}/profile-picture/` | Update profile picture |
+| GET | `/api/users/list_users/` | List users (superadmin) |
+| POST | `/api/users/create_user/` | Create user |
+| PATCH | `/api/users/{id}/update_user/` | Update user |
+| POST | `/api/users/{id}/toggle_active/` | Activate/deactivate user |
+| POST | `/api/users/{id}/reset_password/` | Admin reset password |
+| GET | `/api/auth/me/` | Current user profile |
+| PATCH | `/api/auth/update_profile/` | Update own profile |
+| POST | `/api/auth/change_password/` | Change own password |
+| POST | `/api/auth/upload_avatar/` | Upload profile picture |
 
 ### Ticket Endpoints (`/api/tickets/`)
 
@@ -149,41 +154,45 @@ Client (1) ─────────── (N) Ticket
 | POST | `/api/tickets/{id}/start_work/` | Start working on ticket |
 | POST | `/api/tickets/{id}/request_closure/` | Submit ticket for closure |
 | POST | `/api/tickets/{id}/review/` | Review pending closure |
-| POST | `/api/tickets/{id}/confirm/` | Confirm/close ticket |
-| POST | `/api/tickets/{id}/close/` | Direct close (admin) |
+| POST | `/api/tickets/{id}/confirm_ticket/` | Confirm ticket |
+| POST | `/api/tickets/{id}/close_ticket/` | Close ticket (admin-level) |
 | POST | `/api/tickets/{id}/submit_for_observation/` | Set for observation period |
 | POST | `/api/tickets/{id}/upload_resolution_proof/` | Upload proof of resolution |
+| POST | `/api/tickets/{id}/escalate_external/` | Escalate ticket externally |
+| PATCH | `/api/tickets/{id}/save_product_details/` | Save product detail snapshot |
+| PATCH | `/api/tickets/{id}/update_employee_fields/` | Update employee ticket fields |
+| POST | `/api/tickets/{id}/link_tickets/` | Link related tickets |
+| GET | `/api/tickets/{id}/assignment_history/` | Get assignment history |
 | GET | `/api/tickets/{id}/messages/` | Get ticket messages |
-| POST | `/api/tickets/{id}/messages/` | Send message |
-| GET | `/api/tickets/{id}/attachments/` | Get ticket attachments |
-| POST | `/api/tickets/{id}/attachments/` | Upload attachment |
-| GET | `/api/tickets/{id}/tasks/` | Get ticket tasks |
-| POST | `/api/tickets/{id}/tasks/` | Create task |
-| GET | `/api/tickets/{id}/history/` | Get ticket audit history |
-| GET | `/api/tickets/statistics/` | Get ticket statistics |
+| GET | `/api/tickets/stats/` | Get ticket statistics |
 
 ### Notification Endpoints (`/api/notifications/`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/notifications/` | List user notifications |
-| PATCH | `/api/notifications/{id}/read/` | Mark notification as read |
-| POST | `/api/notifications/mark-all-read/` | Mark all notifications as read |
+| POST | `/api/notifications/mark_read/` | Mark selected notifications as read |
+| POST | `/api/notifications/mark_all_read/` | Mark all notifications as read |
+| POST | `/api/notifications/clear_all/` | Delete all notifications |
 
 ### Additional Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/categories/` | List categories |
-| GET | `/api/types-of-service/` | List service types |
+| GET | `/api/type-of-service/` | List service types |
 | GET | `/api/products/` | List products |
 | GET | `/api/clients/` | List clients |
 | GET | `/api/audit-logs/` | List audit logs (admin+) |
 | GET/POST | `/api/announcements/` | Manage announcements |
-| GET/POST | `/api/csat-feedback/` | Manage CSAT feedback |
+| GET/POST | `/api/feedback-ratings/` | Manage feedback ratings |
 | GET/POST | `/api/call-logs/` | Manage call logs |
-| GET | `/api/retention-policies/` | List retention policies |
-| GET | `/api/knowledge-base/` | Knowledge base articles |
+| GET/POST | `/api/retention-policy/` | Get/update retention policy |
+| GET | `/api/knowledge-hub/` | Knowledge Hub attachments |
+| GET | `/api/published-articles/` | Published Knowledge Hub articles |
+| GET | `/api/employees/` | Employee list with active ticket counts |
+| GET | `/api/sales-users/` | Active sales users |
+| GET | `/api/supervisors/` | Active supervisors |
 
 ### WebSocket Endpoints
 
@@ -247,23 +256,23 @@ Client (1) ─────────── (N) Ticket
 
 | Feature | SuperAdmin | Admin (Supervisor) | Sales | Employee (Technician) |
 |---------|:----------:|:------------------:|:-----:|:---------------------:|
-| View all tickets | ✅ | ✅ | ✅ | ❌ (own only) |
-| Create tickets | ✅ | ✅ | ❌ | ❌ |
-| Assign tickets | ✅ | ✅ | ❌ | ❌ |
-| Escalate tickets | ✅ | ✅ | ❌ | ✅ |
+| View tickets | ❌ (no ticket UI) | ✅ | ✅ (own created) | ✅ (assigned only) |
+| Create tickets | ❌ (no ticket UI) | ✅ | ✅ | ❌ |
+| Assign tickets | ❌ | ✅ | ❌ | ❌ |
+| Escalate tickets | ❌ | ✅ (external only) | ❌ | ✅ |
 | Pass tickets | ❌ | ❌ | ❌ | ✅ |
-| Close tickets (direct) | ✅ | ✅ | ❌ | ❌ |
+| Close tickets (direct) | ❌ (no ticket UI) | ✅ | ❌ | ❌ |
 | Request closure | ❌ | ❌ | ❌ | ✅ |
-| Review closures | ✅ | ✅ | ❌ | ❌ |
+| Review/confirm call status | ❌ | ✅ | ✅ (own intake flow) | ❌ |
 | Manage users | ✅ | ❌ | ❌ | ❌ |
 | View audit logs | ✅ | ✅ | ✅ (scoped) | ❌ |
 | Manage categories | ✅ | ✅ | ✅ | ❌ |
 | Manage products | ✅ | ✅ | ✅ | ❌ |
 | Manage clients | ✅ | ✅ | ✅ | ❌ |
 | Send messages | ✅ | ✅ | ✅ | ✅ |
-| Upload attachments | ✅ | ✅ | ❌ | ✅ |
+| Upload attachments | ❌ (no ticket UI) | ✅ | ✅ (ticket scope) | ✅ |
 | View statistics | ✅ | ✅ | ✅ | ✅ (limited) |
-| Manage announcements | ✅ | ✅ | ❌ | ❌ |
+| Manage announcements | ✅ | ❌ | ❌ | ❌ |
 | Manage retention policies | ✅ | ❌ | ❌ | ❌ |
 
 ---
@@ -321,7 +330,7 @@ stateDiagram-v2
 |------|------------|
 | **ASGI** | Asynchronous Server Gateway Interface — Python standard for async web applications |
 | **Assignment Session** | A record linking a technician to a ticket for a specific period |
-| **CSAT** | Customer Satisfaction — feedback rating provided after ticket resolution |
+| **Feedback Rating** | Supervisor/admin 1-5 rating of technical staff performance before ticket closure |
 | **DRF** | Django REST Framework — toolkit for building REST APIs in Django |
 | **Escalation** | Process of transferring a ticket to higher-level support |
 | **JWT** | JSON Web Token — stateless authentication token format |

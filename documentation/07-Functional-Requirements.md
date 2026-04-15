@@ -11,17 +11,17 @@
 | FR-005 | User Management | Superadmins shall be able to create, update, activate/deactivate, and reset passwords for users | Critical |
 | FR-006 | User Management | Users shall be able to update their own profile (name, phone, avatar) | High |
 | FR-007 | User Management | The system shall auto-generate unique usernames from name initials | Medium |
-| FR-008 | Ticket Management | Admins shall be able to create tickets with client, product, and service information | Critical |
-| FR-009 | Ticket Management | The system shall auto-generate unique STF numbers (STF-MP-YYYYMMDDXXXXXX) | Critical |
-| FR-010 | Ticket Management | Admins shall be able to assign tickets to technicians | Critical |
-| FR-011 | Ticket Management | Admins shall be able to reassign tickets to different technicians | High |
+| FR-008 | Ticket Management | Admin-level users shall be able to create tickets with client, product, and service information (sales scope: own intake tickets) | Critical |
+| FR-009 | Ticket Management | The system shall auto-generate unique STF numbers (STF-MT-YYYYMMDDXXXXXX) | Critical |
+| FR-010 | Ticket Management | Supervisors (admin/superadmin permission group) shall be able to assign tickets to technicians | Critical |
+| FR-011 | Ticket Management | Supervisors (admin/superadmin permission group) shall be able to reassign tickets to different technicians | High |
 | FR-012 | Ticket Management | Technicians shall be able to start work on assigned tickets (recording time_in) | Critical |
 | FR-013 | Ticket Management | Technicians shall be able to update action taken, remarks, job status, and other work fields | Critical |
 | FR-014 | Ticket Management | Technicians shall be able to upload resolution proof attachments | Critical |
 | FR-015 | Ticket Management | Technicians shall be able to request ticket closure (recording time_out) | Critical |
-| FR-016 | Ticket Management | Admins shall be able to close tickets with optional CSAT feedback | Critical |
-| FR-017 | Ticket Management | Admins shall be able to confirm tickets (client verification) | High |
-| FR-018 | Ticket Management | Admins shall be able to review tickets and set priority | High |
+| FR-016 | Ticket Management | Supervisors shall be able to close tickets after submitting technical staff feedback rating | Critical |
+| FR-017 | Ticket Management | Admins and sales users shall be able to confirm tickets (sales scope: own call-verified tickets) | High |
+| FR-018 | Ticket Management | Admins and sales users shall be able to review tickets and set priority (sales scope: own call workflow) | High |
 | FR-019 | Ticket Management | The system shall track ticket progress percentage based on lifecycle milestones | Medium |
 | FR-020 | Ticket Management | Admins shall be able to link related tickets | Medium |
 | FR-021 | Escalation | Technicians shall be able to escalate tickets internally (back to admin) | High |
@@ -41,10 +41,10 @@
 | FR-035 | Product Management | Admins shall be able to create, update, and manage product/equipment records | High |
 | FR-036 | Category Management | Admins shall be able to create and manage product categories | Medium |
 | FR-037 | Type of Service | Admins shall be able to create and manage service types with SLA days | High |
-| FR-038 | Call Logs | Admins shall be able to create and manage support call logs with duration tracking | Medium |
-| FR-039 | CSAT Feedback | Admins shall be able to submit satisfaction ratings (1-5) for closed tickets | High |
+| FR-038 | Call Logs | Admin-level users shall be able to create/manage support call logs with duration tracking (role-scoped visibility) | Medium |
+| FR-039 | Feedback Rating | Supervisors shall be able to submit employee feedback ratings (1-5) before closure | High |
 | FR-040 | Audit Logging | The system shall log all significant actions with actor, timestamp, IP, and change details | Critical |
-| FR-041 | Audit Logging | Admins shall be able to search, filter, and export audit logs | High |
+| FR-041 | Audit Logging | Superadmin, admin, and sales roles shall be able to search, filter, and export audit logs within role scope | High |
 | FR-042 | Dashboard | The system shall provide role-specific dashboards with ticket statistics | High |
 | FR-043 | Announcements | Superadmins shall be able to create role-targeted announcements with scheduling | Medium |
 | FR-044 | Retention Policy | Superadmins shall be able to configure data retention periods for logs | Low |
@@ -103,7 +103,8 @@
 - Resolution documentation
 
 **User Interactions:**
-- Admin: Create ticket form, assignment dialog, review/confirm actions, close ticket
+- Admin (Supervisor): Create/assign/reassign tickets, manage lifecycle, close tickets
+- Sales: Create tickets, complete call verification, set priority, confirm ticket, route to supervisor
 - Employee: View assigned tickets, start work, update fields, upload proofs, request closure
 - Both: View ticket details, progress tracking, chat
 
@@ -218,23 +219,23 @@
 **System Responses:**
 - Logs every CRUD action, status change, login/logout, escalation, and assignment
 - Captures actor identity, IP address, user agent, and field-level changes
-- Provides role-scoped visibility (superadmin sees admin+employee logs, admin sees employee logs)
+- Provides role-scoped visibility (superadmin sees admin+employee logs, admin/sales see employee logs)
 
 ---
 
 ## 7.3 Use Case Specifications
 
-### UC-001: Admin Creates a Ticket
+### UC-001: Admin/Sales Creates a Ticket
 
 | Field | Details |
 |-------|---------|
 | **Use Case ID** | UC-001 |
-| **Description** | Supervisor creates a new support ticket on behalf of a client |
-| **Actors** | Admin (Supervisor) |
-| **Preconditions** | Admin is authenticated; at least one active employee exists |
-| **Main Flow** | 1. Admin navigates to Create Ticket page. 2. Admin fills in client information (new or existing client). 3. Admin selects type of service and enters problem description. 4. Admin optionally enters product/equipment details. 5. Admin optionally selects an employee to assign. 6. Admin submits the form. 7. System creates ticket with auto-generated STF number. 8. System creates client and product records if new. 9. If employee assigned, system creates AssignmentSession and sends notification. 10. System shows ticket confirmation with STF number. |
-| **Alternate Flow** | A1: Admin selects existing client from dropdown — system pre-fills client fields. A2: Admin does not assign employee — ticket stays in OPEN status awaiting assignment. |
-| **Postconditions** | New ticket exists in system with unique STF number; client and product linked; employee notified if assigned; audit log entry created. |
+| **Description** | Supervisor or sales user creates a new support ticket on behalf of a client |
+| **Actors** | Admin (Supervisor), Sales |
+| **Preconditions** | User is authenticated; client information is available |
+| **Main Flow** | 1. User navigates to Create Ticket page. 2. User fills client information (new or existing). 3. User enters service/problem details and optional product details. 4. User submits the form. 5. System creates ticket with auto-generated STF number. 6. System creates client and product records if needed. 7. For supervisor-created tickets, assignment may proceed immediately. 8. For sales-created tickets, ticket enters call/priority workflow before supervisor assignment. |
+| **Alternate Flow** | A1: Existing client is selected and fields are pre-filled. A2: No employee is assigned at creation and ticket remains open for supervisor assignment. A3: Sales sets priority and confirms ticket through call workflow first. |
+| **Postconditions** | Ticket exists with unique STF number; related records are linked; audit logs and notifications are generated according to workflow. |
 
 ---
 
@@ -286,8 +287,8 @@
 | **Description** | Supervisor reviews resolution and formally closes the ticket |
 | **Actors** | Admin (Supervisor) |
 | **Preconditions** | Admin is authenticated; ticket is in PENDING_CLOSURE status |
-| **Main Flow** | 1. Admin views ticket in PENDING_CLOSURE status. 2. Admin reviews resolution proof, action taken, and remarks. 3. Admin optionally submits CSAT feedback (1-5 rating with comments). 4. Admin clicks "Close Ticket." 5. System sets status to CLOSED. 6. System ends active AssignmentSession. 7. System sends notification to assigned employee. 8. System creates audit log entry. |
-| **Postconditions** | Ticket status is CLOSED; CSAT feedback recorded; employee notified; session ended. |
+| **Main Flow** | 1. Admin views ticket in PENDING_CLOSURE status. 2. Admin reviews proof, action taken, and remarks. 3. Admin submits feedback rating for the assigned employee. 4. Admin clicks "Close Ticket." 5. System sets status to CLOSED. 6. System ends active AssignmentSession. 7. System sends notification to the assigned employee. 8. System writes audit logs. |
+| **Postconditions** | Ticket status is CLOSED; feedback rating recorded; employee notified; session ended. |
 
 ---
 

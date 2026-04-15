@@ -12,7 +12,7 @@ The Maptech Ticketing System uses a relational data model implemented through Dj
 | **Lifecycle & Escalation** | EscalationLog | Escalation history and tracking |
 | **Audit & Compliance** | AuditLog | System-wide action audit trail |
 | **Notifications** | Notification | User notifications for ticket events |
-| **Support Operations** | CallLog, CSATFeedback | Call tracking and customer satisfaction |
+| **Support Operations** | CallLog, FeedbackRating | Call tracking and employee feedback ratings |
 | **Catalog / Lookup** | TypeOfService, Category, Product, Client | Service types, product categories, equipment, and client records |
 | **Configuration** | RetentionPolicy, Announcement | System configuration and announcements |
 
@@ -160,7 +160,7 @@ erDiagram
         text notes
     }
 
-    CSATFeedback {
+    FeedbackRating {
         int id PK
         int ticket FK
         int employee FK
@@ -241,8 +241,8 @@ erDiagram
     User ||--o{ EscalationLog : "to_user"
     User ||--o{ TicketAttachment : "uploaded_by"
     User ||--o{ TicketTask : "assigned_to"
-    User ||--o{ CSATFeedback : "employee"
-    User ||--o{ CSATFeedback : "admin"
+    User ||--o{ FeedbackRating : "employee"
+    User ||--o{ FeedbackRating : "admin"
     User ||--o{ Announcement : "created_by"
     User ||--o{ RetentionPolicy : "updated_by"
 
@@ -253,7 +253,7 @@ erDiagram
     Ticket ||--o{ EscalationLog : "has"
     Ticket ||--o{ Notification : "references"
     Ticket ||--o{ CallLog : "references"
-    Ticket ||--|| CSATFeedback : "has"
+    Ticket ||--|| FeedbackRating : "has"
 
     AssignmentSession ||--o{ Message : "within"
     Message ||--o{ MessageReaction : "has"
@@ -286,7 +286,7 @@ erDiagram
 | `tickets_auditlog` | System-wide audit trail | FK → User (actor) |
 | `tickets_notification` | User notifications | FK → User (recipient), FK → Ticket |
 | `tickets_calllog` | Support call records | FK → Ticket, FK → User (admin) |
-| `tickets_csatfeedback` | Customer satisfaction ratings | OneToOne → Ticket, FK → User (employee, admin) |
+| `tickets_feedbackrating` | Employee feedback ratings | OneToOne → Ticket, FK → User (employee, admin) |
 | `tickets_typeofservice` | Service type definitions | Referenced by Ticket |
 | `tickets_category` | Product categories | Referenced by Product |
 | `tickets_product` | Product/equipment records | FK → Category, Referenced by Ticket |
@@ -325,7 +325,7 @@ erDiagram
 | Field Name | Type | Constraints | Description |
 |------------|------|-------------|-------------|
 | id | BigAutoField | PK | Unique ticket identifier |
-| stf_no | CharField(30) | Unique, Auto-generated | Service Ticket Form number (STF-MP-YYYYMMDDXXXXXX) |
+| stf_no | CharField(30) | Unique, Auto-generated | Service Ticket Form number (STF-MT-YYYYMMDDXXXXXX) |
 | status | CharField(20) | Choices, Default: 'open' | Current ticket status |
 | priority | CharField(10) | Choices, Optional | Ticket priority (low/medium/high/critical) |
 | created_by | ForeignKey(User) | CASCADE | Supervisor who created the ticket |
@@ -405,7 +405,7 @@ erDiagram
 
 ### Additional Tables
 
-Additional data dictionary entries for remaining tables (EscalationLog, Notification, CallLog, CSATFeedback, TypeOfService, Category, Product, Client, RetentionPolicy, Announcement, AssignmentSession, TicketTask, MessageReaction, MessageReadReceipt) follow the same structure documented in Section 5.5 Component Architecture and the ERD above.
+Additional data dictionary entries for remaining tables (EscalationLog, Notification, CallLog, FeedbackRating, TypeOfService, Category, Product, Client, RetentionPolicy, Announcement, AssignmentSession, TicketTask, MessageReaction, MessageReadReceipt) follow the same structure documented in Section 5.5 Component Architecture and the ERD above.
 
 ---
 
@@ -488,7 +488,7 @@ flowchart TB
     ADI["Admin Input"] --> CLT["Close Ticket"]
     CLT --> TDB5[(Ticket DB — status → closed)]
     CLT --> ES["End Session"] --> SDB2[(Session DB)]
-    CLT --> CSAT["Create CSAT"] --> CSDB[(CSATFeedback DB)]
+    CLT --> FR["Create Feedback Rating"] --> FRDB[(FeedbackRating DB)]
     CLT --> SN3["Notify Employee"]
     CLT --> CA5["Create Audit Log"]
 ```

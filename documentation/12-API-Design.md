@@ -98,45 +98,47 @@ ws://localhost:8000/ws/chat/42/admin_employee/?token=eyJhbGciOiJIUzI1NiIs...
 | `/api/auth/remove_avatar/` | DELETE | Remove profile picture | Required |
 | `/api/auth/update_profile/` | PATCH | Update name, phone, username | Required |
 | `/api/auth/change_password/` | POST | Change own password | Required |
-| `/api/auth/password_reset/` | POST | Request password reset (email) | Public |
-| `/api/auth/password_reset_by_key/` | POST | Reset password via recovery key | Public |
-| `/api/auth/password_reset_confirm/` | POST | Confirm email-based password reset | Public |
+| `/api/auth/logout/` | POST | Logout and clear auth cookies | Required |
+| `/api/auth/password-reset/` | POST | Request password reset (email) | Public |
+| `/api/auth/password-reset-by-key/` | POST | Reset password via recovery key | Public |
+| `/api/auth/password-reset-confirm/` | POST | Confirm email-based password reset | Public |
 
 ### User Management Endpoints (Superadmin Only)
 
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|
-| `/api/users/` | GET | List all users | Superadmin |
-| `/api/users/` | POST | Create new user account | Superadmin |
+| `/api/users/list_users/` | GET | List all users | Superadmin |
+| `/api/users/create_user/` | POST | Create new user account | Superadmin |
 | `/api/users/{id}/update_user/` | PATCH | Update user profile/role | Superadmin |
 | `/api/users/{id}/toggle_active/` | POST | Activate/deactivate account | Superadmin |
-| `/api/users/{id}/admin_reset_password/` | POST | Reset user password | Superadmin |
+| `/api/users/{id}/reset_password/` | POST | Reset user password | Superadmin |
 
 ### Ticket Endpoints
 
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|
 | `/api/tickets/` | GET | List tickets (role-scoped) | Required |
-| `/api/tickets/` | POST | Create new ticket | Admin |
+| `/api/tickets/` | POST | Create new ticket | Admin-level |
 | `/api/tickets/{id}/` | GET | Retrieve ticket details | Required |
 | `/api/tickets/{id}/` | PUT/PATCH | Update ticket (role-scoped fields) | Required |
-| `/api/tickets/{id}/` | DELETE | Delete ticket | Admin |
-| `/api/tickets/{id}/assign/` | POST | Assign/reassign to technician | Admin |
+| `/api/tickets/{id}/` | DELETE | Delete ticket | Admin-level |
+| `/api/tickets/{id}/assign/` | POST | Assign/reassign to technician | Supervisor-level |
 | `/api/tickets/{id}/escalate/` | POST | Internal escalation | Employee |
 | `/api/tickets/{id}/pass_ticket/` | POST | Pass to another technician | Employee |
-| `/api/tickets/{id}/review/` | POST | Review ticket, set priority | Admin |
-| `/api/tickets/{id}/confirm_ticket/` | POST | Confirm client verification | Admin |
+| `/api/tickets/{id}/review/` | POST | Review ticket, set priority | Admin-level |
+| `/api/tickets/{id}/confirm_ticket/` | POST | Confirm client verification | Admin-level |
 | `/api/tickets/{id}/escalate_external/` | POST | Escalate to external vendor | Admin/Employee |
-| `/api/tickets/{id}/close_ticket/` | POST | Close ticket | Admin |
+| `/api/tickets/{id}/close_ticket/` | POST | Close ticket | Admin-level |
 | `/api/tickets/{id}/start_work/` | POST | Start work (record time_in) | Admin/Employee |
 | `/api/tickets/{id}/request_closure/` | POST | Submit resolution for closure | Employee |
 | `/api/tickets/{id}/upload_resolution_proof/` | POST | Upload resolution proof files | Admin/Employee |
 | `/api/tickets/{id}/submit_for_observation/` | POST | Submit for monitoring | Admin/Employee |
 | `/api/tickets/{id}/save_product_details/` | PATCH | Save product info | Admin/Employee |
 | `/api/tickets/{id}/update_employee_fields/` | PATCH | Update work fields | Admin/Employee |
-| `/api/tickets/{id}/link_tickets/` | POST | Link related tickets | Admin |
+| `/api/tickets/{id}/link_tickets/` | POST | Link related tickets | Admin-level |
 | `/api/tickets/{id}/update_task/{task_id}/` | PATCH | Update sub-task status | Admin/Employee |
 | `/api/tickets/{id}/delete_attachment/{att_id}/` | DELETE | Remove attachment | Participant |
+| `/api/tickets/next_stf_no/` | GET | Preview next STF number | Required |
 | `/api/tickets/stats/` | GET | Dashboard statistics | Required |
 | `/api/tickets/{id}/messages/` | GET | Chat message history | Participant |
 | `/api/tickets/{id}/assignment_history/` | GET | Assignment session history | Participant |
@@ -174,11 +176,11 @@ ws://localhost:8000/ws/chat/42/admin_employee/?token=eyJhbGciOiJIUzI1NiIs...
 
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|
-| `/api/call-logs/` | GET/POST | List/Create call logs | Admin |
-| `/api/call-logs/{id}/` | GET/PUT/DELETE | Retrieve/Update/Delete call log | Admin |
-| `/api/call-logs/{id}/end_call/` | POST | End call (set call_end to now) | Admin |
-| `/api/csat-feedback/` | GET/POST | List/Create CSAT feedback | Admin |
-| `/api/csat-feedback/{id}/` | GET/PUT/DELETE | Retrieve/Update/Delete feedback | Admin |
+| `/api/call-logs/` | GET/POST | List/Create call logs | Required (role-scoped) |
+| `/api/call-logs/{id}/` | GET/PUT/PATCH/DELETE | Retrieve/Update/Delete call log | Required (role-scoped) |
+| `/api/call-logs/{id}/end_call/` | POST | End call (set call_end to now) | Required (role-scoped) |
+| `/api/feedback-ratings/` | GET/POST | List/Create feedback ratings | Admin-level |
+| `/api/feedback-ratings/{id}/` | GET/PUT/PATCH/DELETE | Retrieve/Update/Delete feedback rating | Admin-level |
 
 ### Knowledge Hub Endpoints
 
@@ -220,6 +222,8 @@ ws://localhost:8000/ws/chat/42/admin_employee/?token=eyJhbGciOiJIUzI1NiIs...
 | Endpoint | Method | Description | Auth |
 |----------|--------|-------------|------|
 | `/api/employees/` | GET | List employees with active ticket counts | Required |
+| `/api/sales-users/` | GET | List active sales users | Required |
+| `/api/supervisors/` | GET | List active supervisors | Required |
 
 ---
 
@@ -231,7 +235,7 @@ ws://localhost:8000/ws/chat/42/admin_employee/?token=eyJhbGciOiJIUzI1NiIs...
 // Single Object
 {
   "id": 1,
-  "stf_no": "STF-MP-20260311000001",
+  "stf_no": "STF-MT-20260311000001",
   "status": "open",
   "priority": "high",
   "created_at": "2026-03-11T08:30:00Z"
@@ -239,8 +243,8 @@ ws://localhost:8000/ws/chat/42/admin_employee/?token=eyJhbGciOiJIUzI1NiIs...
 
 // List Response
 [
-  { "id": 1, "stf_no": "STF-MP-20260311000001", ... },
-  { "id": 2, "stf_no": "STF-MP-20260311000002", ... }
+  { "id": 1, "stf_no": "STF-MT-20260311000001", ... },
+  { "id": 2, "stf_no": "STF-MT-20260311000002", ... }
 ]
 ```
 
@@ -330,7 +334,7 @@ Content-Type: application/json
     "id": 42,
     "notification_type": "assignment",
     "title": "New Ticket Assigned",
-    "message": "You have been assigned ticket STF-MP-20260311000001",
+    "message": "You have been assigned ticket STF-MT-20260311000001",
     "ticket_id": 1,
     "is_read": false,
     "created_at": "2026-03-11T10:00:00Z"

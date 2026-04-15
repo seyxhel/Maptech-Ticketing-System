@@ -29,10 +29,10 @@ flowchart TB
         SA_D["Full system access including user management,\nretention policies, and all admin capabilities"]
     end
     subgraph AD["ADMIN"]
-        AD_D["Ticket lifecycle management, catalog CRUD,\nknowledge hub, call logs, CSAT, audit logs"]
+        AD_D["Ticket lifecycle management, catalog CRUD,\nknowledge hub, call logs, feedback ratings, audit logs"]
     end
     subgraph SL["SALES"]
-        SL_D["Ticket viewing, catalog management,\nknowledge hub access (no supervisor actions)"]
+        SL_D["Ticket intake/viewing and catalog management\n(no supervisor assignment actions)"]
     end
     subgraph EM["EMPLOYEE"]
         EM_D["View/work on assigned tickets only, escalate,\nsubmit for observation, request closure"]
@@ -154,7 +154,7 @@ Each audit log entry captures:
   "entity": "Ticket",
   "entity_id": 42,
   "action": "STATUS_CHANGE",
-  "activity": "Ticket STF-MP-20260311000001 status changed from 'open' to 'in_progress'",
+  "activity": "Ticket STF-MT-20260311000001 status changed from 'open' to 'in_progress'",
   "actor": 5,
   "actor_email": "technician@maptech.com",
   "ip_address": "192.168.1.100",

@@ -4,11 +4,12 @@
 
 The Maptech Ticketing System supports a multi-stage ticket lifecycle with branching workflows for escalation, observation, and external referral. The primary workflow involves the following stages:
 
-1. **Ticket Creation** — A supervisor creates a ticket with client and issue details.
-2. **Assignment** — The supervisor assigns the ticket to an available technician.
-3. **Work Execution** — The technician starts work, diagnoses, and takes action.
-4. **Resolution or Escalation** — The technician either resolves the issue or escalates it.
-5. **Closure** — The supervisor reviews the resolution and formally closes the ticket.
+1. **Ticket Intake & Creation** — A supervisor or sales user creates a ticket with client and issue details.
+2. **Call Verification & Priority Setup** — Sales-created tickets go through a call-status step (call completion + priority review/confirmation).
+3. **Supervisor Assignment** — The supervisor assigns a confirmed ticket to an available technician.
+4. **Work Execution** — The technician starts work, diagnoses, and takes action.
+5. **Resolution, Observation, or Escalation** — The technician may submit for observation, request closure, or escalate.
+6. **Closure** — The supervisor reviews final details, submits feedback rating, and closes the ticket.
 
 ---
 
@@ -59,7 +60,7 @@ flowchart TB
     G -->|"Escalates"| I["Escalates\n(Internal / External)"]
     H --> J["Requests closure\n(time_out set)"]
     I --> K["Re-assigned or\nsent to vendor"]
-    J --> L["Supervisor reviews\nSubmits CSAT\nCloses ticket"]
+    J --> L["Supervisor reviews\nSubmits feedback rating\nCloses ticket"]
     K --> M["Process repeats\nuntil resolved"]
     L --> N["Knowledge Hub\n(publish proof)"]
     M --> O["Resolution captured\nwhen eventually closed"]
@@ -69,13 +70,24 @@ flowchart TB
 
 | Benefit | Description |
 |---------|-------------|
-| Automated STF generation | Unique ticket numbers auto-assigned (STF-MP-YYYYMMDDXXXXXX) |
+| Automated STF generation | Unique ticket numbers auto-assigned (STF-MT-YYYYMMDDXXXXXX) |
 | Real-time notifications | Instant alerts for assignments, status changes, escalations |
 | Live chat | Supervisors and technicians communicate in real-time within each ticket |
 | SLA tracking | Automatic estimated resolution days and progress percentage |
 | Audit trail | Every action logged with actor, timestamp, IP address, and changes |
 | Knowledge retention | Resolution proofs published for organizational learning |
 | Digital signatures | Clients sign off on completed work digitally |
+
+### 6.3.1 Current Production Workflow Notes (April 2026)
+
+The live implementation includes an intake split between Sales and Supervisors:
+
+1. Sales can create tickets and complete client call verification.
+2. Sales sets ticket priority during the call workflow and confirms the ticket.
+3. Confirmed tickets are routed to supervisor assignment.
+4. Supervisors assign technicians and continue lifecycle oversight.
+5. Technicians execute, escalate/pass if needed, then request closure.
+6. Supervisors submit feedback rating before final closure.
 
 ---
 
@@ -142,6 +154,9 @@ flowchart TB
     H --> J["New AssignmentSession\n(old session ends)"]
 ```
 
+Implementation note:
+When a ticket is created by Sales, assignment is gated until call verification and priority confirmation are completed.
+
 ### 6.4.3 Escalation Workflow
 
 ```mermaid
@@ -171,7 +186,7 @@ flowchart TB
     D --> E["Requests closure\n(status → pending_closure, time_out set)"]
     E --> F["Supervisor receives notification"]
     F --> G["Reviews resolution\ndetails & proof"]
-    G --> H["Submits CSAT feedback\n(1-5 rating)"]
+    G --> H["Submits feedback rating\n(1-5)"]
     H --> I["Closes ticket\n(status → closed)"]
     I --> J["Optional: Publishes resolution\nproof to Knowledge Hub"]
 ```

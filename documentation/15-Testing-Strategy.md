@@ -102,7 +102,7 @@ The testing strategy for the Maptech Ticketing System aims to:
 | TC-TKT-007 | Employee uploads resolution proof | Attachment created with is_resolution_proof=True |
 | TC-TKT-008 | Employee requests closure without proof | Returns 400 "Resolution proof required" |
 | TC-TKT-009 | Employee requests closure with proof | Status → pending_closure; time_out recorded |
-| TC-TKT-010 | Admin closes ticket with CSAT | Status → closed; session ended; CSAT recorded |
+| TC-TKT-010 | Admin closes ticket with feedback rating | Status → closed; session ended; feedback rating recorded |
 | TC-TKT-011 | Employee views only assigned tickets | Only assigned tickets returned in list |
 | TC-TKT-012 | Admin views all tickets | All tickets returned in list |
 | TC-TKT-013 | STF number uniqueness | Concurrent creation produces unique STF numbers |
