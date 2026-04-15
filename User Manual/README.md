@@ -23,7 +23,7 @@ This guide is built from the official system documentation and aligned with the 
 ### Lifecycle Overview
 A service ticket follows a controlled lifecycle:
 1. Intake and ticket creation
-2. Client availability/call verification and priority setup (Sales or Supervisor, based on ticket creator)
+2. Client call verification and priority setup (sales-created tickets)
 3. Supervisor assignment
 4. Technical execution
 5. Resolution request or escalation
@@ -62,19 +62,15 @@ Flow Line 08: Supervisor may publish key resolution proof to Knowledge Hub.
 ### Flow B: Supervisor-Initiated Ticket to Resolution
 Flow Line 01: Supervisor creates ticket directly with complete intake details.
 
-Flow Line 02: Supervisor opens STF details, checks client availability, performs call validation, and sets priority.
+Flow Line 02: Supervisor assigns technician based on workload and expertise.
 
-Flow Line 03: If client is not reachable, supervisor logs call attempt and schedules follow-up before assignment.
+Flow Line 03: Technician starts work and performs diagnosis.
 
-Flow Line 04: Supervisor continues to assign and selects best-fit technician based on workload/capability.
+Flow Line 04: Technician either requests closure, submits for observation, escalates, or passes ticket.
 
-Flow Line 05: Technician starts work and performs diagnosis.
+Flow Line 05: If escalated or passed, assignment is rotated and workflow continues.
 
-Flow Line 06: Technician either requests closure, submits for observation, or escalates.
-
-Flow Line 07: If escalated, supervisor reassigns or tracks external handling.
-
-Flow Line 08: On valid closure request, supervisor reviews and closes ticket.
+Flow Line 06: On valid closure request, supervisor reviews and closes ticket.
 
 ## Decision Lines Inside Execution
 Flow Line D1: If issue is resolved, technician requests closure (`Pending Closure`).
@@ -83,9 +79,13 @@ Flow Line D2: If issue needs monitoring, technician submits `For Observation`.
 
 Flow Line D3: If issue exceeds scope, technician escalates internally (`Escalated`).
 
-Flow Line D4: If vendor action is needed, admin/technician escalates externally (`Escalated External`).
+Flow Line D4: If reroute to another technician is needed, ticket is passed to another technician.
 
-Flow Line D5: Reassigned tickets return to `In Progress` until closure criteria are met.
+Flow Line D5: If vendor action is needed, admin/technician escalates externally (`Escalated External`) with vendor/distributor details and notes.
+
+Flow Line D6: Admin may mark unresolved tickets as `Unresolved`; reopened tickets return to `In Progress`.
+
+Flow Line D7: Reassigned tickets return to `In Progress` until closure criteria are met.
 
 ## Mandatory Closure Checks
 Before a ticket can be closed, verify:
@@ -120,8 +120,6 @@ Before a ticket can be closed, verify:
 
 ## Supervisor Lifecycle Reference
 This quick reference mirrors the detailed supervisor lifecycle in `Ticket-Lifecycle-Workflow.md`.
-
-State Line SR0 (Supervisor-Created Intake): Complete STF details review, client availability/call verification, and priority before assignment.
 
 State Line SR1 (`Open`): Validate ticket completeness and assign technician.
 

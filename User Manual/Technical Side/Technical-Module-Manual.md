@@ -83,28 +83,33 @@ Checklist Line C5: Closure request is submitted only when issue is resolved or p
 Escalation Branch Lines:
 - Flow Line E1: If scope exceeds capability, escalate internally.
 - Flow Line E2: If reroute to another technician is needed, pass ticket appropriately.
-- Flow Line E3: If external support is required, coordinate escalation through supervisor process.
+- Flow Line E3: If external support is required, submit external escalation with vendor/distributor name and escalation notes.
 
 Observation Branch Lines:
 - Flow Line O1: If issue requires monitoring, submit for observation.
 - Flow Line O2: Resume active work when monitoring results require action.
 
 ## 7. Escalation Module
+![Technical Escalate Internal](Technical%20eslacating%20ticket%20modal%20internal.png)
+![Technical Escalate External](Technical%20escalate%20ticket%20external.png)
 ![Technical Escalation History](Technical%20Escalation%20History.png)
 
 Purpose:
-- Track escalation records for assigned tickets.
+- Submit and track internal escalation, pass, and external escalation records for assigned tickets.
 
 Steps:
-1. Open escalation view.
-2. Review escalation type, destination, and date.
-3. Confirm whether reassignment is pending or resolved.
+1. From ticket actions, choose `Escalate` or `Pass` when issue cannot be completed in current assignment.
+2. For internal escalation, provide clear escalation notes.
+3. For pass flow, select target technician and provide pass notes.
+4. For external escalation, enter vendor/distributor name and escalation notes.
+5. Submit action and review resulting status/assignment updates in Escalation History.
 
 Escalation-to-Resolution Lines:
 - Flow Line ER1: Escalate ticket when resolution cannot be completed at current level.
-- Flow Line ER2: Provide clear escalation notes to avoid repeat diagnosis.
-- Flow Line ER3: Monitor reassignment outcome.
-- Flow Line ER4: Resume work if ticket returns to you and continue toward closure.
+- Flow Line ER2: Use pass flow when reassignment to another technician is needed.
+- Flow Line ER3: For external escalation, provide vendor/distributor name and notes.
+- Flow Line ER4: Monitor reassignment or external-tracking outcome.
+- Flow Line ER5: Resume work if ticket returns to you and continue toward closure.
 
 ## 8. Knowledge Hub Module
 ![Technical Knowledge Hub](Technical%20Knowledge%20Hub.png)

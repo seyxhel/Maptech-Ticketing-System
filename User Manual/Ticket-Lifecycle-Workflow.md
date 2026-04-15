@@ -1,7 +1,7 @@
 # Ticket Lifecycle Workflow Manual
 
 ## Purpose
-This manual explains the complete ticket lifecycle from creation to closure in a clear step-by-step format, including the supervisor intake process (client availability checking, client calls, assignment, and reassignment).
+This manual explains the complete ticket lifecycle from creation to closure in a clear step-by-step format, aligned with the documented sales call-verification gate, supervisor assignment flow, and technical execution-to-closure process.
 
 ## How to Read This Manual
 - `Visual Flow`: Quick path using arrow icons.
@@ -16,7 +16,7 @@ This manual explains the complete ticket lifecycle from creation to closure in a
 
 ## Roles in This Workflow
 - Sales: intake and verification for sales-created tickets
-- Supervisor: intake verification, call handling, assignment/reassignment, routing, closure validation
+- Supervisor: assignment/reassignment, routing, escalation handling, and closure validation
 - Technical Staff: diagnosis, execution, update, and proof submission
 
 ## Stage 0: Intake Readiness
@@ -86,48 +86,33 @@ Explanation: Supervisor final confirmation screen before submitting a newly enco
 9. Review all details and submit.
 10. System generates STF number and ticket status becomes `Open`.
 
-## Stage 2: Supervisor Progress During Ticket Creation (Client Availability and Calls)
+## Stage 2: Sales Call Verification and Priority Setup
 
 Visual Flow:
-`Ticket Created (Open) -> Open STF Details -> Check Client Availability => [Yes] Select Contact to Call -> Call and Confirm -> Set Priority -> Continue to Assign`
-
-Decision Branch:
-`Check Client Availability => [No] Log Failed Contact -> Set Callback Follow-up -> Retry Call -> Confirm -> Continue to Assign`
+`Ticket Created (Sales) -> Perform Client Call Verification -> Review Ticket -> Set Priority -> Confirm Ticket -> Route to Supervisor Assignment`
 
 ### Screens and Explanation
-![Supervisor STF Details and Client Availability](Supervisor%20Side/Supervisor%20options%20Client%20availability.png)
-Explanation: Supervisor opens the STF details modal, reviews ticket/client context, and sets client availability using the availability options.
-
-![Supervisor Call Handling](Supervisor%20Side/Supervisor%20calls.png)
-Explanation: Supervisor selects who to call, performs call validation, reviews call log preview, and records call completion status.
-
-![Supervisor Continue to Assign](Supervisor%20Side/Supervisor%20continue%20assign.png)
-Explanation: After availability and call validation, supervisor confirms priority and proceeds using Continue to Assign.
-
-![Supervisor Call Logs](Supervisor%20Side/Supervisor%20Call%20logs.png)
-Explanation: Supervisor records successful and unsuccessful call attempts, including follow-up timing and verification notes.
-
 ![Sales Tickets View](Sales%20Side/Sales%20Tickets.png)
-Explanation: Sales-side verification reference for tickets created by Sales before routing to Supervisor.
+Explanation: Sales verification and review reference before routing ticket to supervisor assignment.
 
 ### Detailed Steps
-11. Open STF details for the newly created or selected ticket.
-12. Review core ticket/client information before dispatch.
-13. Set client availability using the availability options.
-14. Select the correct contact person in the Who to call section.
-15. If call connects, validate concern details and tag call as completed.
-16. If call does not connect, log unsuccessful attempt and set callback follow-up.
-17. Review call log preview and ensure call status is documented.
-18. Set or confirm ticket priority (`Low`, `Medium`, `High`, `Critical`).
-19. Click Continue to Assign when call verification and priority are complete.
+11. Sales opens the newly created ticket from sales ticket views.
+12. Sales performs client call verification and confirms issue context.
+13. Sales records call workflow details for traceability.
+14. Sales reviews ticket completeness and data accuracy.
+15. Sales sets priority (`Critical`, `High`, `Medium`, `Low`, `Unknown`).
+16. Sales confirms ticket for operational handling.
+17. System marks ticket ready for supervisor assignment routing.
+18. Supervisor receives confirmed ticket in assignment queue.
+19. Ticket proceeds to supervisor assignment stage.
 
 ## Stage 3: Supervisor Assignment and Reassignment
 
 Visual Flow:
-`Continue to Assign -> Open Assign Technical Modal -> Review Technician Workload -> Assign Ticket -> Monitor Progress => [Issue in fit/progress] Reassign -> Continue Work`
+`Open Ticket Queue -> Open Assign Technical Modal -> Review Technician Workload -> Assign Ticket -> Monitor Progress => [Issue in fit/progress] Reassign -> Continue Work`
 
 State Routing Flow:
-`Open -> Assigned -> In Progress -> Pending Closure -> Closed`
+`Open -> In Progress -> Pending Closure -> Closed`
 
 ### Screens and Explanation
 ![Supervisor Tickets](Supervisor%20Side/Supervisor%20All%20tickets.png)
@@ -152,15 +137,15 @@ Explanation: Queue for tickets already requesting closure and waiting for superv
 Explanation: Final record where supervisor confirms successful closure and quality of completion.
 
 ### Detailed Steps
-20. Open verified ticket from All/Pending queues or from Continue to Assign flow.
-21. Validate ticket details, priority, and client verification/call status.
+20. Open verified ticket from All/Pending queues.
+21. Validate ticket details and priority before dispatch.
 22. Open Assign Technical modal.
 23. Review technician load using active ticket count, current ticket list, and progress indicators.
 24. Assign the best-fit technician based on availability and capability.
 25. Ticket becomes visible in technical assigned queue.
 26. Monitor progress, SLA, and blockers.
 27. Reassign when initial assignment is not suitable, ticket is stalled, or escalation requires different expertise.
-28. Route ticket actions based on state (`Open`, `In Progress`, `Escalated`, `Pending Closure`, `Closed`).
+28. Route ticket actions based on lifecycle state (`Open`, `In Progress`, `Escalated`, `Escalated External`, `For Observation`, `Pending Closure`, `Closed`, `Unresolved`).
 
 ## Stage 4: Technical Execution
 
@@ -168,7 +153,7 @@ Visual Flow:
 `Assigned -> Open Ticket Details -> Start Work -> In Progress -> Fill Required Work Fields -> Choose Next Action`
 
 Technical Decision Flow:
-`Choose Next Action => [Resolved] Resolve -> Confirm Resolve -> Pending Closure`
+`Choose Next Action => [Resolved] Request Closure -> Confirm Request -> Pending Closure`
 
 Observation Decision Flow:
 `Choose Next Action => [Needs Monitoring] Submit for Observation -> Confirm Submit -> For Observation`
@@ -199,10 +184,10 @@ Explanation: In-progress work form where technician encodes action taken, remark
 Explanation: Extended in-progress area including product details and digital signature capture required for formal submission.
 
 ![Technical Required Fields Before Resolve](Technical%20Side/Technical%20need%20to%20fill%20in%20before%20resolve.png)
-Explanation: Example of completed required inputs before triggering Resolve action.
+Explanation: Example of completed required inputs before triggering request-closure action.
 
 ![Technical Resolve Confirmation](Technical%20Side/Technical%20Resolve%20ticket.png)
-Explanation: Resolve confirmation modal shown before sending the ticket to supervisor closure review.
+Explanation: Request-closure confirmation modal shown before sending the ticket to supervisor closure review.
 
 ![Technical Submit for Observation](Technical%20Side/Technical%20for%20submit%20for%20observation.png)
 Explanation: Observation confirmation modal used when issue behavior requires monitoring before final closure.
@@ -223,17 +208,20 @@ Explanation: External escalation modal where technician routes ticket to outside
 35. Technician uploads required attachments (screenshot/picture and recording as applicable).
 36. Technician selects `Status of Job` based on actual outcome (`Completed`, `Under Warranty`, `For Quotation`, `Pending`, `Chargeable`, `Under Contract`).
 37. Technician completes digital signature section.
-38. Technician chooses one of three paths: Resolve, Submit for Observation, or Escalate.
-39. If resolved, technician clicks Resolve and confirms in Resolve modal.
+38. Technician chooses one of three paths: Request Closure, Submit for Observation, or Escalate.
+39. If resolved, technician submits request closure and confirms in modal.
 40. Ticket proceeds to supervisor review path (`Pending Closure`).
 
-## Stage 5: Branching During Work (Escalation and Observation Control)
+## Stage 5: Branching During Work (Escalation, Pass, and Observation Control)
 
 Escalation Branch Flow:
 `In Progress => [Cannot Resolve at Current Level] Open Escalate Modal => [Internal] Add Notes/Reason -> Submit Escalation -> Supervisor Reassess/Reassign`
 
 External Escalation Branch:
 `In Progress => [Needs Third-party Support] Open Escalate Modal => [External] Enter Distributor/Vendor Name + Notes/Reason -> Submit Escalation -> Supervisor Tracks External Resolution`
+
+Pass Ticket Branch:
+`In Progress => [Needs Technician Handoff] Pass Ticket -> Select Target Technician + Notes -> New Assignment Session -> Continue Work`
 
 Observation Branch:
 `In Progress => [Needs Monitoring] Submit for Observation -> Confirm Submit -> For Observation -> Monitor Result -> Back to In Progress or Move to Pending Closure`
@@ -255,12 +243,12 @@ Explanation: Technician escalation evidence trail showing why escalation was rai
 Explanation: Supervisor reassessment and reassignment reference for escalated tickets.
 
 ### Detailed Steps
-41. If unresolved at current level, technician opens Escalate modal.
+41. If unresolved at current level, technician opens Escalate or Pass action.
 42. For internal escalation, technician selects `Internal` and enters notes/reason.
 43. For external escalation, technician selects `External`, enters distributor/vendor name, and adds notes/reason.
-44. Technician submits escalation and ticket moves to `Escalated` or `Escalated External` path.
-45. Supervisor validates escalation reason, and for external cases validates vendor/distributor context.
-46. Supervisor reassigns/redirects for internal escalation, or tracks third-party progress for external escalation.
+44. For technician handoff, technician uses Pass flow, selects target technician, and adds pass notes.
+45. System submits escalation/pass and updates ticket path (`Escalated`, `Escalated External`, or new assignment session).
+46. Supervisor validates escalation context and routes reassignment or external tracking.
 47. Ticket returns to active execution path when reassigned or when external updates allow continued work.
 48. If monitoring is required instead, technician submits ticket for observation.
 49. Observation outcome routes ticket back to `In Progress` or forward to `Pending Closure`.
@@ -312,7 +300,7 @@ Explanation: Publication page for adding title, summary, and tags to reusable so
 
 ## Ticket Lifecycle Control Matrix
 1. Creation control: Sales/Supervisor
-2. Verification and call control: Sales/Supervisor (based on ticket creator)
+2. Verification and call control: Sales (sales-created ticket workflow)
 3. Assignment and reassignment control: Supervisor
 4. Execution control: Technical Staff
 5. Escalation control: Technical Staff + Supervisor
@@ -321,7 +309,7 @@ Explanation: Publication page for adding title, summary, and tags to reusable so
 
 ## Mandatory Validation Checklist per Ticket
 1. Client and service details are complete.
-2. Client availability and verification call status are recorded for supervisor-created tickets.
+2. Sales call verification and priority confirmation are completed for sales-created tickets before supervisor assignment.
 3. Priority is set before assignment routing.
 4. Assignment or reassignment is performed by supervisor when required.
 5. Work notes are updated before closure request.
@@ -335,3 +323,4 @@ Alternate Paths:
 - `In Progress -> Escalated -> In Progress`
 - `In Progress -> Escalated External -> In Progress/Pending Closure`
 - `In Progress -> For Observation -> In Progress/Pending Closure`
+- `In Progress -> Unresolved -> In Progress`

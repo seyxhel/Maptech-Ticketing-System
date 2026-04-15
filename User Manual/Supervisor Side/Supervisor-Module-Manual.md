@@ -53,7 +53,7 @@ Purpose:
 Key Actions:
 1. Search/filter by STF number, client, status, priority.
 2. Open ticket details for assignment, review, and closure decisions.
-3. Track `Open`, `In Progress`, `Pending Closure`, `Escalated`, `Closed` states.
+3. Track `Open`, `In Progress`, `Escalated`, `Escalated External`, `For Observation`, `Pending Closure`, `Closed`, and `Unresolved` states.
 4. Resolve stuck tickets by reassignment, escalation handling, or closure decision.
 
 ### 5.1 Resolution Routing by Ticket State
@@ -63,11 +63,15 @@ State Line T2 (`In Progress`): Monitor updates, SLA, and intervention needs.
 
 State Line T3 (`Escalated`): Reassess scope and reassign to correct technical resource.
 
+State Line T3A (`Escalated External`): Track external vendor/distributor progress and route back when actionable.
+
 State Line T4 (`For Observation`): Track monitoring outcome and return to active or close when appropriate.
 
 State Line T5 (`Pending Closure`): Perform final review and feedback before closing.
 
 State Line T6 (`Closed`): Confirm closure quality and optionally publish to knowledge base.
+
+State Line T7 (`Unresolved`): Review unresolved reason, decide reopen path, and route back to active handling when needed.
 
 ## 6. Create Ticket Module (Supervisor Intake)
 Purpose:
@@ -113,46 +117,21 @@ Supervisor Intake Steps:
 6. Encode complete problem statement.
 7. Review all details and submit.
 
-### 6.1 Pre-Assignment Verification Gate (STF Details -> Call Validation)
+### 6.1 Assignment Readiness Rules (Documented)
 Purpose:
-- Ensure client reachability, call verification, and correct priority before assignment.
+- Apply the documented assignment gate rules before dispatching to technical staff.
 
-Visual Flow:
-`Ticket Open -> Open STF Details -> Check Client Availability => [Yes] Call and Confirm -> Set Priority -> Continue to Assign`
-
-Decision Branch:
-`Check Client Availability => [No] Log Failed Contact -> Set Callback Follow-up -> Retry Call -> Confirm -> Continue to Assign`
-
-### Screens and Explanation
-![Supervisor STF Details and Availability](Supervisor%20options%20Client%20availability.png)
-Explanation: Supervisor reviews STF details and sets client call availability status before dispatch.
-
-![Supervisor Call Validation](Supervisor%20calls.png)
-Explanation: Supervisor selects who to call, confirms call status, and validates concern details with the client.
-
-![Supervisor Continue to Assign](Supervisor%20continue%20assign.png)
-Explanation: Supervisor finalizes verification and priority, then proceeds to assignment.
-
-![Supervisor Call Logs](Supervisor%20Call%20logs.png)
-Explanation: Call records are documented for audit trail, follow-up validation, and proof of contact attempts.
-
-Pre-Assignment Verification Steps:
-1. Open STF details from the created/selected ticket.
-2. Review client and ticket details for accuracy.
-3. Set client availability status.
-4. Select the contact person to call.
-5. If connected, confirm issue details and mark call as completed.
-6. If not connected, log unsuccessful call and set callback follow-up.
-7. Confirm call history appears in call log preview.
-8. Set ticket priority (Low, Medium, High, Critical).
-9. Continue to Assign after verification completion.
+Rules:
+1. For sales-created tickets, assignment proceeds after sales call verification, priority setup, and confirmation.
+2. For supervisor-created tickets, assignment may proceed immediately after ticket creation when intake data is complete.
+3. Supervisor validates ticket completeness and priority before assigning technician.
 
 ## 7. Assignment and Closure Workflow (Critical)
 Purpose:
 - Control assignment quality, reassignment decisions, and final closure approval.
 
 Visual Flow:
-`Continue to Assign -> Open Assign Technical -> Review Technician Workload -> Assign Ticket -> Monitor Progress -> Pending Closure Review -> Close Ticket`
+`Open Ticket Queue -> Open Assign Technical -> Review Technician Workload -> Assign Ticket -> Monitor Progress -> Pending Closure Review -> Close Ticket`
 
 Reassignment Branch:
 `Monitor Progress => [Mismatch/Stall/Escalation] Reassign Technician -> Continue Active Resolution`
@@ -180,7 +159,7 @@ Explanation: Queue for closure requests awaiting supervisor review.
 Explanation: Final queue used to confirm successful closure and record quality completion.
 
 Assignment-to-Closure Steps:
-1. Open verified ticket from All/Pending queue or Continue to Assign flow.
+1. Open verified ticket from All/Pending queue.
 2. Recheck ticket details, call verification status, and priority.
 3. Open Assign Technical modal.
 4. Compare technician active load and current progress indicators.
@@ -194,9 +173,10 @@ Assignment-to-Closure Steps:
 
 Escalation Decision Flow Lines:
 - Flow Line E1: If technician escalates internally, supervisor receives escalated ticket.
-- Flow Line E2: Supervisor reassesses scope and reassigns technician when needed.
-- Flow Line E3: If external support is needed, escalation is tracked as external.
-- Flow Line E4: Ticket re-enters active workflow until closure criteria are met.
+- Flow Line E2: If technician uses pass flow, assignment rotates to selected technician with a new assignment session.
+- Flow Line E3: Supervisor reassesses scope and reassigns technician when needed.
+- Flow Line E4: If external support is needed, escalation is tracked as external.
+- Flow Line E5: Ticket re-enters active workflow until closure criteria are met.
 
 ### 7.1 Detailed Supervisor Resolution Procedure
 Resolution Line R1: Open ticket in `Pending Closure` queue.
@@ -230,9 +210,10 @@ Steps:
 Escalation-to-Resolution Lines:
 - Flow Line ER1: Receive escalated ticket in escalation view.
 - Flow Line ER2: Confirm escalation reason and context.
-- Flow Line ER3: Assign best-fit technician or continue external tracking.
-- Flow Line ER4: Monitor returned ticket until it reaches `Pending Closure`.
-- Flow Line ER5: Complete final closure procedure when ticket is resolvable.
+- Flow Line ER3: Handle pass-driven reassignment sessions and validate target technician fit.
+- Flow Line ER4: Assign best-fit technician or continue external tracking.
+- Flow Line ER5: Monitor returned ticket until it reaches `Pending Closure`.
+- Flow Line ER6: Complete final closure procedure when ticket is resolvable.
 
 ## 9. Knowledge Hub Module
 ![Supervisor Knowledge Hub Upload](Supervisor%20knowledge%20hub%20upload.png)
@@ -326,19 +307,17 @@ Purpose:
 ## 19. Supervisor End-to-End Summary
 Flow Line S1: Intake ticket (create directly or receive confirmed ticket).
 
-Flow Line S2: Open STF details and verify client availability.
+Flow Line S2: For sales-created tickets, ensure call verification and priority confirmation are complete.
 
-Flow Line S3: Perform/record call validation and set priority.
+Flow Line S3: Validate ticket details and assign best-fit technician.
 
-Flow Line S4: Continue to assign and select best-fit technician.
+Flow Line S4: Monitor progress and SLA urgency.
 
-Flow Line S5: Monitor progress and SLA urgency.
+Flow Line S5: Handle escalation or observation branches when needed.
 
-Flow Line S6: Handle escalation or observation branches when needed.
+Flow Line S6: Review closure request and submit feedback.
 
-Flow Line S7: Review closure request and submit feedback.
-
-Flow Line S8: Close ticket and optionally publish knowledge proof.
+Flow Line S7: Close ticket and optionally publish knowledge proof.
 
 ## 20. Supervisor Resolving Ticket Workflow (Per Module)
 Module Line M1 (Tickets): Route each ticket to the correct next action by state.
@@ -354,17 +333,19 @@ Module Line M5 (Knowledge Hub): Publish reusable closure evidence for future res
 ## 21. Lifecycle Reference (Synced with Ticket Lifecycle Manual)
 This section is synchronized with `Ticket-Lifecycle-Workflow.md` for supervisor decision consistency.
 
-Lifecycle Line L0 (Pre-Assignment Gate): Verify client availability, call status, and priority before assignment.
-
 Lifecycle Line L1 (`Open`): Validate ticket quality and assign the right technical resource.
 
 Lifecycle Line L2 (`In Progress`): Monitor SLA and technical progress; intervene when stalled.
 
 Lifecycle Line L3 (`Escalated`): Review escalation context and route back to active resolution.
 
+Lifecycle Line L3A (`Escalated External`): Track external escalation updates and route back when resolution can continue internally.
+
 Lifecycle Line L4 (`Pending Closure`): Execute closure review gate before final approval.
 
 Lifecycle Line L5 (`Closed`): Validate completed history and publish reusable proof when appropriate.
+
+Lifecycle Line L6 (`Unresolved`): Reassess unresolved context and reopen to active workflow when corrective path is available.
 
 Closure Gate CG1: Technical action notes and remarks are complete.
 

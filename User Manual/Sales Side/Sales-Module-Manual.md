@@ -121,7 +121,7 @@ Steps:
 1. Use search/filter for quick lookup.
 2. Open ticket details from action column.
 3. Confirm status progression after supervisor/technical actions.
-4. Track whether ticket is still `Pending`, already in `For Observation`, or moving to `Pending Closure`.
+4. Track whether ticket is in `Open`, `In Progress`, `Escalated`, `Escalated External`, `For Observation`, `Pending Closure`, `Closed`, or `Unresolved`.
 5. Ensure high-priority tickets are not stalled and follow up when progress is delayed.
 
 ### 6.1 Resolution Monitoring in Tickets Module
@@ -129,8 +129,9 @@ Resolution Flow Lines:
 - Flow Line R1: Open ticket from Sales list after handoff.
 - Flow Line R2: Validate ticket moved from intake state to operational state (`In Progress` or equivalent active handling state).
 - Flow Line R3: Check if ticket transitions to `Pending Closure` after technical resolution.
-- Flow Line R4: If ticket returns to escalation path, document follow-up and coordinate with supervisor.
-- Flow Line R5: Confirm final movement to `Closed` in ticket history.
+- Flow Line R4: If ticket returns to escalation path (`Escalated` or `Escalated External`), document follow-up and coordinate with supervisor.
+- Flow Line R5: If ticket is marked `Unresolved`, coordinate status clarification and reopen direction when applicable.
+- Flow Line R6: Confirm final movement to `Closed` in ticket history.
 
 ## 7. Clients Module
 ![Sales Clients](Sales%20Clients.png)
