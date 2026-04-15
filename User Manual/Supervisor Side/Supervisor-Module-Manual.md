@@ -126,6 +126,34 @@ Rules:
 2. For supervisor-created tickets, assignment may proceed immediately after ticket creation when intake data is complete.
 3. Supervisor validates ticket completeness and priority before assigning technician.
 
+### 6.2 Supervisor Call Validation Flow (STF Details and Ongoing Call)
+Purpose:
+- Document the supervisor-side call validation UI sequence used during ticket review/verification before assignment routing.
+
+Visual Flow:
+`Open STF Details -> Set Client Call Availability -> Select Contact -> Start/Handle Ongoing Call -> Mark Call Completed -> Set Priority -> Continue to Assign`
+
+### Screens and Explanation
+![Supervisor STF Details and Availability](Supervisor%20options%20Client%20availability.png)
+Explanation: STF details panel used to review ticket/client context, set call availability, choose who to call, set priority, and verify call log preview.
+
+![Supervisor Ongoing Call State](Supervisor%20calls.png)
+Explanation: Connected-call modal showing active call timer and call controls (`On Hold`, `End Call`) during live validation.
+
+![Supervisor Call Logs](Supervisor%20Call%20logs.png)
+Explanation: Call logs record call outcomes for operational traceability and audit review.
+
+Call Validation Steps:
+1. Open STF details for the target ticket.
+2. Set client availability status.
+3. Select the contact person from Who to call.
+4. Start the validation call and monitor ongoing call state.
+5. Use call controls as needed (`On Hold` or `End Call`).
+6. Mark/confirm call as completed after verification.
+7. Review call log preview and ensure entries are captured.
+8. Set ticket priority.
+9. Continue to assignment workflow.
+
 ## 7. Assignment and Closure Workflow (Critical)
 Purpose:
 - Control assignment quality, reassignment decisions, and final closure approval.
