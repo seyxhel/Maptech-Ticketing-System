@@ -25,6 +25,7 @@ import {
   type DeviceEquipment,
   type ClientRecord,
 } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -45,6 +46,8 @@ const EMPTY_FORM = {
 };
 
 export default function Products() {
+  const { user } = useAuth();
+  const canDelete = user?.role !== 'sales';
   const [products, setProducts] = useState<Product[]>([]);
   const [deviceEquipment, setDeviceEquipment] = useState<DeviceEquipment[]>([]);
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -230,6 +233,11 @@ export default function Products() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    if (!canDelete) {
+      setDeleteTarget(null);
+      toast.error('Sales users are not allowed to delete products.');
+      return;
+    }
     setSubmitting(true);
     try {
       await deleteProduct(deleteTarget.id);
@@ -377,9 +385,11 @@ export default function Products() {
                         <button onClick={() => openEditModal(product)} className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setDeleteTarget(product)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canDelete && (
+                          <button onClick={() => setDeleteTarget(product)} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -678,7 +688,7 @@ export default function Products() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteTarget && createPortal(
+      {canDelete && deleteTarget && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Product</h3>

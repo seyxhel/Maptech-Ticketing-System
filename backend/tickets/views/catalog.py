@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from ..models import Category, Product, Client, Ticket
 from ..serializers import CategorySerializer, ProductSerializer, ClientSerializer, TicketSerializer
-from ..permissions import IsAdminLevel
+from ..permissions import IsAdminLevel, IsSupervisorLevel
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
@@ -18,6 +18,8 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
+        if self.action == 'destroy':
+            return [IsAuthenticated(), IsSupervisorLevel()]
         return [IsAuthenticated(), IsAdminLevel()]
 
     def get_queryset(self):
@@ -45,6 +47,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
+        if self.action == 'destroy':
+            return [IsAuthenticated(), IsSupervisorLevel()]
         return [IsAuthenticated(), IsAdminLevel()]
 
     def get_queryset(self):
@@ -86,6 +90,8 @@ class ClientViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [IsAuthenticated()]
+        if self.action == 'destroy':
+            return [IsAuthenticated(), IsSupervisorLevel()]
         return [IsAuthenticated(), IsAdminLevel()]
 
     def get_queryset(self):
