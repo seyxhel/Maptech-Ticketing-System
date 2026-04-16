@@ -531,24 +531,29 @@ export interface UploadedAttachment {
 
 /** Upload resolution proof (supports one or multiple files). */
 export async function uploadResolutionProof(ticketId: number, files: File | File[]): Promise<UploadedAttachment[]> {
-  const formData = new FormData();
   const fileList = Array.isArray(files) ? files : [files];
-  for (const f of fileList) {
-    formData.append('files', f);
+  const uploaded: UploadedAttachment[] = [];
+
+  for (const file of fileList) {
+    const formData = new FormData();
+    formData.append('files', file);
+
+    const res = await apiFetch(`${API_BASE}/tickets/${ticketId}/upload_resolution_proof/`, {
+      method: 'POST',
+      headers: authHeaders(false),
+      body: formData,
+    });
+
+    const response = await handleResponse<UploadedAttachment[]>(res);
+    if (Array.isArray(response)) {
+      uploaded.push(...response.map((attachment) => ({
+        ...attachment,
+        file: normalizeMediaUrl(attachment?.file),
+      })));
+    }
   }
-  const res = await apiFetch(`${API_BASE}/tickets/${ticketId}/upload_resolution_proof/`, {
-    method: 'POST',
-    headers: authHeaders(false),
-    body: formData,
-  });
-  const uploaded = await handleResponse<UploadedAttachment[]>(res);
-  if (Array.isArray(uploaded)) {
-    return uploaded.map((attachment) => ({
-      ...attachment,
-      file: normalizeMediaUrl(attachment?.file),
-    }));
-  }
-  return [];
+
+  return uploaded;
 }
 
 export interface TaskStatusUpdate {

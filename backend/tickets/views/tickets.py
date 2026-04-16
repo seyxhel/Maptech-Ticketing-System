@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from pathlib import Path
 
 from ..models import (
     Ticket, TicketTask, TicketAttachment, AssignmentSession,
@@ -21,7 +22,44 @@ from ._helpers import _get_client_ip
 
 User = get_user_model()
 
-MAX_MEDIA_ATTACHMENT_SIZE = 2 * 1024 * 1024 * 1024
+BYTES_PER_MB = 1024 * 1024
+BYTES_PER_GB = BYTES_PER_MB * 1024
+MAX_IMAGE_ATTACHMENT_SIZE = 500 * BYTES_PER_MB
+MAX_VIDEO_ATTACHMENT_SIZE = 2 * BYTES_PER_GB
+MAX_DOCUMENT_ATTACHMENT_SIZE = 500 * BYTES_PER_MB
+
+
+def _get_attachment_type(file):
+    content_type = (getattr(file, 'content_type', '') or '').lower()
+    extension = Path(getattr(file, 'name', '')).suffix.lower()
+
+    if content_type.startswith('image/') or extension in {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp'}:
+        return 'screenshot'
+    if content_type.startswith('video/') or extension in {'.mp4', '.webm'}:
+        return 'recording'
+    if content_type in {
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    } or extension in {'.pdf', '.doc', '.docx', '.xls', '.xlsx'}:
+        return 'file'
+    return None
+
+
+def _get_attachment_size_limit(attachment_type):
+    if attachment_type == 'recording':
+        return MAX_VIDEO_ATTACHMENT_SIZE
+    if attachment_type == 'file':
+        return MAX_DOCUMENT_ATTACHMENT_SIZE
+    return MAX_IMAGE_ATTACHMENT_SIZE
+
+
+def _get_attachment_limit_label(attachment_type):
+    if attachment_type == 'recording':
+        return '2 GB'
+    return '500 MB'
 
 
 class TicketViewSet(viewsets.ModelViewSet):
@@ -834,12 +872,23 @@ class TicketViewSet(viewsets.ModelViewSet):
         if not files:
             return Response({'detail': 'No files provided.'}, status=status.HTTP_400_BAD_REQUEST)
         attachments = []
+        validated_files = []
         for f in files:
-            if f.size > MAX_MEDIA_ATTACHMENT_SIZE:
+            attachment_type = _get_attachment_type(f)
+            if not attachment_type:
                 return Response(
-                    {'detail': f'"{f.name}" exceeds the 2 GB limit.'},
+                    {'detail': f'"{f.name}" is not a supported attachment type. Use images, videos, PDF, DOC, DOCX, XLS, or XLSX.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            size_limit = _get_attachment_size_limit(attachment_type)
+            if f.size > size_limit:
+                return Response(
+                    {'detail': f'"{f.name}" exceeds the {_get_attachment_limit_label(attachment_type)} limit.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            validated_files.append((f, attachment_type))
+
+        for f, _attachment_type in validated_files:
             att = TicketAttachment.objects.create(ticket=ticket, file=f, uploaded_by=user, is_resolution_proof=True)
             attachments.append(att)
 

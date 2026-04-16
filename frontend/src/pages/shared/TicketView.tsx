@@ -34,6 +34,40 @@ const BYTES_PER_MB = BYTES_PER_KB * 1024;
 const BYTES_PER_GB = BYTES_PER_MB * 1024;
 const MAX_MEDIA_ATTACHMENT_SIZE = 2 * BYTES_PER_GB;
 const MAX_FILE_ATTACHMENT_SIZE = 1 * BYTES_PER_GB;
+const MAX_SCREENSHOT_ATTACHMENT_SIZE = 500 * BYTES_PER_MB;
+const MAX_RECORDING_ATTACHMENT_SIZE = 2 * BYTES_PER_GB;
+const MAX_DOCUMENT_ATTACHMENT_SIZE = 500 * BYTES_PER_MB;
+
+type ResolutionAttachmentType = 'screenshot' | 'recording' | 'file';
+
+function getFileExtension(fileName: string): string {
+  return fileName.split('.').pop()?.toLowerCase() || '';
+}
+
+function getResolutionAttachmentTypeFromName(fileName: string): ResolutionAttachmentType {
+  const extension = getFileExtension(fileName);
+  if (['mp4', 'webm'].includes(extension)) return 'recording';
+  if (['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(extension)) return 'file';
+  return 'screenshot';
+}
+
+function getResolutionAttachmentType(file: File): ResolutionAttachmentType {
+  const extension = getFileExtension(file.name);
+  if (file.type.startsWith('video/') || ['mp4', 'webm'].includes(extension)) return 'recording';
+  if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(extension)) return 'screenshot';
+  return 'file';
+}
+
+function getResolutionAttachmentSizeLimit(type: ResolutionAttachmentType): number {
+  if (type === 'recording') return MAX_RECORDING_ATTACHMENT_SIZE;
+  if (type === 'file') return MAX_DOCUMENT_ATTACHMENT_SIZE;
+  return MAX_SCREENSHOT_ATTACHMENT_SIZE;
+}
+
+function getResolutionAttachmentLimitLabel(type: ResolutionAttachmentType): string {
+  if (type === 'recording') return '2 GB';
+  return '500 MB';
+}
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👀'];
 
@@ -445,7 +479,7 @@ export function TicketView() {
           jobStatus: btData.job_status || '',
           ticketAttachments: (btData.attachments || []).map((a) => ({
             name: a.file?.split('/').pop() || 'file',
-            type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
+            type: getResolutionAttachmentTypeFromName(a.file || ''),
           })),
           timeIn: btData.time_in ? new Date(btData.time_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
           timeOut: btData.time_out ? new Date(btData.time_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
@@ -502,7 +536,7 @@ export function TicketView() {
         actionTaken: '',
         remarks: '',
         jobStatus: '',
-        ticketAttachments: [] as { name: string; type: 'screenshot' | 'recording' }[],
+        ticketAttachments: [] as { name: string; type: ResolutionAttachmentType }[],
         timeIn: '',
         timeOut: '',
         progressPercentage: 0,
@@ -551,11 +585,13 @@ export function TicketView() {
   // Resolution proof attachment state
   const screenshotInputRef = useRef<HTMLInputElement>(null);
   const recordingInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [recordingFiles, setRecordingFiles] = useState<File[]>([]);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [uploadedAttachments, setUploadedAttachments] = useState<
-    { id: number; name: string; type: 'screenshot' | 'recording'; url?: string }[]
+    { id: number; name: string; type: ResolutionAttachmentType; url?: string }[]
   >([]);
 
   // Resolve the numeric ticket ID for the WebSocket
@@ -1220,7 +1256,7 @@ export function TicketView() {
         setUploadedAttachments(btData.attachments.map((a) => ({
           id: a.id,
           name: a.file?.split('/').pop() || 'file',
-          type: (a.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
+          type: getResolutionAttachmentTypeFromName(a.file || ''),
           url: a.file,
         })));
       }
@@ -1497,51 +1533,55 @@ export function TicketView() {
   };
 
   // ── Attachment file handlers ──
-  const MAX_IMAGE_SIZE = MAX_MEDIA_ATTACHMENT_SIZE;
-  const MAX_VIDEO_SIZE = MAX_MEDIA_ATTACHMENT_SIZE;
-  const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
-  const VIDEO_TYPES = ['video/mp4', 'video/webm'];
+  function validateResolutionAttachment(file: File, expectedType: ResolutionAttachmentType): boolean {
+    const actualType = getResolutionAttachmentType(file);
+    if (actualType !== expectedType) {
+      if (expectedType === 'recording') {
+        toast.error(`"${file.name}" is not a supported video format. Use MP4 or WebM.`);
+      } else if (expectedType === 'file') {
+        toast.error(`"${file.name}" is not a supported document format. Use PDF, DOC, DOCX, XLS, or XLSX.`);
+      } else {
+        toast.error(`"${file.name}" is not a supported image format. Use PNG, JPG, JPEG, GIF, or WebP.`);
+      }
+      return false;
+    }
+
+    const sizeLimit = getResolutionAttachmentSizeLimit(actualType);
+    if (file.size > sizeLimit) {
+      toast.error(`"${file.name}" exceeds the ${getResolutionAttachmentLimitLabel(actualType)} limit.`);
+      return false;
+    }
+    return true;
+  }
 
   const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const valid = files.filter((f) => {
-      if (!IMAGE_TYPES.includes(f.type)) {
-        toast.error(`"${f.name}" is not a supported image format. Use PNG or JPG.`);
-        return false;
-      }
-      if (f.size > MAX_IMAGE_SIZE) {
-        toast.error(`"${f.name}" exceeds the 2 GB limit.`);
-        return false;
-      }
-      return true;
-    });
+    const valid = files.filter((f) => validateResolutionAttachment(f, 'screenshot'));
     if (valid.length) setScreenshotFiles((prev) => [...prev, ...valid]);
     e.target.value = '';
   };
 
   const handleRecordingSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const valid = files.filter((f) => {
-      if (!VIDEO_TYPES.includes(f.type)) {
-        toast.error(`"${f.name}" is not a supported video format. Use MP4 or WebM.`);
-        return false;
-      }
-      if (f.size > MAX_VIDEO_SIZE) {
-        toast.error(`"${f.name}" exceeds the 2 GB limit.`);
-        return false;
-      }
-      return true;
-    });
+    const valid = files.filter((f) => validateResolutionAttachment(f, 'recording'));
     if (valid.length) setRecordingFiles((prev) => [...prev, ...valid]);
+    e.target.value = '';
+  };
+
+  const handleDocumentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const valid = files.filter((f) => validateResolutionAttachment(f, 'file'));
+    if (valid.length) setDocumentFiles((prev) => [...prev, ...valid]);
     e.target.value = '';
   };
 
   const removeScreenshot = (idx: number) => setScreenshotFiles((prev) => prev.filter((_, i) => i !== idx));
   const removeRecording = (idx: number) => setRecordingFiles((prev) => prev.filter((_, i) => i !== idx));
+  const removeDocument = (idx: number) => setDocumentFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const handleUploadAttachments = async () => {
     if (!backendTicketId) return;
-    const allFiles = [...screenshotFiles, ...recordingFiles];
+    const allFiles = [...screenshotFiles, ...recordingFiles, ...documentFiles];
     if (!allFiles.length) return;
     setUploadingAttachments(true);
     try {
@@ -1549,12 +1589,13 @@ export function TicketView() {
       const uploaded = (result as UploadedAttachment[]).map((att) => ({
         id: att.id,
         name: att.file?.split('/').pop() || 'file',
-        type: (att.file?.match(/\.(mp4|webm)$/i) ? 'recording' : 'screenshot') as 'screenshot' | 'recording',
+        type: getResolutionAttachmentTypeFromName(att.file || ''),
         url: att.file,
       }));
       setUploadedAttachments((prev) => [...prev, ...uploaded]);
       setScreenshotFiles([]);
       setRecordingFiles([]);
+      setDocumentFiles([]);
     } catch (err: unknown) {
       toast.error(getErrorMessage(err, 'Upload failed. Please try again.'));
     } finally {
@@ -2484,7 +2525,7 @@ export function TicketView() {
             <input
               ref={screenshotInputRef}
               type="file"
-              accept="image/png,image/jpeg,image/jpg"
+              accept="image/*"
               multiple
               className="hidden"
               onChange={handleScreenshotSelect}
@@ -2496,6 +2537,14 @@ export function TicketView() {
               multiple
               className="hidden"
               onChange={handleRecordingSelect}
+            />
+            <input
+              ref={documentInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              multiple
+              className="hidden"
+              onChange={handleDocumentSelect}
             />
 
             <div className="space-y-3">
@@ -2513,7 +2562,7 @@ export function TicketView() {
                 <Camera className="w-5 h-5 text-[#0E8F79]" />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Screenshot / Picture</div>
-                  <div className="text-xs text-gray-400">PNG, JPG up to 10MB</div>
+                  <div className="text-xs text-gray-400">Images up to 500MB</div>
                 </div>
                 <Upload className="w-4 h-4 text-gray-400" />
               </button>
@@ -2548,7 +2597,7 @@ export function TicketView() {
                 <Video className="w-5 h-5 text-[#0E8F79]" />
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Recording</div>
-                  <div className="text-xs text-gray-400">MP4, WebM up to 50MB</div>
+                  <div className="text-xs text-gray-400">MP4, WebM up to 2GB</div>
                 </div>
                 <Upload className="w-4 h-4 text-gray-400" />
               </button>
@@ -2568,10 +2617,45 @@ export function TicketView() {
                   ))}
                 </div>
               )}
+
+              {/* Document trigger */}
+              <button
+                type="button"
+                onClick={() => canEdit && documentInputRef.current?.click()}
+                disabled={!canEdit}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border border-dashed transition-colors text-left ${
+                  canEdit
+                    ? 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-[#0E8F79] hover:bg-[#0E8F79]/5 cursor-pointer'
+                    : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <FileText className="w-5 h-5 text-[#0E8F79]" />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Document / File</div>
+                  <div className="text-xs text-gray-400">PDF, DOC, DOCX, XLS, XLSX up to 500MB</div>
+                </div>
+                <Upload className="w-4 h-4 text-gray-400" />
+              </button>
+
+              {/* Selected document files */}
+              {documentFiles.length > 0 && (
+                <div className="space-y-1.5 ml-8">
+                  {documentFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800">
+                      <FileText className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      <span className="text-xs text-amber-700 dark:text-amber-400 flex-1 truncate">{f.name}</span>
+                      <span className="text-[10px] text-amber-400 flex-shrink-0">{formatFileSize(f.size)}</span>
+                      <button type="button" onClick={() => removeDocument(i)} className="p-0.5 rounded hover:bg-amber-100 dark:hover:bg-amber-800 transition-colors">
+                        <X className="w-3.5 h-3.5 text-amber-400 hover:text-red-500" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Upload button (appears when files are selected) */}
-            {canEdit && (screenshotFiles.length > 0 || recordingFiles.length > 0) && (
+            {canEdit && (screenshotFiles.length > 0 || recordingFiles.length > 0 || documentFiles.length > 0) && (
               <button
                 type="button"
                 disabled={uploadingAttachments}
@@ -2586,7 +2670,7 @@ export function TicketView() {
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    Upload {screenshotFiles.length + recordingFiles.length} file{screenshotFiles.length + recordingFiles.length > 1 ? 's' : ''}
+                    Upload {screenshotFiles.length + recordingFiles.length + documentFiles.length} file{screenshotFiles.length + recordingFiles.length + documentFiles.length > 1 ? 's' : ''}
                   </>
                 )}
               </button>
@@ -2628,13 +2712,26 @@ export function TicketView() {
                             </div>
                           </div>
                         </button>
+                      ) : att.url ? (
+                        <a
+                          href={att.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-center h-32 bg-amber-50 dark:bg-amber-900/10"
+                        >
+                          {getResolutionAttachmentTypeFromName(att.name) === 'file' && ['xls', 'xlsx'].includes(getFileExtension(att.name)) ? (
+                            <FileSpreadsheet className="w-10 h-10 text-amber-500" />
+                          ) : (
+                            <FileText className="w-10 h-10 text-amber-500" />
+                          )}
+                        </a>
                       ) : (
                         <div className="flex items-center justify-center h-32 bg-gray-100 dark:bg-gray-800">
                           <File className="w-8 h-8 text-gray-400" />
                         </div>
                       )}
                       <div className="flex items-center gap-2 px-2 py-1.5">
-                        {att.type === 'screenshot' ? <Camera className="w-3.5 h-3.5 text-green-600 flex-shrink-0" /> : <Video className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />}
+                        {att.type === 'screenshot' ? <Camera className="w-3.5 h-3.5 text-green-600 flex-shrink-0" /> : att.type === 'recording' ? <Video className="w-3.5 h-3.5 text-green-600 flex-shrink-0" /> : ['xls', 'xlsx'].includes(getFileExtension(att.name)) ? <FileSpreadsheet className="w-3.5 h-3.5 text-green-600 flex-shrink-0" /> : <FileText className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />}
                         <span className="text-xs text-green-700 dark:text-green-400 flex-1 truncate">{att.name}</span>
                         {att.url && (
                           <a href={att.url} download onClick={(e) => e.stopPropagation()} className="p-0.5 rounded hover:bg-green-100 dark:hover:bg-green-800 transition-colors">
