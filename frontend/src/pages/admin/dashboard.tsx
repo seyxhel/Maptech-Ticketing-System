@@ -42,12 +42,17 @@ import type { UITicket } from '../../services/ticketMapper';
 
 const STATUSES = ['Pending', 'Assigned', 'In Progress', 'Escalated', 'For Observation', 'Unresolved', 'Resolved', 'Closed'];
 const PRIORITIES = ['Critical', 'High', 'Medium', 'Low'];
+const READ_ONLY_STATUSES = new Set(['Resolved', 'Closed']);
 
 function truncateText(value: string, maxLength: number): string {
   if (value.length <= maxLength) {
     return value;
   }
   return `${value.slice(0, maxLength)}...`;
+}
+
+function isTicketEditable(status: UITicket['status']): boolean {
+  return !READ_ONLY_STATUSES.has(status);
 }
 
 export default function AdminDashboard() {
@@ -114,12 +119,21 @@ export default function AdminDashboard() {
   }, []);
 
   const openEdit = (ticket: UITicket) => {
+    if (!isTicketEditable(ticket.status)) {
+      toast.info('This ticket is read-only once it is resolved or closed.');
+      return;
+    }
     setEditTicket(ticket);
     setEditFields({ status: ticket.status, priority: ticket.priority, assigneeId: ticket.assigneeId != null ? String(ticket.assigneeId) : '' });
   };
 
   const saveEdit = async () => {
     if (!editTicket) return;
+    if (!isTicketEditable(editTicket.status)) {
+      toast.error('Resolved or closed tickets cannot be edited.');
+      setEditTicket(null);
+      return;
+    }
     try {
       const assignedToId = editFields.assigneeId ? Number(editFields.assigneeId) : null;
       let updatedBackendTicket = await apiUpdateTicket(editTicket.backendId, {
@@ -258,13 +272,15 @@ export default function AdminDashboard() {
                       View Details
                       <ChevronRightIcon className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => openEdit(ticket)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      Edit
-                    </button>
+                    {isTicketEditable(ticket.status) && (
+                      <button
+                        onClick={() => openEdit(ticket)}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
