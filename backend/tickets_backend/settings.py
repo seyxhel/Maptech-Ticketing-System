@@ -173,6 +173,34 @@ _csrf_trusted_origins = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 if _csrf_trusted_origins:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted_origins.split(',')]
 
+# WebSocket origin policy for Django Channels.
+# Set WEBSOCKET_ALLOWED_ORIGINS to explicit comma-separated origins in production.
+_ws_allowed_origins = os.environ.get('WEBSOCKET_ALLOWED_ORIGINS', '')
+if _ws_allowed_origins.strip():
+    WEBSOCKET_ALLOWED_ORIGINS = [o.strip() for o in _ws_allowed_origins.split(',') if o.strip()]
+else:
+    WEBSOCKET_ALLOWED_ORIGINS = []
+    if _cors_origins:
+        WEBSOCKET_ALLOWED_ORIGINS.extend(
+            [o.strip() for o in _cors_origins.split(',') if o.strip()]
+        )
+    if _csrf_trusted_origins:
+        WEBSOCKET_ALLOWED_ORIGINS.extend(
+            [o.strip() for o in _csrf_trusted_origins.split(',') if o.strip()]
+        )
+
+_seen_ws_origins = set()
+_deduped_ws_origins = []
+for _origin in WEBSOCKET_ALLOWED_ORIGINS:
+    if _origin not in _seen_ws_origins:
+        _seen_ws_origins.add(_origin)
+        _deduped_ws_origins.append(_origin)
+WEBSOCKET_ALLOWED_ORIGINS = _deduped_ws_origins
+
+WEBSOCKET_ALLOW_ALL_ORIGINS = os.environ.get('WEBSOCKET_ALLOW_ALL_ORIGINS', '').lower() in ('true', '1', 'yes')
+if not WEBSOCKET_ALLOW_ALL_ORIGINS:
+    WEBSOCKET_ALLOW_ALL_ORIGINS = CORS_ALLOW_ALL_ORIGINS or ('*' in ALLOWED_HOSTS)
+
 # Prefer Argon2 for password hashing (stronger than PBKDF2), keep fallbacks for existing hashes
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.Argon2PasswordHasher',
