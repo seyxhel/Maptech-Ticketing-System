@@ -1527,7 +1527,7 @@ export default function AdminCreateTicket() {
                   readOnly={isSalesUser}
                   onChange={(e) => {
                     if (!isSalesUser) {
-                      setSelectedSalesRep(e.target.value);
+                      setSelectedSalesRep(formatSalesRepInput(e.target.value));
                       setErrors((p) => ({ ...p, salesRepresentative: false }));
                       setErrorMsgs((p) => ({ ...p, salesRepresentative: '' }));
                     }
@@ -1541,7 +1541,7 @@ export default function AdminCreateTicket() {
                     onChange={(e) => {
                       const value = e.target.value;
                       if (!value) return;
-                      setSelectedSalesRep(value);
+                      setSelectedSalesRep(formatSalesRepInput(value));
                       setErrors((p) => ({ ...p, salesRepresentative: false }));
                       setErrorMsgs((p) => ({ ...p, salesRepresentative: '' }));
                       e.currentTarget.value = '';
