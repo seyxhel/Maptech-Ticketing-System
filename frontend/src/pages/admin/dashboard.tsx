@@ -13,7 +13,6 @@ import {
   AlertOctagon,
   Building2,
   History,
-  Pencil,
   ChevronRight as ChevronRightIcon,
   X,
 } from 'lucide-react';
@@ -37,7 +36,7 @@ import {
   assignTicket,
 } from '../../services/api';
 import type { BackendTicket, TicketStats, EscalationLog } from '../../services/api';
-import { mapBackendTicketToUI, mapBackendTicketToTechnicalStaff, reverseMapStatus, reverseMapPriority } from '../../services/ticketMapper';
+import { mapBackendTicketToUI, mapBackendTicketToTechnicalStaff, mapStatus, reverseMapStatus, reverseMapPriority } from '../../services/ticketMapper';
 import type { UITicket } from '../../services/ticketMapper';
 
 const STATUSES = ['Pending', 'Assigned', 'In Progress', 'Escalated', 'For Observation', 'Unresolved', 'Resolved', 'Closed'];
@@ -55,8 +54,13 @@ function isTicketEditable(status: UITicket['status']): boolean {
   return !READ_ONLY_STATUSES.has(status);
 }
 
+function SkeletonBox({ className = '' }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-gray-200 dark:bg-gray-700 ${className}`} />;
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [statusChartRange, setStatusChartRange] = useState<'today' | 'weekly' | 'monthly' | 'yearly'>('today');
   const [tickets, setTickets] = useState<UITicket[]>([]);
   const [backendTickets, setBackendTickets] = useState<BackendTicket[]>([]);
   const [editTicket, setEditTicket] = useState<UITicket | null>(null);
@@ -118,15 +122,6 @@ export default function AdminDashboard() {
     return () => { cancelled = true; };
   }, []);
 
-  const openEdit = (ticket: UITicket) => {
-    if (!isTicketEditable(ticket.status)) {
-      toast.info('This ticket is read-only once it is resolved or closed.');
-      return;
-    }
-    setEditTicket(ticket);
-    setEditFields({ status: ticket.status, priority: ticket.priority, assigneeId: ticket.assigneeId != null ? String(ticket.assigneeId) : '' });
-  };
-
   const saveEdit = async () => {
     if (!editTicket) return;
     if (!isTicketEditable(editTicket.status)) {
@@ -170,7 +165,7 @@ export default function AdminDashboard() {
   const submittedBackendTickets = sortedBackendTickets.filter((ticket) => ticket.status !== 'escalated' && ticket.status !== 'escalated_external');
   const escalatedBackendTickets = sortedBackendTickets.filter((ticket) => ticket.status === 'escalated' || ticket.status === 'escalated_external');
   const activeFeedBackendTickets = ticketFeedView === 'submitted' ? submittedBackendTickets : escalatedBackendTickets;
-  const latestTicketCards = activeFeedBackendTickets.slice(0, 5).map(mapBackendTicketToUI);
+  const latestTicketCards = activeFeedBackendTickets.slice(0, 6).map(mapBackendTicketToUI);
   const supervisorCalendarTickets = backendTickets.map(mapBackendTicketToTechnicalStaff);
 
   const statusChartPalette: Record<string, string> = {
@@ -183,9 +178,39 @@ export default function AdminDashboard() {
     Resolved: '#14B8A6',
     Closed: '#6B7280',
   };
+
+  const getStatusRangeStart = (range: 'today' | 'weekly' | 'monthly' | 'yearly'): Date => {
+    const now = new Date();
+    const start = new Date(now);
+    if (range === 'today') {
+      start.setHours(0, 0, 0, 0);
+      return start;
+    }
+    if (range === 'weekly') {
+      start.setDate(now.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      return start;
+    }
+    if (range === 'monthly') {
+      start.setDate(now.getDate() - 29);
+      start.setHours(0, 0, 0, 0);
+      return start;
+    }
+    start.setDate(now.getDate() - 364);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  };
+
+  const statusRangeStart = getStatusRangeStart(statusChartRange);
+  const statusRangeBackendTickets = backendTickets.filter((ticket) => {
+    const createdAt = new Date(ticket.created_at);
+    return !Number.isNaN(createdAt.getTime()) && createdAt >= statusRangeStart;
+  });
+
   const statusPieData = Object.entries(
-    tickets.reduce<Record<string, number>>((acc, ticket) => {
-      acc[ticket.status] = (acc[ticket.status] ?? 0) + 1;
+    statusRangeBackendTickets.reduce<Record<string, number>>((acc, ticket) => {
+      const statusLabel = mapStatus(ticket.status, ticket.assigned_to);
+      acc[statusLabel] = (acc[statusLabel] ?? 0) + 1;
       return acc;
     }, {})
   ).map(([name, value]) => ({
@@ -200,38 +225,41 @@ export default function AdminDashboard() {
     return new Date(bt.updated_at).toLocaleString();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3BC25B]"></div>
-        <span className="ml-3 text-gray-500">Loading tickets...</span>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <AnnouncementBanner />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Supervisor Dashboard</h1>
-          <p className="text-gray-500 dark:text-gray-400">Manage tickets, assignments, and team performance</p>
+          <p className="text-gray-500 dark:text-gray-400">Manage tickets, assignments, and team progress</p>
         </div>
         <GreenButton onClick={() => navigate('/admin/create-ticket')}>+ Create Ticket</GreenButton>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-        <StatCard title="Total Tickets" value={String(stats?.total ?? tickets.length)} icon={Building2} color="blue" subtext="All visible tickets" />
-        <StatCard title="Unassigned" value={String(tickets.filter(t => !t.assignee).length)} icon={Ticket} color="orange" subtext="Needs immediate assignment" />
-        <StatCard title="Pending" value={String(stats?.open ?? tickets.filter(t => t.status === 'Pending').length)} icon={Clock} color="blue" subtext="Waiting for action" />
-        <StatCard title="In Progress" value={String(stats?.in_progress ?? tickets.filter(t => t.status === 'In Progress' || t.status === 'Assigned').length)} icon={UserCheck} color="green" />
-        <StatCard title="Escalated" value={String(stats?.escalated ?? tickets.filter(t => t.status === 'Escalated').length)} icon={AlertOctagon} color="purple" />
+      <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, idx) => (
+            <div key={idx} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 p-3.5">
+              <SkeletonBox className="h-3 w-20 mb-2" />
+              <SkeletonBox className="h-7 w-14 mb-2" />
+              <SkeletonBox className="h-9 w-9 rounded-xl" />
+            </div>
+          ))
+        ) : (
+          <>
+            <StatCard title="Total Tickets" value={String(stats?.total ?? tickets.length)} icon={Building2} color="blue" compact />
+            <StatCard title="Unassigned" value={String(tickets.filter(t => !t.assignee).length)} icon={Ticket} color="orange" compact />
+            <StatCard title="Pending" value={String(stats?.open ?? tickets.filter(t => t.status === 'Pending').length)} icon={Clock} color="blue" compact />
+            <StatCard title="In Progress" value={String(stats?.in_progress ?? tickets.filter(t => t.status === 'In Progress' || t.status === 'Assigned').length)} icon={UserCheck} color="green" compact />
+            <StatCard title="Escalated" value={String(stats?.escalated ?? tickets.filter(t => t.status === 'Escalated').length)} icon={AlertOctagon} color="purple" compact />
+          </>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2" accent>
-          <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-3">
             <div className="flex items-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 p-1">
               <button
                 onClick={() => setTicketFeedView('submitted')}
@@ -250,14 +278,38 @@ export default function AdminDashboard() {
               {ticketFeedView === 'submitted' ? 'All Submitted Tickets' : 'All Escalated Tickets'}
             </GreenButton>
           </div>
-          <div className="space-y-4">
-            {latestTicketCards.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-8 text-center">
+          <div className="space-y-3">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, idx) => (
+                <div key={idx} className="rounded-xl border border-gray-100 dark:border-gray-700 p-3">
+                  <SkeletonBox className="h-3 w-36 mb-2" />
+                  <SkeletonBox className="h-4 w-3/4 mb-2" />
+                  <SkeletonBox className="h-3 w-1/2 mb-3" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <SkeletonBox className="h-14 w-full" />
+                    <SkeletonBox className="h-14 w-full" />
+                    <SkeletonBox className="h-14 w-full" />
+                    <SkeletonBox className="h-14 w-full" />
+                  </div>
+                </div>
+              ))
+            ) : latestTicketCards.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-6 text-center">
                 <p className="text-sm text-gray-500 dark:text-gray-400">{ticketFeedView === 'submitted' ? 'No submitted tickets yet.' : 'No escalated tickets yet.'}</p>
               </div>
             ) : (
-              latestTicketCards.map((ticket) => (
-                <div key={ticket.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              latestTicketCards.map((ticket) => {
+                const bt = activeFeedBackendTickets.find((b) => b.stf_no === ticket.id);
+                const latestEscalation = bt?.escalation_logs?.[0];
+                const escalatedTo =
+                  (bt?.external_escalated_to || '').trim() ||
+                  (latestEscalation?.to_external || '').trim() ||
+                  (latestEscalation?.to_user_name || '').trim() ||
+                  (latestEscalation?.external_escalated_to || '').trim() ||
+                  'Higher Position';
+
+                return (
+                <div key={ticket.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-mono text-xs text-[#0E8F79] dark:text-green-400 mb-1">{ticket.id}</p>
@@ -267,30 +319,27 @@ export default function AdminDashboard() {
                     </div>
                     <button
                       onClick={() => navigate(`/admin/ticket-details?stf=${ticket.id}`)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-[#0E8F79] text-white hover:bg-[#0b7463] transition-colors"
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg bg-[#0E8F79] text-white hover:bg-[#0b7463] transition-colors self-end md:self-auto md:ml-auto"
                     >
                       View Details
                       <ChevronRightIcon className="w-3.5 h-3.5" />
                     </button>
-                    {isTicketEditable(ticket.status) && (
-                      <button
-                        onClick={() => openEdit(ticket)}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit
-                      </button>
-                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 mt-3">
                     <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</p>
                       <div className="mt-1"><PriorityBadge priority={ticket.priority} /></div>
                     </div>
                     <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</p>
-                      <div className="mt-1"><StatusBadge status={ticket.status} /></div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {ticketFeedView === 'escalated' ? 'Escalated To' : 'Status'}
+                      </p>
+                      {ticketFeedView === 'escalated' ? (
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 truncate" title={escalatedTo}>{escalatedTo}</p>
+                      ) : (
+                        <div className="mt-1"><StatusBadge status={ticket.status} /></div>
+                      )}
                     </div>
                     <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Assignee</p>
@@ -300,8 +349,8 @@ export default function AdminDashboard() {
                       <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Progress</p>
                       <div className="mt-1">
                         {(() => {
-                          const bt = activeFeedBackendTickets.find((b) => b.stf_no === ticket.id);
-                          const progress = bt?.progress_percentage ?? bt?.progressPercentage ?? 0;
+                          const rawProgress = bt?.progress_percentage ?? bt?.progressPercentage;
+                          const progress = typeof rawProgress === 'number' ? rawProgress : 0;
                           return (
                             <>
                               <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 mb-0.5">
@@ -318,7 +367,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-              ))
+              )})
             )}
           </div>
         </Card>
@@ -327,10 +376,24 @@ export default function AdminDashboard() {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-900 dark:text-white">Tickets by Status</h3>
-              <span className="text-xs text-gray-400 dark:text-gray-500">Supervisor overview</span>
+              <select
+                value={statusChartRange}
+                onChange={(e) => setStatusChartRange(e.target.value as 'today' | 'weekly' | 'monthly' | 'yearly')}
+                className="px-2.5 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg text-xs font-medium bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-[#3BC25B]"
+                aria-label="Filter tickets by status chart date range"
+              >
+                <option value="today">Today</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
             </div>
-            <div className="h-72">
-              {statusPieData.length === 0 ? (
+            <div className="h-60">
+              {loading ? (
+                <div className="h-full p-3">
+                  <SkeletonBox className="h-full w-full rounded-xl" />
+                </div>
+              ) : statusPieData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">No ticket data available.</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -365,19 +428,34 @@ export default function AdminDashboard() {
             </div>
           </Card>
 
-          <Calendar tickets={supervisorCalendarTickets} />
+          {loading ? (
+            <Card>
+              <SkeletonBox className="h-5 w-40 mb-4" />
+              <SkeletonBox className="h-56 w-full rounded-xl" />
+            </Card>
+          ) : (
+            <Calendar tickets={supervisorCalendarTickets} />
+          )}
 
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <History className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               <h3 className="font-bold text-gray-900 dark:text-white">Escalation History</h3>
             </div>
-            <div className="space-y-4">
-              {escalationHistory.length === 0 && (
+            <div className="space-y-2.5 max-h-[270px] overflow-y-auto pr-1">
+              {loading ? (
+                Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="pl-2.5 border-l-4 border-gray-200 dark:border-gray-700">
+                    <SkeletonBox className="h-3 w-24 mb-2" />
+                    <SkeletonBox className="h-3 w-40 mb-2" />
+                    <SkeletonBox className="h-3 w-3/4" />
+                  </div>
+                ))
+              ) : escalationHistory.length === 0 && (
                 <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-4">No escalation history yet.</p>
               )}
-              {escalationHistory.map((item) => (
-                <div key={item.id} className={`pl-3 border-l-4 ${item.type === 'Escalated' ? 'border-orange-400' : 'border-[#0E8F79]'}`}>
+              {!loading && escalationHistory.map((item) => (
+                <div key={item.id} className={`pl-2.5 border-l-4 ${item.type === 'Escalated' ? 'border-orange-400' : 'border-[#0E8F79]'}`}>
                   <div className="flex justify-between items-start"><span className="text-xs font-bold text-gray-900 dark:text-white">{item.ticketId}</span><span className="text-[10px] text-gray-500 dark:text-gray-400">{item.time}</span></div>
                   <div className="flex items-center gap-2 mt-1"><span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${item.type === 'Escalated' ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300' : 'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300'}`}>{item.type}</span><span className="text-xs text-gray-600 dark:text-gray-400">to {item.to}</span></div>
                   <p className="text-xs text-gray-500 mt-1 line-clamp-2">&ldquo;{item.reason}&rdquo;</p>

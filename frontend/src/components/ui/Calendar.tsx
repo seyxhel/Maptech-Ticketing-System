@@ -122,6 +122,20 @@ export function Calendar({ tickets }: CalendarProps) {
   };
 
   const selectedTickets = selectedDateKey ? ticketsByDate.get(selectedDateKey) || [] : [];
+  const visibleMonthDeadlineDateCount = useMemo(() => {
+    let count = 0;
+    ticketsByDate.forEach((_, dateKey) => {
+      const d = new Date(`${dateKey}T00:00:00`);
+      if (Number.isNaN(d.getTime())) return;
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        count += 1;
+      }
+    });
+    return count;
+  }, [ticketsByDate, year, month]);
+  const todayDateKey = getDateKey(new Date());
+  const todayDeadlineCount = ticketsByDate.get(todayDateKey)?.length ?? 0;
+  const todayHasDeadline = todayDeadlineCount > 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
@@ -132,7 +146,7 @@ export function Calendar({ tickets }: CalendarProps) {
             {monthNames[month]} {year}
           </h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {ticketsByDate.size} date(s) with SLA deadlines
+            {visibleMonthDeadlineDateCount} date(s) with SLA deadlines
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -198,8 +212,9 @@ export function Calendar({ tickets }: CalendarProps) {
                 aspect-square rounded-lg border transition-all
                 ${date === null ? 'bg-transparent border-transparent' : ''}
                 ${date && !today ? 'bg-gray-50 dark:bg-gray-700 border-gray-100 dark:border-gray-600' : ''}
-                ${today ? 'bg-[#3BC25B] border-[#3BC25B]' : ''}
+                ${today ? 'bg-slate-500 border-slate-500' : ''}
                 ${hasTickets && !today ? 'border-[#0E8F79] dark:border-green-400 bg-green-50 dark:bg-gray-700' : ''}
+                ${today && hasTickets ? 'ring-2 ring-[#0E8F79] dark:ring-green-400 ring-offset-1 ring-offset-white dark:ring-offset-gray-800' : ''}
                 ${hasTickets && !today ? 'hover:shadow-md cursor-pointer' : ''}
                 ${hasTickets ? 'focus:outline-none focus:ring-2 focus:ring-[#0E8F79] focus:ring-offset-1' : ''}
                 flex flex-col items-center justify-center text-xs p-1 relative
@@ -238,14 +253,14 @@ export function Calendar({ tickets }: CalendarProps) {
 
       {/* Legend */}
       <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-[#0E8F79] dark:bg-green-500"></div>
-            <span className="text-gray-600 dark:text-gray-400">Has ticket SLA deadline</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60 px-2.5 py-1">
+            <div className="w-2.5 h-2.5 rounded bg-[#0E8F79] dark:bg-green-500"></div>
+            <span className="text-gray-700 dark:text-gray-300">SLA deadline date</span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-[#3BC25B]"></div>
-            <span className="text-gray-600 dark:text-gray-400">Today</span>
+          <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/60 px-2.5 py-1">
+            <div className="w-2.5 h-2.5 rounded bg-slate-500"></div>
+            <span className="text-gray-700 dark:text-gray-300">Today</span>
           </div>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">

@@ -11,6 +11,7 @@ interface StatCardProps {
   };
   subtext?: string;
   color?: 'green' | 'orange' | 'blue' | 'purple' | 'red';
+  compact?: boolean;
 }
 const colorMap = {
   green: {
@@ -40,25 +41,26 @@ export function StatCard({
   icon: Icon,
   trend,
   subtext,
-  color = 'green'
+  color = 'green',
+  compact = false,
 }: StatCardProps) {
   const c = colorMap[color];
   return (
     <div
       role="region"
       aria-label={`${title}: ${value}`}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 p-6"
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 ${compact ? 'p-3.5' : 'p-6'}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
+          <p className={`${compact ? 'text-xs' : 'text-sm'} font-medium text-gray-500 dark:text-gray-400 mb-1`}>
             {title}
           </p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">
+          <p className={`${compact ? 'text-2xl' : 'text-3xl'} font-bold text-gray-900 dark:text-white`}>
             {value}
           </p>
           {subtext &&
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+          <p className={`${compact ? 'text-[11px]' : 'text-xs'} text-gray-400 dark:text-gray-500 mt-1`}>
               {subtext}
             </p>
           }
@@ -75,8 +77,8 @@ export function StatCard({
             </div>
           }
         </div>
-        <div className={`p-3 rounded-xl ${c.bg}`}>
-          <Icon className={`w-6 h-6 ${c.icon}`} />
+        <div className={`${compact ? 'p-2.5' : 'p-3'} rounded-xl ${c.bg}`}>
+          <Icon className={`${compact ? 'w-5 h-5' : 'w-6 h-6'} ${c.icon}`} />
         </div>
       </div>
     </div>);
