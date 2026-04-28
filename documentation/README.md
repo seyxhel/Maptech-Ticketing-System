@@ -48,16 +48,17 @@ Welcome to the official system documentation for the **Maptech Information Solut
 
 ---
 
-### Current Progress Snapshot (April 15, 2026)
+### Current Progress Snapshot (April 28, 2026)
 
 - Sales intake workflow is implemented (create ticket, call verification, priority confirmation).
 - Supervisor-only assignment gating is enforced for technician assignment.
 - Feedback ratings are implemented as `FeedbackRating` and required before ticket closure.
 - User management and auth custom action endpoints are aligned with current router actions.
 - Sales and supervisor directory endpoints are available at `/api/sales-users/` and `/api/supervisors/`.
+- **User Manual Finalization (NEW):** All role-based module manuals standardized under shared Maptech header/footer template. Deliverables include Sales-Module-Manual, SuperAdmin-Module-Manual, Supervisor-Module-Manual, Technical-Module-Manual, and Ticket-Lifecycle-Workflow. Filenames normalized and ready for distribution.
 
 ---
 
-**System Version:** 1.2  
-**Date:** April 15, 2026  
+**System Version:** 1.3  
+**Date:** April 28, 2026  
 **Organization:** Maptech Information Solutions Inc.
