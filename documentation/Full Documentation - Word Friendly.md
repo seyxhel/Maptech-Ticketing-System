@@ -276,7 +276,7 @@ The system operates as a client-server web application with a RESTful API backen
 
 The Maptech Ticketing System operates within the following context:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 01](images/diagram-01.png)
 
 ### External Entity Interactions
 
@@ -311,7 +311,7 @@ The system implements a role-based access control (RBAC) model with the followin
 
 ### Role Hierarchy
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 02](images/diagram-02.png)
 
 ### Detailed Role Permissions
 
@@ -425,7 +425,7 @@ The system employs a combination of established architectural patterns:
 
 The system is organized into the following logical layers:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 03](images/diagram-03.png)
 
 ### Layer Descriptions
 
@@ -440,11 +440,11 @@ The system is organized into the following logical layers:
 
 ### Development Environment
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 04](images/diagram-04.png)
 
 ### Production Environment (Recommended)
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 05](images/diagram-05.png)
 
 ---
 
@@ -546,7 +546,7 @@ The Maptech Ticketing System supports a multi-stage ticket lifecycle with branch
 
 Prior to the ticketing system, the support process operated as follows:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 06](images/diagram-06.png)
 
 ### As-Is Process Challenges
 
@@ -563,7 +563,7 @@ Prior to the ticketing system, the support process operated as follows:
 
 With the Maptech Ticketing System, the process operates as follows:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 07](images/diagram-07.png)
 
 ### To-Be Process Benefits
 
@@ -592,7 +592,7 @@ The live implementation includes an intake split between Sales and Supervisors:
 
 ### 6.4.1 Ticket Lifecycle State Diagram
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 08](images/diagram-08.png)
 
 ### Ticket Status Definitions
 
@@ -607,18 +607,18 @@ The live implementation includes an intake split between Sales and Supervisors:
 
 ### 6.4.2 Ticket Assignment Flow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 09](images/diagram-09.png)
 
 Implementation note:
 When a ticket is created by Sales, assignment is gated until call verification and priority confirmation are completed.
 
 ### 6.4.3 Escalation Workflow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 10](images/diagram-10.png)
 
 ### 6.4.4 Resolution & Closure Flow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 11](images/diagram-11.png)
 
 ---
 
@@ -1103,7 +1103,7 @@ The Maptech Ticketing System uses a relational data model implemented through Dj
 
 ## 9.2 Entity Relationship Diagram (ERD)
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 12](images/diagram-12.png)
 
 ---
 
@@ -1240,15 +1240,15 @@ Additional data dictionary entries for remaining tables (EscalationLog, Notifica
 
 ### Level 0 — Context Diagram
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 13](images/diagram-13.png)
 
 ### Level 1 — Major Processes
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 14](images/diagram-14.png)
 
 ### Level 2 — Ticket Lifecycle Data Flow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 15](images/diagram-15.png)
 
 ---
 
@@ -2229,7 +2229,7 @@ The Maptech Ticketing System implements a defense-in-depth security model with t
 
 The system implements RBAC with four hierarchical roles:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 16](images/diagram-16.png)
 
 ### Permission Classes
 
@@ -2409,17 +2409,17 @@ Password Change/Reset Flow:
 
 ### Frontend ↔ Backend Communication
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 17](images/diagram-17.png)
 
 ### Development Proxy Configuration
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 18](images/diagram-18.png)
 
 ### Signal-Based Internal Integration
 
 Django signals provide event-driven integration between system modules:
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 19](images/diagram-19.png)
 
 ---
 
@@ -2740,7 +2740,7 @@ server {
 
 ### Recommended CI/CD Workflow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 20](images/diagram-20.png)
 
 ### Pipeline Stages
 
@@ -2952,7 +2952,7 @@ pg_restore -h localhost -U maptech_user \
 
 ### Incident Response Process
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 21](images/diagram-21.png)
 
 1. **Detection:** Alert received via monitoring tool, or user report through the ticketing system itself.
 2. **Triage:** On-call engineer assesses severity, assigns to appropriate team member.
@@ -3451,7 +3451,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 
 ## Appendix A: System Architecture Diagram
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 22](images/diagram-22.png)
 
 ---
 
@@ -3654,7 +3654,7 @@ Client (1) ─────────── (N) Ticket
 
 ## Appendix F: Ticket Status Flow
 
-> Diagram omitted in this conversion-friendly version.
+![Diagram 23](images/diagram-23.png)
 
 **Status Definitions:**
 
