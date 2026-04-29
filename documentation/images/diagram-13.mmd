@@ -1,0 +1,13 @@
+flowchart LR
+    CL["Clients\n(External)"]
+    SU["Supervisors\n(Admin)"]
+    TE["Technicians\n(Employee)"]
+    SA["Superadmin"]
+
+    CL -->|"Support Requests"| MTS
+    MTS -->|"Status Updates / Reports"| CL
+    SU <-->|"Ticket Mgmt / Chat / Reports"| MTS
+    TE <-->|"Assignments / Updates / Chat"| MTS
+    SA <-->|"User Mgmt / Config / Audit"| MTS
+
+    MTS["Maptech\nTicketing\nSystem"]

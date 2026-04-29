@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph SA["SUPERADMIN"]
+        SA_D["Full system access including user management,\nretention policies, and all admin capabilities"]
+    end
+    subgraph AD["ADMIN"]
+        AD_D["Ticket lifecycle management, catalog CRUD,\nknowledge hub, call logs, feedback ratings, audit logs"]
+    end
+    subgraph SL["SALES"]
+        SL_D["Ticket intake/viewing and catalog management\n(no supervisor assignment actions)"]
+    end
+    subgraph EM["EMPLOYEE"]
+        EM_D["View/work on assigned tickets only, escalate,\nsubmit for observation, request closure"]
+    end
+
+    SA --> AD
+    AD --> SL
+    AD --> EM

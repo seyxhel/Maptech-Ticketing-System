@@ -1,0 +1,27 @@
+stateDiagram-v2
+    [*] --> OPEN : Ticket Created
+
+    OPEN : OPEN
+    IN_PROGRESS : IN PROGRESS
+    ESCALATED : ESCALATED
+    ESCALATED_EXT : ESCALATED EXTERNAL
+    PENDING_CLOSURE : PENDING CLOSURE
+    FOR_OBSERVATION : FOR OBSERVATION
+    CLOSED : CLOSED
+    UNRESOLVED : UNRESOLVED
+
+    OPEN --> IN_PROGRESS : assign + start_work
+
+    IN_PROGRESS --> ESCALATED : escalate
+    IN_PROGRESS --> PENDING_CLOSURE : request_closure
+
+    ESCALATED --> IN_PROGRESS : re-assign
+    ESCALATED --> ESCALATED_EXT : external escalation
+
+    PENDING_CLOSURE --> CLOSED : review + close
+    PENDING_CLOSURE --> IN_PROGRESS : back to work
+    PENDING_CLOSURE --> FOR_OBSERVATION : monitoring
+
+    FOR_OBSERVATION --> CLOSED : confirm
+
+    IN_PROGRESS --> UNRESOLVED : cannot resolve

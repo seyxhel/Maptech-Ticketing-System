@@ -1,0 +1,9 @@
+flowchart TB
+    subgraph DW["Developer Workstation"]
+        VS["<b>Vite Dev Server</b>\n(Port 3000)\nReact SPA — Hot Reload"]
+        DA["<b>Daphne ASGI Server</b>\n(Port 8000)\nDjango + Channels — Auto Reload"]
+        DB["<b>SQLite + File Storage</b>\n(db.sqlite3 + media/)"]
+
+        VS -->|"Proxy"| DA
+        DA --> DB
+    end

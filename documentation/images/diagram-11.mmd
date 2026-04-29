@@ -1,0 +1,10 @@
+flowchart TB
+    A["Technician completes work"] --> B["Uploads resolution proof\n(attachments)"]
+    B --> C["Updates action taken,\nremarks, job status"]
+    C --> D["Captures client signature\n(digital)"]
+    D --> E["Requests closure\n(status → pending_closure, time_out set)"]
+    E --> F["Supervisor receives notification"]
+    F --> G["Reviews resolution\ndetails & proof"]
+    G --> H["Submits feedback rating\n(1-5)"]
+    H --> I["Closes ticket\n(status → closed)"]
+    I --> J["Optional: Publishes resolution\nproof to Knowledge Hub"]

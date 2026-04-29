@@ -1,0 +1,15 @@
+flowchart TB
+    A["Client contacts Maptech"] --> B["Supervisor logs into system"]
+    B --> C["Creates ticket — auto STF#\nEnters client & product info"]
+    C --> D["Assigns to technician\n(system sends notification)"]
+    D --> E["Technician receives real-time notification\nViews ticket details in dashboard"]
+    E --> F["Starts work — time_in recorded\nCommunicates via live chat"]
+    F --> G{"Outcome?"}
+    G -->|"Resolves"| H["Resolves Issue\nUploads proof"]
+    G -->|"Escalates"| I["Escalates\n(Internal / External)"]
+    H --> J["Requests closure\n(time_out set)"]
+    I --> K["Re-assigned or\nsent to vendor"]
+    J --> L["Supervisor reviews\nSubmits feedback rating\nCloses ticket"]
+    K --> M["Process repeats\nuntil resolved"]
+    L --> N["Knowledge Hub\n(publish proof)"]
+    M --> O["Resolution captured\nwhen eventually closed"]

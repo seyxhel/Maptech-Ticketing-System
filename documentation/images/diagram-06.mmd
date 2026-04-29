@@ -1,0 +1,11 @@
+flowchart TB
+    A["Client calls/emails"] --> B["Paper STF Form\nfilled out"]
+    B --> C["Faxed or emailed\nto office"]
+    C --> D["Filed in cabinet\n(paper archive)"]
+
+    E["Supervisor receives request"] --> F["Manually logs in spreadsheet"]
+    F --> G["Calls/messages technician"]
+    G --> H["Technician visits client"]
+    H --> I["Technician calls back\nwith update"]
+    I --> J["Supervisor manually\nupdates spreadsheet"]
+    J --> K["Follow-up via\nphone/email"]

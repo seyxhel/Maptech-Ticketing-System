@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph Clients["CLIENTS (Browsers)"]
+        direction LR
+        SAU["SuperAdmin UI\n(Dashboard, User Mgmt,\nReports)"]
+        ADU["Admin/Supervisor\n(Ticket Mgmt,\nAssignment, Escalation)"]
+        EMU["Employee UI\n(My Tickets,\nChat, Resolution)"]
+    end
+
+    Clients ==>|"HTTPS / WSS"| Nginx
+
+    subgraph Nginx["REVERSE PROXY (Nginx)"]
+        direction LR
+        P1["/ SPA Files"]
+        P2["/api/ HTTP API"]
+        P3["/ws/ WebSocket"]
+        P4["/media/ /static/\nFile Serving"]
+    end
+
+    Nginx ==> AppServer
+
+    subgraph AppServer["APPLICATION SERVER (Daphne ASGI)"]
+        subgraph DRF["Django REST Framework"]
+            TV["tickets/views/\nTicketViewSet\nAuditLogViewSet\nNotificationViewSet\nAnnouncementViewSet\nFeedbackRatingViewSet\nCallLogViewSet"]
+            UV["users/views/\nAuthViewSet\nUserViewSet"]
+            AUTH["Authentication\nSimpleJWT\nArgon2 Hashing"]
+        end
+
+        subgraph CH["Django Channels"]
+            CON["NotificationConsumer\nTicketChatConsumer"]
+            WR["ws/notifications/\nws/chat/ticket_id/\nadmin_employee/"]
+        end
+
+        MW["Middleware & Signals\nJWTAuthMiddleware (WS)\nSignal Handlers (8)\nPermissions (6 classes)"]
+    end
+
+    AppServer --> DB
+    AppServer --> RD
+
+    subgraph DB["DATABASE"]
+        DBI["SQLite (Dev) / PostgreSQL (Prod)\n18 Models: User, Ticket, Message,\nAuditLog, Notification, etc."]
+    end
+
+    subgraph RD["REDIS (Production)"]
+        RDI["Channel Layer\n(WebSocket messaging)\nInMemoryChannelLayer (Dev)"]
+    end
+
+    subgraph FS["FILE STORAGE"]
+        FSI["media/\nprofile_pictures/\nticket_attachments/"]
+    end
+
+    AppServer --> FS

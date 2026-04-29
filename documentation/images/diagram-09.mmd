@@ -1,0 +1,10 @@
+flowchart TB
+    A["Supervisor creates ticket"] --> B["Selects technician\n(views workload)"]
+    B --> C["System creates AssignmentSession\nSends notification to technician"]
+    C --> D["Technician receives notification"]
+    D --> E["Technician starts work\n(time_in set)"]
+    E --> F{"Outcome?"}
+    F -->|"Resolves"| G["Request closure"]
+    F -->|"Needs escalation"| H["Pass or Escalate"]
+    G --> I["Admin closes\n(old session ends)"]
+    H --> J["New AssignmentSession\n(old session ends)"]

@@ -1,0 +1,5 @@
+flowchart LR
+    A["Commit\n(Push)"] --> B["Lint &\nFormat"]
+    B --> C["Test\n(Unit +\nInteg)"]
+    C --> D["Build\n(Static\n+ Dist)"]
+    D --> E["Deploy\n(Staging\n/ Prod)"]

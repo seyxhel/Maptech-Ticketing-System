@@ -1,0 +1,14 @@
+flowchart TB
+    subgraph internal["INTERNAL ESCALATION"]
+        direction TB
+        IA["Technician → Escalate (returns to admin)\nOR\nTechnician → Pass (to another technician)"]
+        IB["1. Current session ends\n2. EscalationLog created\n3. System message in chat\n4. New assignment (if pass)\n5. Notification sent"]
+        IA --> IB
+    end
+
+    subgraph external["EXTERNAL ESCALATION"]
+        direction TB
+        EA["Admin/Employee → Escalate External\n(to distributor or principal)"]
+        EB["1. EscalationLog (type: external)\n2. Ticket status → escalated_ext\n3. External entity name recorded\n4. Escalation notes stored\n5. Timestamp captured"]
+        EA --> EB
+    end

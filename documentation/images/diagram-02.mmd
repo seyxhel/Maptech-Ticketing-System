@@ -1,0 +1,9 @@
+flowchart TB
+    SA["<b>Superadmin</b>\nFull System Access"]
+    AD["<b>Admin / Supervisor</b>\nTicket & Catalog Management"]
+    SL["<b>Sales</b>\nViewing & Catalog Access"]
+    EM["<b>Employee / Technician</b>\nAssigned Ticket Operations"]
+
+    SA --> AD
+    AD --> SL
+    AD --> EM

@@ -1,0 +1,17 @@
+flowchart TB
+    subgraph External["EXTERNAL ENTITIES"]
+        EV["External\nVendors"]
+        BR["Administrator Browsers\n(Chrome, Firefox, Edge)"]
+    end
+
+    EV -->|"Escalation Info (Manual)"| MTS
+    BR -->|"HTTPS / WSS"| MTS
+
+    subgraph MTS["MAPTECH TICKETING SYSTEM"]
+        FE["<b>Frontend</b> — React SPA\n• Admin Dashboard\n• Employee Dashboard\n• Superadmin Panel"]
+        BE["<b>Backend</b> — Django + Channels\n• REST API • WebSocket Consumers\n• Business Logic • Authentication"]
+        DL["<b>Data Layer</b>\n• SQLite Database\n• File Storage (Media)"]
+
+        FE -->|"HTTP / WebSocket"| BE
+        BE --> DL
+    end

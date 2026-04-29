@@ -1,0 +1,243 @@
+erDiagram
+    User {
+        int id PK
+        string username UK
+        string email UK
+        string role
+        string first_name
+        string middle_name
+        string last_name
+        string suffix
+        string phone
+        string profile_picture
+        string recovery_key UK
+        boolean is_active
+    }
+
+    Ticket {
+        int id PK
+        string stf_no UK
+        string status
+        string priority
+        int created_by FK
+        int assigned_to FK
+        int type_of_service FK
+        int client_record FK
+        int product_record FK
+        int current_session FK
+        date date
+        datetime time_in
+        datetime time_out
+        text description_of_problem
+        text action_taken
+        text remarks
+        string job_status
+        string cascade_type
+        text observation
+        text signature
+        string signed_by_name
+        boolean confirmed_by_admin
+    }
+
+    AssignmentSession {
+        int id PK
+        int ticket FK
+        int employee FK
+        datetime started_at
+        datetime ended_at
+        boolean is_active
+    }
+
+    Message {
+        int id PK
+        int ticket FK
+        int assignment_session FK
+        string channel_type
+        int sender FK
+        text content
+        int reply_to FK
+        boolean is_system_message
+        datetime created_at
+    }
+
+    MessageReaction {
+        int id PK
+        int message FK
+        int user FK
+        string emoji
+    }
+
+    MessageReadReceipt {
+        int id PK
+        int message FK
+        int user FK
+        datetime read_at
+    }
+
+    TicketAttachment {
+        int id PK
+        int ticket FK
+        string file
+        int uploaded_by FK
+        datetime uploaded_at
+        boolean is_resolution_proof
+        boolean is_published
+        string published_title
+        int published_by FK
+        boolean is_archived
+    }
+
+    TicketTask {
+        int id PK
+        int ticket FK
+        int assigned_to FK
+        string description
+        string status
+    }
+
+    EscalationLog {
+        int id PK
+        int ticket FK
+        int from_user FK
+        int to_user FK
+    }
+
+    AuditLog {
+        int id PK
+        datetime timestamp
+        string entity
+        int entity_id
+        string action
+        text activity
+        int actor FK
+        string actor_email
+        string ip_address
+        json changes
+    }
+
+    Notification {
+        int id PK
+        int recipient FK
+        int ticket FK
+        string type
+        string title
+        string message
+        boolean is_read
+        datetime created_at
+    }
+
+    CallLog {
+        int id PK
+        int ticket FK
+        int admin FK
+        string client_name
+        string phone_number
+        datetime call_start
+        datetime call_end
+        text notes
+    }
+
+    FeedbackRating {
+        int id PK
+        int ticket FK
+        int employee FK
+        int admin FK
+        int rating
+        text comments
+    }
+
+    TypeOfService {
+        int id PK
+        string name
+        text description
+        boolean is_active
+        int estimated_resolution_days
+    }
+
+    Category {
+        int id PK
+        string name
+        text description
+        boolean is_active
+    }
+
+    Product {
+        int id PK
+        int category FK
+        string device_equipment
+        string serial_no
+        boolean has_warranty
+        string product_name
+        string brand
+        string model_name
+        boolean is_active
+    }
+
+    Client {
+        int id PK
+        string client_name
+        string contact_person
+        string mobile_no
+        string designation
+        string dept_org
+        string email_address
+        text address
+        boolean is_active
+    }
+
+    RetentionPolicy {
+        int id PK
+        int audit_log_days
+        int call_log_days
+        int updated_by FK
+        datetime updated_at
+    }
+
+    Announcement {
+        int id PK
+        string title
+        text description
+        string type
+        string visibility
+        boolean is_active
+        date start_date
+        date end_date
+        int created_by FK
+    }
+
+    User ||--o{ Ticket : "created_by"
+    User ||--o{ Ticket : "assigned_to"
+    User ||--o{ AssignmentSession : "employee"
+    User ||--o{ AuditLog : "actor"
+    User ||--o{ Notification : "recipient"
+    User ||--o{ CallLog : "admin"
+    User ||--o{ Message : "sender"
+    User ||--o{ MessageReaction : "reacts"
+    User ||--o{ MessageReadReceipt : "reads"
+    User ||--o{ EscalationLog : "from_user"
+    User ||--o{ EscalationLog : "to_user"
+    User ||--o{ TicketAttachment : "uploaded_by"
+    User ||--o{ TicketTask : "assigned_to"
+    User ||--o{ FeedbackRating : "employee"
+    User ||--o{ FeedbackRating : "admin"
+    User ||--o{ Announcement : "created_by"
+    User ||--o{ RetentionPolicy : "updated_by"
+
+    Ticket ||--o{ AssignmentSession : "has"
+    Ticket ||--o{ Message : "has"
+    Ticket ||--o{ TicketAttachment : "has"
+    Ticket ||--o{ TicketTask : "has"
+    Ticket ||--o{ EscalationLog : "has"
+    Ticket ||--o{ Notification : "references"
+    Ticket ||--o{ CallLog : "references"
+    Ticket ||--|| FeedbackRating : "has"
+
+    AssignmentSession ||--o{ Message : "within"
+    Message ||--o{ MessageReaction : "has"
+    Message ||--o{ MessageReadReceipt : "has"
+    Message o|--o| Message : "reply_to"
+
+    TypeOfService ||--o{ Ticket : "service_type"
+    Client ||--o{ Ticket : "client_record"
+    Product ||--o{ Ticket : "product_record"
+    Category ||--o{ Product : "category"

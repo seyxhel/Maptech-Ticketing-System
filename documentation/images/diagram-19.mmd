@@ -1,0 +1,6 @@
+flowchart LR
+    ME["Model Event"] --> SH["Signal Handler"] --> SE["Side Effect"]
+    SE --> AL["AuditLog creation"]
+    SE --> ND["Notification dispatch"]
+    SE --> WB["WebSocket broadcast"]
+    SE --> SM["Session management"]

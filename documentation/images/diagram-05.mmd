@@ -1,0 +1,10 @@
+flowchart TB
+    BR["Browser\n(End User)"] <-->|"HTTPS / WSS"| RP["Reverse Proxy\n(Nginx / Caddy)"]
+
+    RP --> SF["Static Files\n(Whitenoise or CDN)"]
+    RP --> AS["Daphne / Uvicorn\nASGI Server\n(Django + Channels)"]
+
+    AS --> PG["PostgreSQL\nDatabase"]
+    AS --> RD["Redis\nChannel Layer"]
+
+    PG ~~~ FS["File Storage\n(Local / S3)"]

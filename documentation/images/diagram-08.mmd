@@ -1,0 +1,28 @@
+stateDiagram-v2
+    [*] --> open : Ticket Created
+
+    open : OPEN
+    in_progress : IN PROGRESS
+    escalated : ESCALATED (Internal)
+    escalated_ext : ESCALATED (External)
+    for_observation : FOR OBSERVATION
+    pending_closure : PENDING CLOSURE
+    closed : CLOSED
+    unresolved : UNRESOLVED
+
+    open --> in_progress : Assigned & Work Started
+
+    in_progress --> escalated : Escalate Internally
+    in_progress --> escalated_ext : Escalate Externally
+    in_progress --> for_observation : Submit for Observation
+    in_progress --> pending_closure : Request Closure
+    in_progress --> unresolved : Admin marks unresolved
+
+    escalated --> in_progress : Re-assigned
+
+    for_observation --> in_progress : Returns to In Progress
+    for_observation --> closed : Admin closes after observation
+
+    pending_closure --> closed : Admin reviews & closes
+
+    unresolved --> in_progress : Re-opened

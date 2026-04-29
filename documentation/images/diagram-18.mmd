@@ -1,0 +1,4 @@
+flowchart LR
+    V["Vite Dev Server\n(port 3000)"] -->|"/api/*"| B1["http://localhost:8000/api/*"]
+    V -->|"/media/*"| B2["http://localhost:8000/media/*"]
+    V -->|"/ws/*"| B3["ws://localhost:8000/ws/*"]

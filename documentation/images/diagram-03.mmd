@@ -1,0 +1,24 @@
+flowchart TB
+    subgraph PL["PRESENTATION LAYER"]
+        PL1["<b>React SPA (TypeScript)</b>\n• Role-Based Layouts (Superadmin, Admin, Sales, Employee)\n• Pages & Components\n• Context Providers (Auth, Theme)\n• Service Layer (API calls, WebSocket clients)\n• Route Guards (ProtectedRoute)"]
+    end
+
+    PL ==>|"HTTP / WebSocket"| AL
+
+    subgraph AL["APPLICATION LAYER"]
+        DRF["<b>Django REST Framework</b>\n• URL Router & ViewSets\n• Serializers (validation & formatting)\n• Permission Classes (RBAC)\n• JWT Authentication (SimpleJWT)\n• Swagger/OpenAPI (drf-yasg)"]
+        DC["<b>Django Channels (ASGI)</b>\n• WebSocket Consumers (Chat, Notifications)\n• Channel Layer (InMemory / Redis)\n• JWT Middleware for WebSocket Auth"]
+    end
+
+    AL ==> BL
+
+    subgraph BL["BUSINESS LOGIC LAYER"]
+        BL1["• Ticket Lifecycle Management\n• Assignment & Escalation Engine\n• SLA Calculation & Progress Tracking\n• Knowledge Hub Publishing Workflow\n• Feedback Rating Collection\n• Audit Logging Engine\n• Notification Dispatch System\n• Signal Handlers (Event-Driven Side Effects)"]
+    end
+
+    BL ==> DAL
+
+    subgraph DAL["DATA LAYER"]
+        ORM["<b>Django ORM</b>\n• Models (18 database tables)\n• Migrations (schema versioning)\n• QuerySets (data access)"]
+        STR["<b>Storage</b>\n• SQLite Database (db.sqlite3)\n• Media Files (attachments, profile pics)\n• Static Files (Whitenoise-served)"]
+    end

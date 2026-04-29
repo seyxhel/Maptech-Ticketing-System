@@ -1,0 +1,15 @@
+flowchart LR
+    subgraph FE["React Frontend"]
+        SL["Service Layer\n(api.ts, ticketService.ts, etc.)"]
+        WS["TicketChatSocket\nNotificationSocket"]
+    end
+
+    subgraph BE["Django Backend"]
+        DRF["DRF ViewSets\nSerializers\nPermissions"]
+        CON["TicketChatConsumer\nNotificationConsumer"]
+    end
+
+    SL -->|"HTTP"| DRF
+    DRF -->|"JSON"| SL
+    WS -->|"WebSocket"| CON
+    CON -->|"JSON"| WS

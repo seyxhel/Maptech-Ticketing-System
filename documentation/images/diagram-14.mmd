@@ -1,0 +1,23 @@
+flowchart TB
+    subgraph Processes[" "]
+        direction LR
+        AUTH["<b>Auth Process</b>\n• Login\n• JWT\n• Reset"]
+        TLM["<b>Ticket Lifecycle</b>\n<b>Management</b>\n• Create • Assign\n• Escalate\n• Resolve • Close"]
+        CE["<b>Communication</b>\n<b>Engine</b>\n• Chat (WS)\n• Notifications\n• System Msgs"]
+        KH["<b>Knowledge Hub</b>\n• Publish\n• Search\n• Archive"]
+    end
+
+    AUTH --> DS
+    TLM --> DS
+    CE --> DS
+    KH --> DS
+
+    subgraph DS["DATA STORE"]
+        direction LR
+        D1["Users"]
+        D2["Tickets"]
+        D3["Messages"]
+        D4["Attachments"]
+        D5["AuditLogs"]
+        D6["Notifications"]
+    end

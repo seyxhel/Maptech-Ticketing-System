@@ -1,0 +1,31 @@
+flowchart TB
+    AI["Admin Input"] --> CT["Create Ticket"]
+    CT --> TDB[(Ticket DB)]
+    CT --> CCR["Create Client Record"] --> CDB[(Client DB)]
+    CT --> CPR["Create Product Record"] --> PDB[(Product DB)]
+    CT --> CAS["Create Assignment Session"] --> SDB[(Session DB)]
+    CAS --> SN1["Send Notification"] --> NDB[(Notification DB)] --> WS1(("WebSocket"))
+    CAS --> CA1["Create Audit Log"] --> ADB1[(AuditLog DB)]
+
+    EI1["Employee Input"] --> SW["Start Work"]
+    SW --> TDB2[(Ticket DB — time_in, status)]
+    SW --> CA2["Create Audit Log"]
+
+    EI2["Employee Input"] --> UT["Update Ticket"]
+    UT --> TDB3[(Ticket DB — action, remarks)]
+    UT --> CA3["Create Audit Log"]
+
+    EI3["Employee Input"] --> UP["Upload Proof"]
+    UP --> ATDB[(Attachment DB + File Storage)]
+
+    EI4["Employee Input"] --> RC["Request Closure"]
+    RC --> TDB4[(Ticket DB — status, time_out)]
+    RC --> SN2["Notify Admin"]
+    RC --> CA4["Create Audit Log"]
+
+    ADI["Admin Input"] --> CLT["Close Ticket"]
+    CLT --> TDB5[(Ticket DB — status → closed)]
+    CLT --> ES["End Session"] --> SDB2[(Session DB)]
+    CLT --> FR["Create Feedback Rating"] --> FRDB[(FeedbackRating DB)]
+    CLT --> SN3["Notify Employee"]
+    CLT --> CA5["Create Audit Log"]
