@@ -288,25 +288,7 @@ The system operates as a client-server web application with a RESTful API backen
 
 The Maptech Ticketing System operates within the following context:
 
-```mermaid
-flowchart TB
-    subgraph External["EXTERNAL ENTITIES"]
-        EV["External\nVendors"]
-        BR["Administrator Browsers\n(Chrome, Firefox, Edge)"]
-    end
-
-    EV -->|"Escalation Info (Manual)"| MTS
-    BR -->|"HTTPS / WSS"| MTS
-
-    subgraph MTS["MAPTECH TICKETING SYSTEM"]
-        FE["<b>Frontend</b> — React SPA\n• Admin Dashboard\n• Employee Dashboard\n• Superadmin Panel"]
-        BE["<b>Backend</b> — Django + Channels\n• REST API • WebSocket Consumers\n• Business Logic • Authentication"]
-        DL["<b>Data Layer</b>\n• SQLite Database\n• File Storage (Media)"]
-
-        FE -->|"HTTP / WebSocket"| BE
-        BE --> DL
-    end
-```
+![Diagram 01](./images/diagram-01.png)
 
 ### External Entity Interactions
 
@@ -347,17 +329,7 @@ The system implements a role-based access control (RBAC) model with the followin
 
 ### Role Hierarchy
 
-```mermaid
-flowchart TB
-    SA["<b>Superadmin</b>\nFull System Access"]
-    AD["<b>Admin / Supervisor</b>\nTicket & Catalog Management"]
-    SL["<b>Sales</b>\nViewing & Catalog Access"]
-    EM["<b>Employee / Technician</b>\nAssigned Ticket Operations"]
-
-    SA --> AD
-    AD --> SL
-    AD --> EM
-```
+![Diagram 02](./images/diagram-02.png)
 
 ### Detailed Role Permissions
 
@@ -483,32 +455,7 @@ The system employs a combination of established architectural patterns:
 
 The system is organized into the following logical layers:
 
-```mermaid
-flowchart TB
-    subgraph PL["PRESENTATION LAYER"]
-        PL1["<b>React SPA (TypeScript)</b>\n• Role-Based Layouts (Superadmin, Admin, Sales, Employee)\n• Pages & Components\n• Context Providers (Auth, Theme)\n• Service Layer (API calls, WebSocket clients)\n• Route Guards (ProtectedRoute)"]
-    end
-
-    PL ==>|"HTTP / WebSocket"| AL
-
-    subgraph AL["APPLICATION LAYER"]
-        DRF["<b>Django REST Framework</b>\n• URL Router & ViewSets\n• Serializers (validation & formatting)\n• Permission Classes (RBAC)\n• JWT Authentication (SimpleJWT)\n• Swagger/OpenAPI (drf-yasg)"]
-        DC["<b>Django Channels (ASGI)</b>\n• WebSocket Consumers (Chat, Notifications)\n• Channel Layer (InMemory / Redis)\n• JWT Middleware for WebSocket Auth"]
-    end
-
-    AL ==> BL
-
-    subgraph BL["BUSINESS LOGIC LAYER"]
-        BL1["• Ticket Lifecycle Management\n• Assignment & Escalation Engine\n• SLA Calculation & Progress Tracking\n• Knowledge Hub Publishing Workflow\n• Feedback Rating Collection\n• Audit Logging Engine\n• Notification Dispatch System\n• Signal Handlers (Event-Driven Side Effects)"]
-    end
-
-    BL ==> DAL
-
-    subgraph DAL["DATA LAYER"]
-        ORM["<b>Django ORM</b>\n• Models (18 database tables)\n• Migrations (schema versioning)\n• QuerySets (data access)"]
-        STR["<b>Storage</b>\n• SQLite Database (db.sqlite3)\n• Media Files (attachments, profile pics)\n• Static Files (Whitenoise-served)"]
-    end
-```
+![Diagram 03](./images/diagram-03.png)
 
 ### Layer Descriptions
 
@@ -525,32 +472,11 @@ flowchart TB
 
 ### Development Environment
 
-```mermaid
-flowchart TB
-    subgraph DW["Developer Workstation"]
-        VS["<b>Vite Dev Server</b>\n(Port 3000)\nReact SPA — Hot Reload"]
-        DA["<b>Daphne ASGI Server</b>\n(Port 8000)\nDjango + Channels — Auto Reload"]
-        DB["<b>SQLite + File Storage</b>\n(db.sqlite3 + media/)"]
-
-        VS -->|"Proxy"| DA
-        DA --> DB
-    end
-```
+![Diagram 04](./images/diagram-04.png)
 
 ### Production Environment (Recommended)
 
-```mermaid
-flowchart TB
-    BR["Browser\n(End User)"] <-->|"HTTPS / WSS"| RP["Reverse Proxy\n(Nginx / Caddy)"]
-
-    RP --> SF["Static Files\n(Whitenoise or CDN)"]
-    RP --> AS["Daphne / Uvicorn\nASGI Server\n(Django + Channels)"]
-
-    AS --> PG["PostgreSQL\nDatabase"]
-    AS --> RD["Redis\nChannel Layer"]
-
-    PG ~~~ FS["File Storage\n(Local / S3)"]
-```
+![Diagram 05](./images/diagram-05.png)
 
 ---
 
@@ -662,19 +588,7 @@ The Maptech Ticketing System supports a multi-stage ticket lifecycle with branch
 
 Prior to the ticketing system, the support process operated as follows:
 
-```mermaid
-flowchart TB
-    A["Client calls/emails"] --> B["Paper STF Form\nfilled out"]
-    B --> C["Faxed or emailed\nto office"]
-    C --> D["Filed in cabinet\n(paper archive)"]
-
-    E["Supervisor receives request"] --> F["Manually logs in spreadsheet"]
-    F --> G["Calls/messages technician"]
-    G --> H["Technician visits client"]
-    H --> I["Technician calls back\nwith update"]
-    I --> J["Supervisor manually\nupdates spreadsheet"]
-    J --> K["Follow-up via\nphone/email"]
-```
+![Diagram 06](./images/diagram-06.png)
 
 ### As-Is Process Challenges
 
@@ -693,23 +607,7 @@ flowchart TB
 
 With the Maptech Ticketing System, the process operates as follows:
 
-```mermaid
-flowchart TB
-    A["Client contacts Maptech"] --> B["Supervisor logs into system"]
-    B --> C["Creates ticket — auto STF#\nEnters client & product info"]
-    C --> D["Assigns to technician\n(system sends notification)"]
-    D --> E["Technician receives real-time notification\nViews ticket details in dashboard"]
-    E --> F["Starts work — time_in recorded\nCommunicates via live chat"]
-    F --> G{"Outcome?"}
-    G -->|"Resolves"| H["Resolves Issue\nUploads proof"]
-    G -->|"Escalates"| I["Escalates\n(Internal / External)"]
-    H --> J["Requests closure\n(time_out set)"]
-    I --> K["Re-assigned or\nsent to vendor"]
-    J --> L["Supervisor reviews\nSubmits feedback rating\nCloses ticket"]
-    K --> M["Process repeats\nuntil resolved"]
-    L --> N["Knowledge Hub\n(publish proof)"]
-    M --> O["Resolution captured\nwhen eventually closed"]
-```
+![Diagram 07](./images/diagram-07.png)
 
 ### To-Be Process Benefits
 
@@ -740,36 +638,7 @@ The live implementation includes an intake split between Sales and Supervisors:
 
 ### 6.4.1 Ticket Lifecycle State Diagram
 
-```mermaid
-stateDiagram-v2
-    [*] --> open : Ticket Created
-
-    open : OPEN
-    in_progress : IN PROGRESS
-    escalated : ESCALATED (Internal)
-    escalated_ext : ESCALATED (External)
-    for_observation : FOR OBSERVATION
-    pending_closure : PENDING CLOSURE
-    closed : CLOSED
-    unresolved : UNRESOLVED
-
-    open --> in_progress : Assigned & Work Started
-
-    in_progress --> escalated : Escalate Internally
-    in_progress --> escalated_ext : Escalate Externally
-    in_progress --> for_observation : Submit for Observation
-    in_progress --> pending_closure : Request Closure
-    in_progress --> unresolved : Admin marks unresolved
-
-    escalated --> in_progress : Re-assigned
-
-    for_observation --> in_progress : Returns to In Progress
-    for_observation --> closed : Admin closes after observation
-
-    pending_closure --> closed : Admin reviews & closes
-
-    unresolved --> in_progress : Re-opened
-```
+![Diagram 08](./images/diagram-08.png)
 
 ### Ticket Status Definitions
 
@@ -786,55 +655,18 @@ stateDiagram-v2
 
 ### 6.4.2 Ticket Assignment Flow
 
-```mermaid
-flowchart TB
-    A["Supervisor creates ticket"] --> B["Selects technician\n(views workload)"]
-    B --> C["System creates AssignmentSession\nSends notification to technician"]
-    C --> D["Technician receives notification"]
-    D --> E["Technician starts work\n(time_in set)"]
-    E --> F{"Outcome?"}
-    F -->|"Resolves"| G["Request closure"]
-    F -->|"Needs escalation"| H["Pass or Escalate"]
-    G --> I["Admin closes\n(old session ends)"]
-    H --> J["New AssignmentSession\n(old session ends)"]
-```
+![Diagram 09](./images/diagram-09.png)
 
 Implementation note:
 When a ticket is created by Sales, assignment is gated until call verification and priority confirmation are completed.
 
 ### 6.4.3 Escalation Workflow
 
-```mermaid
-flowchart TB
-    subgraph internal["INTERNAL ESCALATION"]
-        direction TB
-        IA["Technician → Escalate (returns to admin)\nOR\nTechnician → Pass (to another technician)"]
-        IB["1. Current session ends\n2. EscalationLog created\n3. System message in chat\n4. New assignment (if pass)\n5. Notification sent"]
-        IA --> IB
-    end
-
-    subgraph external["EXTERNAL ESCALATION"]
-        direction TB
-        EA["Admin/Employee → Escalate External\n(to distributor or principal)"]
-        EB["1. EscalationLog (type: external)\n2. Ticket status → escalated_ext\n3. External entity name recorded\n4. Escalation notes stored\n5. Timestamp captured"]
-        EA --> EB
-    end
-```
+![Diagram 10](./images/diagram-10.png)
 
 ### 6.4.4 Resolution & Closure Flow
 
-```mermaid
-flowchart TB
-    A["Technician completes work"] --> B["Uploads resolution proof\n(attachments)"]
-    B --> C["Updates action taken,\nremarks, job status"]
-    C --> D["Captures client signature\n(digital)"]
-    D --> E["Requests closure\n(status → pending_closure, time_out set)"]
-    E --> F["Supervisor receives notification"]
-    F --> G["Reviews resolution\ndetails & proof"]
-    G --> H["Submits feedback rating\n(1-5)"]
-    H --> I["Closes ticket\n(status → closed)"]
-    I --> J["Optional: Publishes resolution\nproof to Knowledge Hub"]
-```
+![Diagram 11](./images/diagram-11.png)
 
 ---
 
@@ -1361,251 +1193,7 @@ The Maptech Ticketing System uses a relational data model implemented through Dj
 
 ## 9.2 Entity Relationship Diagram (ERD)
 
-```mermaid
-erDiagram
-    User {
-        int id PK
-        string username UK
-        string email UK
-        string role
-        string first_name
-        string middle_name
-        string last_name
-        string suffix
-        string phone
-        string profile_picture
-        string recovery_key UK
-        boolean is_active
-    }
-
-    Ticket {
-        int id PK
-        string stf_no UK
-        string status
-        string priority
-        int created_by FK
-        int assigned_to FK
-        int type_of_service FK
-        int client_record FK
-        int product_record FK
-        int current_session FK
-        date date
-        datetime time_in
-        datetime time_out
-        text description_of_problem
-        text action_taken
-        text remarks
-        string job_status
-        string cascade_type
-        text observation
-        text signature
-        string signed_by_name
-        boolean confirmed_by_admin
-    }
-
-    AssignmentSession {
-        int id PK
-        int ticket FK
-        int employee FK
-        datetime started_at
-        datetime ended_at
-        boolean is_active
-    }
-
-    Message {
-        int id PK
-        int ticket FK
-        int assignment_session FK
-        string channel_type
-        int sender FK
-        text content
-        int reply_to FK
-        boolean is_system_message
-        datetime created_at
-    }
-
-    MessageReaction {
-        int id PK
-        int message FK
-        int user FK
-        string emoji
-    }
-
-    MessageReadReceipt {
-        int id PK
-        int message FK
-        int user FK
-        datetime read_at
-    }
-
-    TicketAttachment {
-        int id PK
-        int ticket FK
-        string file
-        int uploaded_by FK
-        datetime uploaded_at
-        boolean is_resolution_proof
-        boolean is_published
-        string published_title
-        int published_by FK
-        boolean is_archived
-    }
-
-    TicketTask {
-        int id PK
-        int ticket FK
-        int assigned_to FK
-        string description
-        string status
-    }
-
-    EscalationLog {
-        int id PK
-        int ticket FK
-        int from_user FK
-        int to_user FK
-    }
-
-    AuditLog {
-        int id PK
-        datetime timestamp
-        string entity
-        int entity_id
-        string action
-        text activity
-        int actor FK
-        string actor_email
-        string ip_address
-        json changes
-    }
-
-    Notification {
-        int id PK
-        int recipient FK
-        int ticket FK
-        string type
-        string title
-        string message
-        boolean is_read
-        datetime created_at
-    }
-
-    CallLog {
-        int id PK
-        int ticket FK
-        int admin FK
-        string client_name
-        string phone_number
-        datetime call_start
-        datetime call_end
-        text notes
-    }
-
-    FeedbackRating {
-        int id PK
-        int ticket FK
-        int employee FK
-        int admin FK
-        int rating
-        text comments
-    }
-
-    TypeOfService {
-        int id PK
-        string name
-        text description
-        boolean is_active
-        int estimated_resolution_days
-    }
-
-    Category {
-        int id PK
-        string name
-        text description
-        boolean is_active
-    }
-
-    Product {
-        int id PK
-        int category FK
-        string device_equipment
-        string serial_no
-        boolean has_warranty
-        string product_name
-        string brand
-        string model_name
-        boolean is_active
-    }
-
-    Client {
-        int id PK
-        string client_name
-        string contact_person
-        string mobile_no
-        string designation
-        string dept_org
-        string email_address
-        text address
-        boolean is_active
-    }
-
-    RetentionPolicy {
-        int id PK
-        int audit_log_days
-        int call_log_days
-        int updated_by FK
-        datetime updated_at
-    }
-
-    Announcement {
-        int id PK
-        string title
-        text description
-        string type
-        string visibility
-        boolean is_active
-        date start_date
-        date end_date
-        int created_by FK
-    }
-
-    User ||--o{ Ticket : "created_by"
-    User ||--o{ Ticket : "assigned_to"
-    User ||--o{ AssignmentSession : "employee"
-    User ||--o{ AuditLog : "actor"
-    User ||--o{ Notification : "recipient"
-    User ||--o{ CallLog : "admin"
-    User ||--o{ Message : "sender"
-    User ||--o{ MessageReaction : "reacts"
-    User ||--o{ MessageReadReceipt : "reads"
-    User ||--o{ EscalationLog : "from_user"
-    User ||--o{ EscalationLog : "to_user"
-    User ||--o{ TicketAttachment : "uploaded_by"
-    User ||--o{ TicketTask : "assigned_to"
-    User ||--o{ FeedbackRating : "employee"
-    User ||--o{ FeedbackRating : "admin"
-    User ||--o{ Announcement : "created_by"
-    User ||--o{ RetentionPolicy : "updated_by"
-
-    Ticket ||--o{ AssignmentSession : "has"
-    Ticket ||--o{ Message : "has"
-    Ticket ||--o{ TicketAttachment : "has"
-    Ticket ||--o{ TicketTask : "has"
-    Ticket ||--o{ EscalationLog : "has"
-    Ticket ||--o{ Notification : "references"
-    Ticket ||--o{ CallLog : "references"
-    Ticket ||--|| FeedbackRating : "has"
-
-    AssignmentSession ||--o{ Message : "within"
-    Message ||--o{ MessageReaction : "has"
-    Message ||--o{ MessageReadReceipt : "has"
-    Message o|--o| Message : "reply_to"
-
-    TypeOfService ||--o{ Ticket : "service_type"
-    Client ||--o{ Ticket : "client_record"
-    Product ||--o{ Ticket : "product_record"
-    Category ||--o{ Product : "category"
-```
+![Diagram 12](./images/diagram-12.png)
 
 ---
 
@@ -1754,85 +1342,15 @@ Additional data dictionary entries for remaining tables (EscalationLog, Notifica
 
 ### Level 0 — Context Diagram
 
-```mermaid
-flowchart LR
-    CL["Clients\n(External)"]
-    SU["Supervisors\n(Admin)"]
-    TE["Technicians\n(Employee)"]
-    SA["Superadmin"]
-
-    CL -->|"Support Requests"| MTS
-    MTS -->|"Status Updates / Reports"| CL
-    SU <-->|"Ticket Mgmt / Chat / Reports"| MTS
-    TE <-->|"Assignments / Updates / Chat"| MTS
-    SA <-->|"User Mgmt / Config / Audit"| MTS
-
-    MTS["Maptech\nTicketing\nSystem"]
-```
+![Diagram 13](./images/diagram-13.png)
 
 ### Level 1 — Major Processes
 
-```mermaid
-flowchart TB
-    subgraph Processes[" "]
-        direction LR
-        AUTH["<b>Auth Process</b>\n• Login\n• JWT\n• Reset"]
-        TLM["<b>Ticket Lifecycle</b>\n<b>Management</b>\n• Create • Assign\n• Escalate\n• Resolve • Close"]
-        CE["<b>Communication</b>\n<b>Engine</b>\n• Chat (WS)\n• Notifications\n• System Msgs"]
-        KH["<b>Knowledge Hub</b>\n• Publish\n• Search\n• Archive"]
-    end
-
-    AUTH --> DS
-    TLM --> DS
-    CE --> DS
-    KH --> DS
-
-    subgraph DS["DATA STORE"]
-        direction LR
-        D1["Users"]
-        D2["Tickets"]
-        D3["Messages"]
-        D4["Attachments"]
-        D5["AuditLogs"]
-        D6["Notifications"]
-    end
-```
+![Diagram 14](./images/diagram-14.png)
 
 ### Level 2 — Ticket Lifecycle Data Flow
 
-```mermaid
-flowchart TB
-    AI["Admin Input"] --> CT["Create Ticket"]
-    CT --> TDB[(Ticket DB)]
-    CT --> CCR["Create Client Record"] --> CDB[(Client DB)]
-    CT --> CPR["Create Product Record"] --> PDB[(Product DB)]
-    CT --> CAS["Create Assignment Session"] --> SDB[(Session DB)]
-    CAS --> SN1["Send Notification"] --> NDB[(Notification DB)] --> WS1(("WebSocket"))
-    CAS --> CA1["Create Audit Log"] --> ADB1[(AuditLog DB)]
-
-    EI1["Employee Input"] --> SW["Start Work"]
-    SW --> TDB2[(Ticket DB — time_in, status)]
-    SW --> CA2["Create Audit Log"]
-
-    EI2["Employee Input"] --> UT["Update Ticket"]
-    UT --> TDB3[(Ticket DB — action, remarks)]
-    UT --> CA3["Create Audit Log"]
-
-    EI3["Employee Input"] --> UP["Upload Proof"]
-    UP --> ATDB[(Attachment DB + File Storage)]
-
-    EI4["Employee Input"] --> RC["Request Closure"]
-    RC --> TDB4[(Ticket DB — status, time_out)]
-    RC --> SN2["Notify Admin"]
-    RC --> CA4["Create Audit Log"]
-
-    ADI["Admin Input"] --> CLT["Close Ticket"]
-    CLT --> TDB5[(Ticket DB — status → closed)]
-    CLT --> ES["End Session"] --> SDB2[(Session DB)]
-    CLT --> FR["Create Feedback Rating"] --> FRDB[(FeedbackRating DB)]
-    CLT --> SN3["Notify Employee"]
-    CLT --> CA5["Create Audit Log"]
-```
+![Diagram 15](./images/diagram-15.png)
 
 ---
 
@@ -2887,25 +2405,7 @@ The Maptech Ticketing System implements a defense-in-depth security model with t
 
 The system implements RBAC with four hierarchical roles:
 
-```mermaid
-flowchart TB
-    subgraph SA["SUPERADMIN"]
-        SA_D["Full system access including user management,\nretention policies, and all admin capabilities"]
-    end
-    subgraph AD["ADMIN"]
-        AD_D["Ticket lifecycle management, catalog CRUD,\nknowledge hub, call logs, feedback ratings, audit logs"]
-    end
-    subgraph SL["SALES"]
-        SL_D["Ticket intake/viewing and catalog management\n(no supervisor assignment actions)"]
-    end
-    subgraph EM["EMPLOYEE"]
-        EM_D["View/work on assigned tickets only, escalate,\nsubmit for observation, request closure"]
-    end
-
-    SA --> AD
-    AD --> SL
-    AD --> EM
-```
+![Diagram 16](./images/diagram-16.png)
 
 ### Permission Classes
 
@@ -3107,45 +2607,17 @@ Password Change/Reset Flow:
 
 ### Frontend ↔ Backend Communication
 
-```mermaid
-flowchart LR
-    subgraph FE["React Frontend"]
-        SL["Service Layer\n(api.ts, ticketService.ts, etc.)"]
-        WS["TicketChatSocket\nNotificationSocket"]
-    end
-
-    subgraph BE["Django Backend"]
-        DRF["DRF ViewSets\nSerializers\nPermissions"]
-        CON["TicketChatConsumer\nNotificationConsumer"]
-    end
-
-    SL -->|"HTTP"| DRF
-    DRF -->|"JSON"| SL
-    WS -->|"WebSocket"| CON
-    CON -->|"JSON"| WS
-```
+![Diagram 17](./images/diagram-17.png)
 
 ### Development Proxy Configuration
 
-```mermaid
-flowchart LR
-    V["Vite Dev Server\n(port 3000)"] -->|"/api/*"| B1["http://localhost:8000/api/*"]
-    V -->|"/media/*"| B2["http://localhost:8000/media/*"]
-    V -->|"/ws/*"| B3["ws://localhost:8000/ws/*"]
-```
+![Diagram 18](./images/diagram-18.png)
 
 ### Signal-Based Internal Integration
 
 Django signals provide event-driven integration between system modules:
 
-```mermaid
-flowchart LR
-    ME["Model Event"] --> SH["Signal Handler"] --> SE["Side Effect"]
-    SE --> AL["AuditLog creation"]
-    SE --> ND["Notification dispatch"]
-    SE --> WB["WebSocket broadcast"]
-    SE --> SM["Session management"]
-```
+![Diagram 19](./images/diagram-19.png)
 
 ---
 
@@ -3494,13 +2966,7 @@ server {
 
 ### Recommended CI/CD Workflow
 
-```mermaid
-flowchart LR
-    A["Commit\n(Push)"] --> B["Lint &\nFormat"]
-    B --> C["Test\n(Unit +\nInteg)"]
-    C --> D["Build\n(Static\n+ Dist)"]
-    D --> E["Deploy\n(Staging\n/ Prod)"]
-```
+![Diagram 20](./images/diagram-20.png)
 
 ### Pipeline Stages
 
@@ -3734,12 +3200,7 @@ pg_restore -h localhost -U maptech_user \
 
 ### Incident Response Process
 
-```mermaid
-flowchart LR
-    A["Detect\n(Alert /\nReport)"] --> B["Triage &\nAssign\nSeverity"]
-    B --> C["Resolve &\nRestore\nService"]
-    C --> D["Post-\nMortem\nReview"]
-```
+![Diagram 21](./images/diagram-21.png)
 
 1. **Detection:** Alert received via monitoring tool, or user report through the ticketing system itself.
 2. **Triage:** On-call engineer assesses severity, assigns to appropriate team member.
@@ -4308,59 +3769,7 @@ This section outlines planned and recommended enhancements for the Maptech Ticke
 
 ## Appendix A: System Architecture Diagram
 
-```mermaid
-flowchart TB
-    subgraph Clients["CLIENTS (Browsers)"]
-        direction LR
-        SAU["SuperAdmin UI\n(Dashboard, User Mgmt,\nReports)"]
-        ADU["Admin/Supervisor\n(Ticket Mgmt,\nAssignment, Escalation)"]
-        EMU["Employee UI\n(My Tickets,\nChat, Resolution)"]
-    end
-
-    Clients ==>|"HTTPS / WSS"| Nginx
-
-    subgraph Nginx["REVERSE PROXY (Nginx)"]
-        direction LR
-        P1["/ SPA Files"]
-        P2["/api/ HTTP API"]
-        P3["/ws/ WebSocket"]
-        P4["/media/ /static/\nFile Serving"]
-    end
-
-    Nginx ==> AppServer
-
-    subgraph AppServer["APPLICATION SERVER (Daphne ASGI)"]
-        subgraph DRF["Django REST Framework"]
-            TV["tickets/views/\nTicketViewSet\nAuditLogViewSet\nNotificationViewSet\nAnnouncementViewSet\nFeedbackRatingViewSet\nCallLogViewSet"]
-            UV["users/views/\nAuthViewSet\nUserViewSet"]
-            AUTH["Authentication\nSimpleJWT\nArgon2 Hashing"]
-        end
-
-        subgraph CH["Django Channels"]
-            CON["NotificationConsumer\nTicketChatConsumer"]
-            WR["ws/notifications/\nws/chat/ticket_id/\nadmin_employee/"]
-        end
-
-        MW["Middleware & Signals\nJWTAuthMiddleware (WS)\nSignal Handlers (8)\nPermissions (6 classes)"]
-    end
-
-    AppServer --> DB
-    AppServer --> RD
-
-    subgraph DB["DATABASE"]
-        DBI["SQLite (Dev) / PostgreSQL (Prod)\n18 Models: User, Ticket, Message,\nAuditLog, Notification, etc."]
-    end
-
-    subgraph RD["REDIS (Production)"]
-        RDI["Channel Layer\n(WebSocket messaging)\nInMemoryChannelLayer (Dev)"]
-    end
-
-    subgraph FS["FILE STORAGE"]
-        FSI["media/\nprofile_pictures/\nticket_attachments/"]
-    end
-
-    AppServer --> FS
-```
+![Diagram 22](./images/diagram-22.png)
 
 ---
 
@@ -4585,35 +3994,7 @@ Client (1) ─────────── (N) Ticket
 
 ## Appendix F: Ticket Status Flow
 
-```mermaid
-stateDiagram-v2
-    [*] --> OPEN : Ticket Created
-
-    OPEN : OPEN
-    IN_PROGRESS : IN PROGRESS
-    ESCALATED : ESCALATED
-    ESCALATED_EXT : ESCALATED EXTERNAL
-    PENDING_CLOSURE : PENDING CLOSURE
-    FOR_OBSERVATION : FOR OBSERVATION
-    CLOSED : CLOSED
-    UNRESOLVED : UNRESOLVED
-
-    OPEN --> IN_PROGRESS : assign + start_work
-
-    IN_PROGRESS --> ESCALATED : escalate
-    IN_PROGRESS --> PENDING_CLOSURE : request_closure
-
-    ESCALATED --> IN_PROGRESS : re-assign
-    ESCALATED --> ESCALATED_EXT : external escalation
-
-    PENDING_CLOSURE --> CLOSED : review + close
-    PENDING_CLOSURE --> IN_PROGRESS : back to work
-    PENDING_CLOSURE --> FOR_OBSERVATION : monitoring
-
-    FOR_OBSERVATION --> CLOSED : confirm
-
-    IN_PROGRESS --> UNRESOLVED : cannot resolve
-```
+![Diagram 23](./images/diagram-23.png)
 
 **Status Definitions:**
 
