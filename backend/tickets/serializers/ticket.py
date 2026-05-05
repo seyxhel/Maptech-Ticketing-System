@@ -361,7 +361,7 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
     supplier_sales_invoice = serializers.CharField(required=False, allow_blank=True, write_only=True)
     supplier_delivery_receipt = serializers.CharField(required=False, allow_blank=True, write_only=True)
     type_of_service_others = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    project_title = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    project_title = serializers.CharField(required=True, allow_blank=False, write_only=True, help_text='Project title or reference')
     client_unavailable_for_call = serializers.BooleanField(required=False, default=False, write_only=True)
 
     text_field_rules = {

@@ -115,14 +115,14 @@ export const PDF_CSS = `
     background: #fafffe;
     border: 1px solid #e8faf0;
     border-radius: 6px;
-  }
-  .signature-row {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 28px;
   }
   .signature-item {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
   .signature-item .info-label {
     display: block;
@@ -130,21 +130,39 @@ export const PDF_CSS = `
     font-weight: 600;
     color: #154734;
     font-size: 10px;
+    text-align: center;
+    min-width: 0; /* allow centering inside grid column */
   }
   .signature-box {
-    display: inline-block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 220px;
+    min-height: 70px;
     padding: 8px 12px;
     background: #ffffff;
     border: 1px solid #d1fae5;
     border-radius: 6px;
-    text-align: center;
-    min-width: 150px;
-    min-height: 60px;
   }
   .signature-box img {
     max-height: 60px;
     max-width: 180px;
     object-fit: contain;
+  }
+  .signature-name {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #1f2937;
+    word-break: break-word;
+    width: 100%;
+    text-align: center;
+  }
+  .signature-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #154734;
+    width: 100%;
   }
   /* ── Page Break Control ── */
   h2 { page-break-after: avoid; }

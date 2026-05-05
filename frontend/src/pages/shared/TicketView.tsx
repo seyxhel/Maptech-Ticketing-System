@@ -363,6 +363,12 @@ function resolveTicketProductSnapshot(btData: BackendTicket): {
   return {
     deviceEquipment: readText(btData.device_equipment) || readText(linkedProduct?.device_equipment),
     versionNo: readText(btData.version_no) || readText(linkedProduct?.version_no),
+    firmwareVersion: readText(btData.firmware_version) || readText(linkedProduct?.firmware_version),
+    softwareName: readText(btData.software_name) || readText(linkedProduct?.software_name),
+    softwareVersion: readText(btData.software_version) || readText(linkedProduct?.software_version),
+    softwareVendor: readText(btData.software_vendor) || readText(linkedProduct?.software_vendor),
+    softwareLicenseKey: readText(btData.software_license_key) || readText(linkedProduct?.software_license_key),
+    softwareMetadata: readText(btData.software_metadata) || readText(linkedProduct?.software_metadata),
     datePurchased: readText(btData.date_purchased) || readText(linkedProduct?.date_purchased),
     serialNo: readText(btData.serial_no) || readText(linkedProduct?.serial_no),
     warranty: readBool(btData.has_warranty) || readBool(linkedProduct?.has_warranty) ? 'With Warranty' : 'Without Warranty',
@@ -381,6 +387,12 @@ function resolveTicketProductSnapshot(btData: BackendTicket): {
     hasAnyValue: Boolean(
       readText(btData.device_equipment) || readText(linkedProduct?.device_equipment) ||
       readText(btData.brand) || readText(linkedProduct?.brand) ||
+      readText(btData.firmware_version) || readText(linkedProduct?.firmware_version) ||
+      readText(btData.software_name) || readText(linkedProduct?.software_name) ||
+      readText(btData.software_version) || readText(linkedProduct?.software_version) ||
+      readText(btData.software_vendor) || readText(linkedProduct?.software_vendor) ||
+      readText(btData.software_license_key) || readText(linkedProduct?.software_license_key) ||
+      readText(btData.software_metadata) || readText(linkedProduct?.software_metadata) ||
       readText(btData.product) || readText(linkedProduct?.product_name) ||
       readText(btData.model_name) || readText(linkedProduct?.model_name) ||
       readText(btData.version_no) || readText(linkedProduct?.version_no) ||
@@ -458,6 +470,12 @@ export function TicketView() {
           productDetails: productSnapshot.hasAnyValue ? {
             deviceEquipment: productSnapshot.deviceEquipment,
             versionNo: productSnapshot.versionNo,
+            firmwareVersion: productSnapshot.firmwareVersion,
+            softwareName: productSnapshot.softwareName,
+            softwareVersion: productSnapshot.softwareVersion,
+            softwareVendor: productSnapshot.softwareVendor,
+            softwareLicenseKey: productSnapshot.softwareLicenseKey,
+            softwareMetadata: productSnapshot.softwareMetadata,
             datePurchased: productSnapshot.datePurchased,
             serialNo: productSnapshot.serialNo,
             warranty: productSnapshot.warranty,
@@ -1200,6 +1218,12 @@ export function TicketView() {
   const [pdModel, setPdModel] = useState('');
   const [pdVersionNo, setPdVersionNo] = useState('');
   const [pdSerialNo, setPdSerialNo] = useState('');
+  const [pdFirmwareVersion, setPdFirmwareVersion] = useState('');
+  const [pdSoftwareName, setPdSoftwareName] = useState('');
+  const [pdSoftwareVersion, setPdSoftwareVersion] = useState('');
+  const [pdSoftwareVendor, setPdSoftwareVendor] = useState('');
+  const [pdSoftwareLicenseKey, setPdSoftwareLicenseKey] = useState('');
+  const [pdSoftwareMetadata, setPdSoftwareMetadata] = useState('');
   const [pdSalesNo, setPdSalesNo] = useState('');
   const [pdDatePurchased, setPdDatePurchased] = useState('');
   const [pdHasWarranty, setPdHasWarranty] = useState(false);
@@ -1223,6 +1247,12 @@ export function TicketView() {
     setPdBrand(product.brand || '');
     setPdModel(product.model_name || '');
     setPdVersionNo(product.version_no || '');
+    setPdFirmwareVersion(product.firmware_version || '');
+    setPdSoftwareName(product.software_name || '');
+    setPdSoftwareVersion(product.software_version || '');
+    setPdSoftwareVendor(product.software_vendor || '');
+    setPdSoftwareLicenseKey(product.software_license_key || '');
+    setPdSoftwareMetadata(product.software_metadata || '');
     setPdSerialNo(product.serial_no || '');
     setPdSalesNo(product.sales_no || '');
     setPdDatePurchased(product.date_purchased || '');
@@ -1242,6 +1272,12 @@ export function TicketView() {
       setPdBrand(productSnapshot.brand);
       setPdModel(productSnapshot.model);
       setPdVersionNo(productSnapshot.versionNo);
+      setPdFirmwareVersion(productSnapshot.firmwareVersion);
+      setPdSoftwareName(productSnapshot.softwareName);
+      setPdSoftwareVersion(productSnapshot.softwareVersion);
+      setPdSoftwareVendor(productSnapshot.softwareVendor);
+      setPdSoftwareLicenseKey(productSnapshot.softwareLicenseKey);
+      setPdSoftwareMetadata(productSnapshot.softwareMetadata);
       setPdSerialNo(productSnapshot.serialNo);
       setPdSalesNo(productSnapshot.salesNo);
       setPdDatePurchased(productSnapshot.datePurchased);
@@ -1322,6 +1358,12 @@ export function TicketView() {
         brand: pdBrand,
         model_name: pdModel,
         version_no: pdVersionNo,
+        firmware_version: pdFirmwareVersion,
+        software_name: pdSoftwareName,
+        software_version: pdSoftwareVersion,
+        software_vendor: pdSoftwareVendor,
+        software_license_key: pdSoftwareLicenseKey,
+        software_metadata: pdSoftwareMetadata,
         serial_no: pdSerialNo,
         sales_no: pdSalesNo,
         date_purchased: pdDatePurchased || null,
@@ -1627,8 +1669,6 @@ export function TicketView() {
     const ticketIdValue = ticket.id || 'N/A';
     const ticketCreatedByValue = ticket.createdBy || 'N/A';
     const jobStatusValue = ticket.jobStatus || 'N/A';
-    const signedByValue = ticket.signedByName || 'N/A';
-    const acknowledgedByPlaceholder = '________________________________';
     const escLogs = btData.escalation_logs || [];
     const atts = btData.attachments || [];
     const body = `
@@ -1672,6 +1712,12 @@ export function TicketView() {
         <div class="info-row"><span class="info-label">Model:</span><span class="info-value">${pd.model || ''}</span></div>
         <div class="info-row"><span class="info-label">Serial No:</span><span class="info-value">${pd.serialNo}</span></div>
         <div class="info-row"><span class="info-label">Version No:</span><span class="info-value">${pd.versionNo}</span></div>
+        <div class="info-row"><span class="info-label">Firmware Version:</span><span class="info-value">${pd.firmwareVersion || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Software:</span><span class="info-value">${pd.softwareName || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Software Version:</span><span class="info-value">${pd.softwareVersion || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Software Vendor:</span><span class="info-value">${pd.softwareVendor || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Software License Key:</span><span class="info-value">${pd.softwareLicenseKey || 'N/A'}</span></div>
+        <div class="info-row"><span class="info-label">Software Metadata:</span><span class="info-value">${pd.softwareMetadata || 'N/A'}</span></div>
         <div class="info-row"><span class="info-label">Sales / Invoice No:</span><span class="info-value">${pd.salesNo || 'N/A'}</span></div>
         <div class="info-row"><span class="info-label">Date Purchased:</span><span class="info-value">${pd.datePurchased}</span></div>
         <div class="info-row"><span class="info-label">Warranty:</span><span class="info-value">${pd.warranty}</span></div>
@@ -1695,25 +1741,15 @@ export function TicketView() {
       ${ticket.remarks ? `<div class="info-grid" style="margin-top:-8px;"><div class="info-row" style="grid-column:span 2;"><span class="info-label">Remarks:</span><span class="info-value">${ticket.remarks}</span></div></div>` : ''}
       ${ticket.observation ? `<div class="info-grid" style="margin-top:-8px;"><div class="info-row" style="grid-column:span 2;"><span class="info-label">Observation:</span><span class="info-value">${ticket.observation}</span></div></div>` : ''}
       <div class="signature-section">
-        <div class="signature-row">
-          <div class="signature-item">
-            <span class="info-label">Prepared By:</span>
-            <span class="info-value">${signedByValue}</span>
-          </div>
-          <div class="signature-item">
-            <span class="info-label">Signature:</span>
-            ${ticket.signature ? `<div class="signature-box"><img src="${ticket.signature}" alt="Signature" /></div>` : '<span class="info-value">N/A</span>'}
-          </div>
+        <div class="signature-item">
+          <span class="info-label">Prepared by:</span>
+          ${ticket.signature ? `<div class="signature-box"><img src="${ticket.signature}" alt="Signature" /></div>` : '<div class="signature-box">&nbsp;</div>'}
+          <div class="signature-name">${ticket.signedByName || 'Printed Name'}</div>
         </div>
-        <div class="signature-row" style="margin-top:12px;">
-          <div class="signature-item">
-            <span class="info-label">Acknowledged By (Client Name):</span>
-            <div class="signature-box"><span class="info-value">${acknowledgedByPlaceholder}</span></div>
-          </div>
-          <div class="signature-item">
-            <span class="info-label">Client Signature:</span>
-            <div class="signature-box">&nbsp;</div>
-          </div>
+        <div class="signature-item">
+          <span class="info-label">Approved by:</span>
+          <div class="signature-box">&nbsp;</div>
+          <div class="signature-name">${''}</div>
         </div>
       </div>
       ${escLogs.length > 0 ? `<h2>Escalation History</h2>
@@ -1915,7 +1951,7 @@ export function TicketView() {
         detailRow(R, 'Observation', ticket.observation); rowHeights[R] = { hpt: Math.max(22, Math.ceil(ticket.observation.length / 40) * 14) }; R++;
       }
       detailRow(R, 'Signed By', signedByValue, 'Signature', signatureValue); rowHeights[R] = { hpt: 22 }; R++;
-      detailRow(R, 'Acknowledged By (Client Name)', acknowledgedByValue, 'Client Signature', clientSignatureValue); rowHeights[R] = { hpt: 22 }; R++;
+      detailRow(R, 'Acknowledged By', acknowledgedByValue, 'Client Signature', clientSignatureValue); rowHeights[R] = { hpt: 22 }; R++;
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
       // ─── ESCALATION (if any) ───
@@ -2301,6 +2337,60 @@ export function TicketView() {
                     <input value={pdVersionNo} onChange={(e) => setPdVersionNo(e.target.value)} placeholder="Version number" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
                   ) : (
                     <div className="text-gray-900 dark:text-gray-100">{pdVersionNo || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Firmware Version */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Firmware Version</div>
+                  {showProductEditor ? (
+                    <input value={pdFirmwareVersion} onChange={(e) => setPdFirmwareVersion(e.target.value)} placeholder="Firmware version" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdFirmwareVersion || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Software Name */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Software</div>
+                  {showProductEditor ? (
+                    <input value={pdSoftwareName} onChange={(e) => setPdSoftwareName(e.target.value)} placeholder="Software name" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSoftwareName || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Software Version */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Software Version</div>
+                  {showProductEditor ? (
+                    <input value={pdSoftwareVersion} onChange={(e) => setPdSoftwareVersion(e.target.value)} placeholder="Software version" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSoftwareVersion || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Software Vendor */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Software Vendor</div>
+                  {showProductEditor ? (
+                    <input value={pdSoftwareVendor} onChange={(e) => setPdSoftwareVendor(e.target.value)} placeholder="Software vendor" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSoftwareVendor || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Software License Key */}
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Software License Key</div>
+                  {showProductEditor ? (
+                    <input value={pdSoftwareLicenseKey} onChange={(e) => setPdSoftwareLicenseKey(e.target.value)} placeholder="Software license key" className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79]" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSoftwareLicenseKey || <span className="text-gray-400 italic">Not yet filled</span>}</div>
+                  )}
+                </div>
+                {/* Software Metadata */}
+                <div className="col-span-2">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Software Metadata</div>
+                  {showProductEditor ? (
+                    <textarea value={pdSoftwareMetadata} onChange={(e) => setPdSoftwareMetadata(e.target.value)} placeholder="Software metadata" rows={2} className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 outline-none focus:ring-2 focus:ring-[#0E8F79]/30 focus:border-[#0E8F79] resize-vertical" />
+                  ) : (
+                    <div className="text-gray-900 dark:text-gray-100">{pdSoftwareMetadata || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                   )}
                 </div>
                 {/* Serial No. */}

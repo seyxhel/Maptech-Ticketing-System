@@ -647,15 +647,60 @@ class TicketViewSet(viewsets.ModelViewSet):
             'sales_no': {'max_length': 200},
             'others': {'max_length': None, 'allow_newlines': True},
         }
+        # Collect any provided product fields and persist them to the linked Product when possible.
+        provided_product_fields = {k: v for k, v in request.data.items() if k in (
+            'product', 'brand', 'model_name', 'device_equipment', 'version_no',
+            'firmware_version', 'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
+            'date_purchased', 'serial_no', 'sales_no', 'has_warranty', 'others',
+        )}
+
+        # Clean values according to rules
+        for key in list(provided_product_fields.keys()):
+            if key in product_field_rules:
+                provided_product_fields[key] = _clean_ticket_text(provided_product_fields[key], **product_field_rules[key])
+
+        # If the ticket has a linked product_record, update it with incoming product fields
+        linked = ticket.product_record
+        if linked:
+            linked_update_fields = []
+            for field, incoming in provided_product_fields.items():
+                # map incoming keys to Product model attribute names
+                attr = 'product_name' if field == 'product' else field
+                if incoming is None:
+                    continue
+                if getattr(linked, attr, None) != incoming:
+                    setattr(linked, attr, incoming)
+                    linked_update_fields.append(attr)
+            if linked_update_fields:
+                linked.save(update_fields=linked_update_fields)
+                changes.update({k: provided_product_fields[k] for k in provided_product_fields})
+        else:
+            # No linked product — if product fields provided and ticket has a client, create a Product
+            if provided_product_fields and ticket.client_record:
+                create_kwargs = {
+                    'client': ticket.client_record,
+                    'project_title': provided_product_fields.get('project_title', '') or ticket.client_record.client_name,
+                }
+                for field, val in provided_product_fields.items():
+                    attr = 'product_name' if field == 'product' else field
+                    create_kwargs[attr] = val
+                new_prod = Product.objects.create(**create_kwargs)
+                ticket.product_record = new_prod
+                ticket.save(update_fields=['product_record'])
+                changes.update({k: provided_product_fields[k] for k in provided_product_fields})
+
+        # Fallback: also apply any simpler ticket-level fields (legacy behavior)
         for req_field, model_field in product_field_map.items():
             if req_field in request.data:
                 raw_value = request.data[req_field]
                 if req_field in product_field_rules:
                     raw_value = _clean_ticket_text(raw_value, **product_field_rules[req_field])
-                setattr(ticket, model_field, raw_value)
-                changes[req_field] = raw_value
+                # Only set if the ticket model actually has the attribute
+                if hasattr(ticket, model_field):
+                    setattr(ticket, model_field, raw_value)
+                    changes[req_field] = raw_value
 
-        if changes:
+        if changes and not ticket.product_record:
             ticket.save()
 
         self._audit_ticket(request, ticket, AuditLog.ACTION_UPDATE,
