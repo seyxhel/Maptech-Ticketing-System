@@ -4,8 +4,16 @@ from tickets.models import Category
 
 CATEGORIES = [
     {
-        "name": "Cyber Security",
-        "description": "Solutions that protect systems, networks, and data from digital attacks, including firewalls, endpoint security, and threat management.",
+        "name": "Network Security / Firewalls",
+        "description": "Network security appliances and services including firewalls, UTM, and perimeter protection solutions for securing network traffic.",
+    },
+    {
+        "name": "Data Center Infrastructure",
+        "description": "Infrastructure solutions for data centers including servers, storage, networking, cooling, and rack systems to ensure reliability, scalability, and high availability.",
+    },
+    {
+        "name": "Computing Devices",
+        "description": "Desktops, laptops, workstations, and related computing hardware for business and enterprise use.",
     },
     {
         "name": "Wireless Access Points & Switches",

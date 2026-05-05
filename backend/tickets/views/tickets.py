@@ -177,6 +177,12 @@ class TicketViewSet(viewsets.ModelViewSet):
                 'model_name':              serializer.validated_data.pop('model_name', '') or '',
                 'device_equipment':        serializer.validated_data.pop('device_equipment', '') or '',
                 'version_no':              serializer.validated_data.pop('version_no', '') or '',
+                'firmware_version':        serializer.validated_data.pop('firmware_version', '') or '',
+                'software_name':           serializer.validated_data.pop('software_name', '') or '',
+                'software_version':        serializer.validated_data.pop('software_version', '') or '',
+                'software_vendor':         serializer.validated_data.pop('software_vendor', '') or '',
+                'software_license_key':    serializer.validated_data.pop('software_license_key', '') or '',
+                'software_metadata':       serializer.validated_data.pop('software_metadata', '') or '',
                 'date_purchased':          serializer.validated_data.pop('date_purchased', None),
                 'serial_no':               serializer.validated_data.pop('serial_no', '') or '',
                 'sales_no':                serializer.validated_data.pop('sales_no', '') or '',
@@ -195,7 +201,9 @@ class TicketViewSet(viewsets.ModelViewSet):
                 if not product_text['project_title']:
                     product_text['project_title'] = linked_product.project_title
                 for field in (
-                    'product_name', 'brand', 'model_name', 'device_equipment', 'version_no', 'serial_no', 'sales_no',
+                    'product_name', 'brand', 'model_name', 'device_equipment', 'version_no', 'firmware_version',
+                    'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
+                    'serial_no', 'sales_no',
                     'client_purchase_no', 'maptech_dr', 'maptech_sales_invoice', 'maptech_sales_order_no',
                     'supplier_purchase_no', 'supplier_sales_invoice', 'supplier_delivery_receipt',
                 ):
@@ -207,6 +215,7 @@ class TicketViewSet(viewsets.ModelViewSet):
                 # Persist explicitly provided product detail values onto the linked product record.
                 linked_update_fields = []
                 for field in (
+                    'firmware_version', 'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
                     'sales_no', 'client_purchase_no', 'maptech_dr', 'maptech_sales_invoice', 'maptech_sales_order_no',
                     'supplier_purchase_no', 'supplier_sales_invoice', 'supplier_delivery_receipt',
                 ):

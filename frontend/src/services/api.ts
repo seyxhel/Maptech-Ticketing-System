@@ -145,6 +145,12 @@ export interface BackendTicket {
   model_name: string;
   device_equipment: string;
   version_no: string;
+  firmware_version: string;
+  software_name: string;
+  software_version: string;
+  software_vendor: string;
+  software_license_key: string;
+  software_metadata: string;
   date_purchased: string | null;
   serial_no: string;
   sales_no: string;
@@ -218,6 +224,12 @@ export interface Product {
   project_title: string;
   device_equipment: string;
   version_no: string;
+  firmware_version: string;
+  software_name: string;
+  software_version: string;
+  software_vendor: string;
+  software_license_key: string;
+  software_metadata: string;
   date_purchased: string | null;
   serial_no: string;
   has_warranty: boolean;

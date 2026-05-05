@@ -270,6 +270,13 @@ export default function Clients() {
         p.category_detail?.name,
         p.brand,
         p.model_name,
+        p.version_no,
+        p.firmware_version,
+        p.software_name,
+        p.software_version,
+        p.software_vendor,
+        p.software_license_key,
+        p.software_metadata,
         p.serial_no,
       ]
         .filter(Boolean)
@@ -352,6 +359,7 @@ export default function Clients() {
                     <th className="pb-3 font-medium">Product</th>
                     <th className="pb-3 font-medium">Device / Equipment</th>
                     <th className="pb-3 font-medium">Brand / Model</th>
+                    <th className="pb-3 font-medium">Software / Firmware</th>
                     <th className="pb-3 font-medium">Serial No.</th>
                     <th className="pb-3 font-medium">Date Purchased</th>
                   </tr>
@@ -363,6 +371,7 @@ export default function Clients() {
                       <td className="py-3 text-gray-600 dark:text-gray-300">{p.product_name || '—'}</td>
                       <td className="py-3 text-gray-600 dark:text-gray-300">{p.device_equipment || p.category_detail?.name || '—'}</td>
                       <td className="py-3 text-gray-600 dark:text-gray-300">{[p.brand, p.model_name].filter(Boolean).join(' / ') || '—'}</td>
+                      <td className="py-3 text-gray-600 dark:text-gray-300 text-xs">{[p.software_name, p.software_version, p.firmware_version].filter(Boolean).join(' / ') || '—'}</td>
                       <td className="py-3 text-gray-600 dark:text-gray-300 font-mono text-xs">{p.serial_no || '—'}</td>
                       <td className="py-3 text-gray-600 dark:text-gray-300 text-xs">{p.date_purchased ? new Date(p.date_purchased).toLocaleDateString() : '—'}</td>
                     </tr>

@@ -195,6 +195,12 @@ type AdminCreateTicketDraft = {
     model_name: string;
     serial_no: string;
     version_no: string;
+    firmware_version: string;
+    software_name: string;
+    software_version: string;
+    software_vendor: string;
+    software_license_key: string;
+    software_metadata: string;
     date_purchased: string;
     has_warranty: boolean;
   };
@@ -297,7 +303,8 @@ export default function AdminCreateTicket() {
   const [isExistingProduct, setIsExistingProduct] = useState(false);
   const [newProductInfo, setNewProductInfo] = useState({
     device_equipment: '', product_name: '', brand: '', model_name: '',
-    serial_no: '', version_no: '', date_purchased: '', has_warranty: false,
+    serial_no: '', version_no: '', firmware_version: '', software_name: '', software_version: '', software_vendor: '', software_license_key: '', software_metadata: '',
+    date_purchased: '', has_warranty: false,
   });
   const [savingProductDetails, setSavingProductDetails] = useState(false);
   const [deviceEquipments, setDeviceEquipments] = useState<{ id: number; name?: string; device_name?: string; device_equipment?: string; is_active?: boolean }[]>([]);
@@ -491,7 +498,7 @@ export default function AdminCreateTicket() {
   }, [isExistingClient, selectedClientId]);
 
   // Multi-step form state
-  const steps = ['Client Information', 'Product Information', 'Additional Product Details', 'Service', 'Review & Submit'];
+  const steps = ['Client Information', 'Service', 'Product Information', 'Additional Product Details', 'Review & Submit'];
   const [currentStep, setCurrentStep] = useState(0);
 
   const lastStep = steps.length - 1;
@@ -531,7 +538,11 @@ export default function AdminCreateTicket() {
     setSelectedProductId(draft.selectedProductId ?? null);
     setNewProductInfo(
       draft.newProductInfo ||
-      { device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false }
+      {
+        device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '',
+        firmware_version: '', software_name: '', software_version: '', software_vendor: '', software_license_key: '', software_metadata: '',
+        date_purchased: '', has_warranty: false,
+      }
     );
     setEstimatedDaysOverride(draft.estimatedDaysOverride ?? '');
   }, [lastStep]);
@@ -646,6 +657,13 @@ export default function AdminCreateTicket() {
       }
     }
     if (step === 1) {
+      if (!serviceType) { newErrors['serviceType'] = true; msgs['serviceType'] = 'Please select a type of service'; }
+      if (serviceType === 'Others' && !serviceOthersText.trim()) { newErrors['serviceOthersText'] = true; msgs['serviceOthersText'] = 'Please specify the service'; }
+      if (!supportType) { newErrors['supportType'] = true; msgs['supportType'] = 'Please select a support type'; }
+      const descErr = validateDescription(description, 'Description of problem');
+      if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
+    }
+    if (step === 2) {
       if (isExistingProduct && !selectedProductId) {
         newErrors['product'] = true; msgs['product'] = 'Please select a product.';
       }
@@ -653,18 +671,11 @@ export default function AdminCreateTicket() {
       if (!newProductInfo.product_name.trim()) { newErrors['product_name'] = true; msgs['product_name'] = 'Product name is required.'; }
       if (!newProductInfo.device_equipment.trim()) { newErrors['device_equipment'] = true; msgs['device_equipment'] = 'Device / Equipment is required.'; }
     }
-    if (step === 2) {
+    if (step === 3) {
       if (!additionalProductDetails.maptech_sales_invoice.trim()) {
         newErrors['maptech_sales_invoice'] = true;
         msgs['maptech_sales_invoice'] = 'Maptech Sales Invoice is required.';
       }
-    }
-    if (step === 3) {
-      if (!serviceType) { newErrors['serviceType'] = true; msgs['serviceType'] = 'Please select a type of service'; }
-      if (serviceType === 'Others' && !serviceOthersText.trim()) { newErrors['serviceOthersText'] = true; msgs['serviceOthersText'] = 'Please specify the service'; }
-      if (!supportType) { newErrors['supportType'] = true; msgs['supportType'] = 'Please select a support type'; }
-      const descErr = validateDescription(description, 'Description of problem');
-      if (descErr) { newErrors['description'] = true; msgs['description'] = descErr; }
     }
 
     setErrors((prev) => ({ ...prev, ...newErrors }));
@@ -702,6 +713,12 @@ export default function AdminCreateTicket() {
       model_name: p.model_name || '',
       serial_no: p.serial_no || '',
       version_no: p.version_no || '',
+      firmware_version: p.firmware_version || '',
+      software_name: p.software_name || '',
+      software_version: p.software_version || '',
+      software_vendor: p.software_vendor || '',
+      software_license_key: p.software_license_key || '',
+      software_metadata: p.software_metadata || '',
       date_purchased: p.date_purchased || '',
       has_warranty: !!p.has_warranty,
     });
@@ -722,6 +739,12 @@ export default function AdminCreateTicket() {
         model_name: newProductInfo.model_name || undefined,
         serial_no: newProductInfo.serial_no || undefined,
         version_no: newProductInfo.version_no || undefined,
+        firmware_version: newProductInfo.firmware_version || undefined,
+        software_name: newProductInfo.software_name || undefined,
+        software_version: newProductInfo.software_version || undefined,
+        software_vendor: newProductInfo.software_vendor || undefined,
+        software_license_key: newProductInfo.software_license_key || undefined,
+        software_metadata: newProductInfo.software_metadata || undefined,
         date_purchased: newProductInfo.date_purchased || null,
         has_warranty: newProductInfo.has_warranty,
       };
@@ -749,6 +772,12 @@ export default function AdminCreateTicket() {
     if (selectedProduct.brand) ticketData.brand = selectedProduct.brand;
     if (selectedProduct.model_name) ticketData.model_name = selectedProduct.model_name;
     if (selectedProduct.version_no) ticketData.version_no = selectedProduct.version_no;
+    if (selectedProduct.firmware_version) ticketData.firmware_version = selectedProduct.firmware_version;
+    if (selectedProduct.software_name) ticketData.software_name = selectedProduct.software_name;
+    if (selectedProduct.software_version) ticketData.software_version = selectedProduct.software_version;
+    if (selectedProduct.software_vendor) ticketData.software_vendor = selectedProduct.software_vendor;
+    if (selectedProduct.software_license_key) ticketData.software_license_key = selectedProduct.software_license_key;
+    if (selectedProduct.software_metadata) ticketData.software_metadata = selectedProduct.software_metadata;
     if (selectedProduct.date_purchased) ticketData.date_purchased = selectedProduct.date_purchased;
     if (selectedProduct.serial_no) ticketData.serial_no = selectedProduct.serial_no;
     if (selectedProduct.has_warranty) ticketData.has_warranty = selectedProduct.has_warranty;
@@ -1129,6 +1158,12 @@ export default function AdminCreateTicket() {
       if (newProductInfo.model_name.trim()) ticketData.model_name = newProductInfo.model_name.trim();
       if (newProductInfo.serial_no.trim()) ticketData.serial_no = newProductInfo.serial_no.trim();
       if (newProductInfo.version_no.trim()) ticketData.version_no = newProductInfo.version_no.trim();
+      if (newProductInfo.firmware_version.trim()) ticketData.firmware_version = newProductInfo.firmware_version.trim();
+      if (newProductInfo.software_name.trim()) ticketData.software_name = newProductInfo.software_name.trim();
+      if (newProductInfo.software_version.trim()) ticketData.software_version = newProductInfo.software_version.trim();
+      if (newProductInfo.software_vendor.trim()) ticketData.software_vendor = newProductInfo.software_vendor.trim();
+      if (newProductInfo.software_license_key.trim()) ticketData.software_license_key = newProductInfo.software_license_key.trim();
+      if (newProductInfo.software_metadata.trim()) ticketData.software_metadata = newProductInfo.software_metadata.trim();
       if (newProductInfo.date_purchased) ticketData.date_purchased = newProductInfo.date_purchased;
       ticketData.has_warranty = newProductInfo.has_warranty;
       if (additionalProductDetails.maptech_sales_invoice.trim()) ticketData.sales_no = additionalProductDetails.maptech_sales_invoice.trim();
@@ -1971,10 +2006,94 @@ export default function AdminCreateTicket() {
           </div>
         , document.body)}
 
-        {/* Section 2: Product Information */}
+        {/* Section 2: Service */}
         {currentStep === 1 && (
+          <>
+            <Card className="border-l-4 border-l-[#3BC25B]">
+            <h3 className={sectionHeaderCls}>2. Type of Service <span className="text-red-500 ml-1">*</span></h3>
+            {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
+            {serviceTypes.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {serviceTypes.filter((s) => s.is_active).map((svc) => {
+                const Icon = getServiceIcon(svc.name);
+                const isSelected = serviceType === svc.name;
+                return (
+                  <div key={svc.id} onClick={() => { setServiceType((prev) => prev === svc.name ? '' : svc.name); setErrors((p) => ({ ...p, serviceType: false })); }} className={`group cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                    <div className={`p-2 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
+                    <div className="flex-1 min-w-0">
+                      <span className={`text-sm font-medium block ${isSelected ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{svc.name}</span>
+                      {svc.description && (
+                        <span className="text-xs text-gray-400 dark:text-gray-500 block overflow-hidden transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mt-1 opacity-0 group-hover:opacity-100">{svc.description}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              <div onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${serviceType === 'Others' ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><FileText className="w-4 h-4" /></div>
+                  <span className={`text-sm font-medium ${serviceType === 'Others' ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Others</span>
+                </div>
+                {serviceType === 'Others' && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <input type="text" placeholder="Please specify the service..." value={serviceOthersText} onChange={(e) => { setServiceOthersText(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, serviceOthersText: false })); }} className={`mt-1 w-full text-sm border-b ${errors['serviceOthersText'] ? 'border-red-400' : 'border-[#3BC25B]'} bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none`} autoFocus />
+                    {errors['serviceOthersText'] && <p className="text-red-500 text-xs mt-1">Please specify the service</p>}
+                    <div className="mt-3">
+                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Est. Resolution Days</label>
+                      <input type="number" min={1} placeholder="e.g. 5" value={estimatedDaysOverride} onChange={(e) => setEstimatedDaysOverride(e.target.value ? parseInt(e.target.value) : '')} className="mt-1 w-full text-sm border-b border-[#3BC25B] bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Show estimated resolution days for the selected service */}
+            {serviceType && serviceType !== 'Others' && (() => {
+              const selected = serviceTypes.find((s) => s.name === serviceType);
+              return selected && selected.estimated_resolution_days > 0 ? (
+                <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
+                  <Clock className="w-4 h-4 text-blue-500" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Estimated Resolution: <span className="font-bold">{selected.estimated_resolution_days} day{selected.estimated_resolution_days !== 1 ? 's' : ''}</span>
+                  </span>
+                </div>
+              ) : null;
+            })()}
+            </Card>
+
+            <Card className="border-l-4 border-l-[#3BC25B]">
+              <h3 className={sectionHeaderCls}>2.1 Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
+              {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['supportType'] || 'Please select a support type'}</p>}
+              <div className="flex flex-wrap gap-4">
+                {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) => (
+                  <button key={type} type="button" onClick={() => { setSupportType((prev) => prev === type ? '' : type); setErrors((p) => ({ ...p, supportType: false })); }} className={`px-6 py-3 rounded-full text-sm font-medium transition-all border ${supportType === type ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>{type}</button>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="border-l-4 border-l-[#3BC25B]">
+              <h3 className={sectionHeaderCls}>2.2 Description of Problem <span className="text-red-500 ml-1">*</span></h3>
+              <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
+              <div className="flex justify-between mt-1">
+                {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
+                <span className="text-xs text-gray-400">{description.length}/{MAX_DESCRIPTION}</span>
+              </div>
+            </Card>
+          </>
+        )}
+
+        {currentStep === 1 && (
+          <div className="flex justify-between gap-3">
+            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
+            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
+          </div>
+        )}
+
+        {/* Section 3: Product Information */}
+        {currentStep === 2 && (
           <Card className="border-l-4 border-l-[#3BC25B]">
-          <h3 className={sectionHeaderCls}>2. Product Information</h3>
+          <h3 className={sectionHeaderCls}>3. Product Information</h3>
           {errors['product'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['product'] || 'Please complete product details.'}</p>}
 
           {/* New / Existing product toggle */}
@@ -1993,7 +2112,15 @@ export default function AdminCreateTicket() {
             {isExistingClient && (
               <button
                 type="button"
-                onClick={() => { setIsExistingProduct(true); setNewProductInfo({ device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '', date_purchased: '', has_warranty: false }); setErrors((p) => ({ ...p, product: false, product_name: false, brand: false, model_name: false, serial_no: false, version_no: false, date_purchased: false, maptech_sales_invoice: false, device_equipment: false, projectTitle: false })); }}
+                onClick={() => {
+                  setIsExistingProduct(true);
+                  setNewProductInfo({
+                    device_equipment: '', product_name: '', brand: '', model_name: '', serial_no: '', version_no: '',
+                    firmware_version: '', software_name: '', software_version: '', software_vendor: '', software_license_key: '', software_metadata: '',
+                    date_purchased: '', has_warranty: false,
+                  });
+                  setErrors((p) => ({ ...p, product: false, product_name: false, brand: false, model_name: false, serial_no: false, version_no: false, date_purchased: false, maptech_sales_invoice: false, device_equipment: false, projectTitle: false }));
+                }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium border transition-all ${
                   isExistingProduct
                     ? 'bg-[#0E8F79] text-white border-[#0E8F79]'
@@ -2085,7 +2212,7 @@ export default function AdminCreateTicket() {
           </div>
 
           <div className="mb-4">
-            <label className={labelCls}>Additional Product Specs (optional)</label>
+            <label className={labelCls}>Additional Product Specifications</label>
             <p className="text-xs text-gray-500 dark:text-gray-400">You can complete these now or update after selecting an existing product.</p>
           </div>
 
@@ -2206,6 +2333,31 @@ export default function AdminCreateTicket() {
                 )}
               </>
             )}
+
+            <div>
+              <label className={labelCls}>Firmware Version</label>
+              <input type="text" placeholder="e.g. 2.3.1" value={newProductInfo.firmware_version} onChange={(e) => setNewProductInfo((p) => ({ ...p, firmware_version: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Software Name</label>
+              <input type="text" placeholder="e.g. Access Control Pro" value={newProductInfo.software_name} onChange={(e) => setNewProductInfo((p) => ({ ...p, software_name: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Software Version</label>
+              <input type="text" placeholder="e.g. 5.12" value={newProductInfo.software_version} onChange={(e) => setNewProductInfo((p) => ({ ...p, software_version: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Software Vendor</label>
+              <input type="text" placeholder="e.g. Maptech" value={newProductInfo.software_vendor} onChange={(e) => setNewProductInfo((p) => ({ ...p, software_vendor: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Software License Key</label>
+              <input type="text" placeholder="Optional" value={newProductInfo.software_license_key} onChange={(e) => setNewProductInfo((p) => ({ ...p, software_license_key: e.target.value }))} maxLength={MAX_FIELD} className={inputCls} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Software Metadata</label>
+              <textarea rows={3} value={newProductInfo.software_metadata} onChange={(e) => setNewProductInfo((p) => ({ ...p, software_metadata: e.target.value }))} className={`${inputCls} resize-none`} placeholder="Optional notes such as modules, environment, or deployment details" />
+            </div>
           </div>
 
           {/* Client Purchase No. */}
@@ -2222,17 +2374,17 @@ export default function AdminCreateTicket() {
         )}
 
         {/* Navigation controls for product step */}
-        {currentStep === 1 && (
+        {currentStep === 2 && (
           <div className="flex justify-between gap-3">
             <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
             <GreenButton type="button" onClick={goNext}>Next</GreenButton>
           </div>
         )}
 
-        {/* Section 3: Additional Product Details */}
-        {currentStep === 2 && (
+        {/* Section 4: Additional Product Details */}
+        {currentStep === 3 && (
           <Card className="border-l-4 border-l-[#3BC25B]">
-            <h3 className={sectionHeaderCls}>3. Additional Product Details</h3>
+            <h3 className={sectionHeaderCls}>4. Additional Product Details</h3>
 
             <div className="space-y-6">
               <div>
@@ -2275,7 +2427,7 @@ export default function AdminCreateTicket() {
           </Card>
         )}
 
-        {currentStep === 2 && (
+        {currentStep === 3 && (
           <div className="flex justify-between gap-3">
             <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
             <GreenButton type="button" onClick={goNext}>Next</GreenButton>
@@ -2404,91 +2556,7 @@ export default function AdminCreateTicket() {
           </div>
         , document.body)}
 
-        {/* Section 4: Service */}
-        {currentStep === 3 && (
-          <>
-            <Card className="border-l-4 border-l-[#3BC25B]">
-            <h3 className={sectionHeaderCls}>4. Type of Service <span className="text-red-500 ml-1">*</span></h3>
-            {errors['serviceType'] && <p className="text-red-500 text-xs mb-3 -mt-4">Please select a type of service</p>}
-            {serviceTypes.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500 mb-4">Loading service types...</p>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {serviceTypes.filter((s) => s.is_active).map((svc) => {
-                const Icon = getServiceIcon(svc.name);
-                const isSelected = serviceType === svc.name;
-                return (
-                  <div key={svc.id} onClick={() => { setServiceType((prev) => prev === svc.name ? '' : svc.name); setErrors((p) => ({ ...p, serviceType: false })); }} className={`group cursor-pointer p-4 rounded-lg border transition-all flex items-center gap-3 ${isSelected ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                    <div className={`p-2 rounded-full flex-shrink-0 ${isSelected ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><Icon className="w-4 h-4" /></div>
-                    <div className="flex-1 min-w-0">
-                      <span className={`text-sm font-medium block ${isSelected ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>{svc.name}</span>
-                      {svc.description && (
-                        <span className="text-xs text-gray-400 dark:text-gray-500 block overflow-hidden transition-all duration-300 max-h-0 group-hover:max-h-20 group-hover:mt-1 opacity-0 group-hover:opacity-100">{svc.description}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              <div onClick={() => { setServiceType((prev) => prev === 'Others' ? '' : 'Others'); setErrors((p) => ({ ...p, serviceType: false })); }} className={`cursor-pointer p-4 rounded-lg border transition-all flex flex-col gap-2 ${serviceType === 'Others' ? 'border-[#3BC25B] bg-[#f0fdf4] dark:bg-green-900/20 ring-1 ring-[#3BC25B]' : 'border-gray-200 dark:border-gray-600 hover:border-[#3BC25B] hover:bg-gray-50 dark:hover:bg-gray-700'}`}>
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-full ${serviceType === 'Others' ? 'bg-[#3BC25B] text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}><FileText className="w-4 h-4" /></div>
-                  <span className={`text-sm font-medium ${serviceType === 'Others' ? 'text-[#0E8F79] dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}`}>Others</span>
-                </div>
-                {serviceType === 'Others' && (
-                  <div onClick={(e) => e.stopPropagation()}>
-                    <input type="text" placeholder="Please specify the service..." value={serviceOthersText} onChange={(e) => { setServiceOthersText(e.target.value); if (e.target.value.trim()) setErrors((p) => ({ ...p, serviceOthersText: false })); }} className={`mt-1 w-full text-sm border-b ${errors['serviceOthersText'] ? 'border-red-400' : 'border-[#3BC25B]'} bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none`} autoFocus />
-                    {errors['serviceOthersText'] && <p className="text-red-500 text-xs mt-1">Please specify the service</p>}
-                    <div className="mt-3">
-                      <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Est. Resolution Days</label>
-                      <input type="number" min={1} placeholder="e.g. 5" value={estimatedDaysOverride} onChange={(e) => setEstimatedDaysOverride(e.target.value ? parseInt(e.target.value) : '')} className="mt-1 w-full text-sm border-b border-[#3BC25B] bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            {/* Show estimated resolution days for the selected service */}
-            {serviceType && serviceType !== 'Others' && (() => {
-              const selected = serviceTypes.find((s) => s.name === serviceType);
-              return selected && selected.estimated_resolution_days > 0 ? (
-                <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700">
-                  <Clock className="w-4 h-4 text-blue-500" />
-                  <span className="text-sm text-blue-700 dark:text-blue-300">
-                    Estimated Resolution: <span className="font-bold">{selected.estimated_resolution_days} day{selected.estimated_resolution_days !== 1 ? 's' : ''}</span>
-                  </span>
-                </div>
-              ) : null;
-            })()}
-            </Card>
-
-            <Card className="border-l-4 border-l-[#3BC25B]">
-              <h3 className={sectionHeaderCls}>4.1 Preferred Type of Support <span className="text-red-500 ml-1">*</span></h3>
-              {errors['supportType'] && <p className="text-red-500 text-xs mb-3 -mt-4">{errorMsgs['supportType'] || 'Please select a support type'}</p>}
-              <div className="flex flex-wrap gap-4">
-                {['Remote / Online', 'Onsite', 'Chat', 'Call'].map((type) => (
-                  <button key={type} type="button" onClick={() => { setSupportType((prev) => prev === type ? '' : type); setErrors((p) => ({ ...p, supportType: false })); }} className={`px-6 py-3 rounded-full text-sm font-medium transition-all border ${supportType === type ? 'bg-[#0E8F79] text-white border-[#0E8F79] shadow-md' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>{type}</button>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="border-l-4 border-l-[#3BC25B]">
-              <h3 className={sectionHeaderCls}>4.2 Description of Problem <span className="text-red-500 ml-1">*</span></h3>
-              <textarea rows={8} value={description} maxLength={MAX_DESCRIPTION} onChange={(e) => { setDescription(e.target.value); if (e.target.value.trim()) { setErrors((p) => ({ ...p, description: false })); setErrorMsgs((p) => ({ ...p, description: '' })); } }} className={`${inputCls} resize-none ${errors['description'] ? errorRing : ''}`} placeholder="Please describe the problem in detail. Include any error messages, steps to reproduce, and when the issue started..." />
-              <div className="flex justify-between mt-1">
-                {errors['description'] ? <p className="text-red-500 text-xs">{errorMsgs['description'] || 'This field is required'}</p> : <span />}
-                <span className="text-xs text-gray-400">{description.length}/{MAX_DESCRIPTION}</span>
-              </div>
-            </Card>
-          </>
-        )}
-
-        {currentStep === 3 && (
-          <div className="flex justify-between gap-3">
-            <GreenButton type="button" variant="outline" onClick={goPrev}>Previous</GreenButton>
-            <GreenButton type="button" onClick={goNext}>Next</GreenButton>
-          </div>
-        )}
-
-        {/* Support & Description moved into step 3 (rendered above). */}
+        {/* Support & Description moved into step 2 (rendered above). */}
 
         {/* Section 5: Review & Submit */}
         {currentStep === 4 && (
@@ -2513,6 +2581,12 @@ export default function AdminCreateTicket() {
               ['Model', isExistingProduct ? (selectedProduct?.model_name || '—') : (newProductInfo.model_name || '—')],
               ['Serial No.', isExistingProduct ? (selectedProduct?.serial_no || '—') : (newProductInfo.serial_no || '—')],
               ['Version No.', isExistingProduct ? (selectedProduct?.version_no || '—') : (newProductInfo.version_no || '—')],
+              ['Firmware Version', isExistingProduct ? (selectedProduct?.firmware_version || '—') : (newProductInfo.firmware_version || '—')],
+              ['Software Name', isExistingProduct ? (selectedProduct?.software_name || '—') : (newProductInfo.software_name || '—')],
+              ['Software Version', isExistingProduct ? (selectedProduct?.software_version || '—') : (newProductInfo.software_version || '—')],
+              ['Software Vendor', isExistingProduct ? (selectedProduct?.software_vendor || '—') : (newProductInfo.software_vendor || '—')],
+              ['Software License Key', isExistingProduct ? (selectedProduct?.software_license_key || '—') : (newProductInfo.software_license_key || '—')],
+              ['Software Metadata', isExistingProduct ? (selectedProduct?.software_metadata || '—') : (newProductInfo.software_metadata || '—')],
               ['Date Purchased', isExistingProduct ? (selectedProduct?.date_purchased || '—') : (newProductInfo.date_purchased || '—')],
               ['Warranty', isExistingProduct ? (selectedProduct?.has_warranty ? 'With Warranty' : 'Without Warranty') : (newProductInfo.has_warranty ? 'With Warranty' : 'Without Warranty')],
               ['Client Purchase No.', additionalProductDetails.client_purchase_no || '—'],

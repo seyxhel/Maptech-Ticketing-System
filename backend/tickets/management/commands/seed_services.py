@@ -28,6 +28,11 @@ SEED_SERVICES = [
         'description': 'Migration of existing IT infrastructure to a Hyper-Converged Infrastructure platform for improved performance and scalability.',
         'estimated_resolution_days': 10,
     },
+    {
+        'name': 'Health Check',
+        'description': 'Periodic system and infrastructure health checks, preventive maintenance, and basic diagnostics to ensure uptime and identify issues early.',
+        'estimated_resolution_days': 1,
+    },
 ]
 
 

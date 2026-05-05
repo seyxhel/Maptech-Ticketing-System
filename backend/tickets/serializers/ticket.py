@@ -105,6 +105,12 @@ class TicketSerializer(serializers.ModelSerializer):
     model_name = serializers.SerializerMethodField()
     device_equipment = serializers.SerializerMethodField()
     version_no = serializers.SerializerMethodField()
+    firmware_version = serializers.SerializerMethodField()
+    software_name = serializers.SerializerMethodField()
+    software_version = serializers.SerializerMethodField()
+    software_vendor = serializers.SerializerMethodField()
+    software_license_key = serializers.SerializerMethodField()
+    software_metadata = serializers.SerializerMethodField()
     date_purchased = serializers.SerializerMethodField()
     serial_no = serializers.SerializerMethodField()
     sales_no = serializers.SerializerMethodField()
@@ -126,7 +132,8 @@ class TicketSerializer(serializers.ModelSerializer):
     }
     PRODUCT_FIELDS = {
         'product_name', 'brand', 'model_name', 'device_equipment',
-        'version_no', 'date_purchased', 'serial_no', 'sales_no',
+        'version_no', 'firmware_version', 'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
+        'date_purchased', 'serial_no', 'sales_no',
         'has_warranty', 'others',
     }
     EMPLOYEE_FIELDS = {
@@ -150,7 +157,8 @@ class TicketSerializer(serializers.ModelSerializer):
             'client_purchase_no', 'maptech_dr', 'maptech_sales_invoice', 'maptech_sales_order_no',
             'supplier_purchase_no', 'supplier_sales_invoice', 'supplier_delivery_receipt',
             'product', 'brand', 'model_name',
-            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others',
+            'device_equipment', 'version_no', 'firmware_version', 'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
+            'date_purchased', 'serial_no', 'sales_no', 'others',
             'action_taken', 'remarks',
             'job_status',
             'external_escalated_to', 'external_escalation_notes', 'external_escalated_at',
@@ -201,6 +209,24 @@ class TicketSerializer(serializers.ModelSerializer):
 
     def get_version_no(self, obj):
         return self._product_field(obj, 'version_no')
+
+    def get_firmware_version(self, obj):
+        return self._product_field(obj, 'firmware_version')
+
+    def get_software_name(self, obj):
+        return self._product_field(obj, 'software_name')
+
+    def get_software_version(self, obj):
+        return self._product_field(obj, 'software_version')
+
+    def get_software_vendor(self, obj):
+        return self._product_field(obj, 'software_vendor')
+
+    def get_software_license_key(self, obj):
+        return self._product_field(obj, 'software_license_key')
+
+    def get_software_metadata(self, obj):
+        return self._product_field(obj, 'software_metadata')
 
     def get_date_purchased(self, obj):
         return self._product_field(obj, 'date_purchased')
@@ -317,6 +343,12 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
     model_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
     device_equipment = serializers.CharField(required=False, allow_blank=True, write_only=True)
     version_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    firmware_version = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    software_name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    software_version = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    software_vendor = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    software_license_key = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    software_metadata = serializers.CharField(required=False, allow_blank=True, write_only=True)
     date_purchased = serializers.DateField(required=False, allow_null=True, write_only=True)
     serial_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
     sales_no = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -348,6 +380,12 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
         'model_name': {'max_length': 300},
         'device_equipment': {'max_length': 300},
         'version_no': {'max_length': 100},
+        'firmware_version': {'max_length': 120},
+        'software_name': {'max_length': 300},
+        'software_version': {'max_length': 120},
+        'software_vendor': {'max_length': 300},
+        'software_license_key': {'max_length': 300},
+        'software_metadata': {'max_length': None, 'allow_newlines': True},
         'serial_no': {'max_length': 200},
         'sales_no': {'max_length': 200},
         'others': {'max_length': None, 'allow_newlines': True},
@@ -379,7 +417,8 @@ class AdminCreateTicketSerializer(serializers.ModelSerializer):
             'is_existing_client',
             # Product creation fields (write-only, not model fields)
             'has_warranty', 'product', 'brand', 'model_name',
-            'device_equipment', 'version_no', 'date_purchased', 'serial_no', 'sales_no', 'others',
+            'device_equipment', 'version_no', 'firmware_version', 'software_name', 'software_version', 'software_vendor', 'software_license_key', 'software_metadata',
+            'date_purchased', 'serial_no', 'sales_no', 'others',
             'project_title',
             # Additional product detail fields (stored on Product)
             'client_purchase_no', 'maptech_dr', 'maptech_sales_invoice', 'maptech_sales_order_no',

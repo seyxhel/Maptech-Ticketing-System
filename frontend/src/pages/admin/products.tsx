@@ -39,6 +39,12 @@ const EMPTY_FORM = {
   device_equipment: '',
   device_equipment_id: '' as string | number,
   version_no: '',
+  firmware_version: '',
+  software_name: '',
+  software_version: '',
+  software_vendor: '',
+  software_license_key: '',
+  software_metadata: '',
   date_purchased: '',
   serial_no: '',
   has_warranty: false,
@@ -102,7 +108,13 @@ export default function Products() {
       (p.client_detail?.client_name || '').toLowerCase().includes(q) ||
       (p.brand || '').toLowerCase().includes(q) ||
       (p.model_name || '').toLowerCase().includes(q) ||
-      (p.serial_no || '').toLowerCase().includes(q);
+      (p.serial_no || '').toLowerCase().includes(q) ||
+      (p.firmware_version || '').toLowerCase().includes(q) ||
+      (p.software_name || '').toLowerCase().includes(q) ||
+      (p.software_version || '').toLowerCase().includes(q) ||
+      (p.software_vendor || '').toLowerCase().includes(q) ||
+      (p.software_license_key || '').toLowerCase().includes(q) ||
+      (p.software_metadata || '').toLowerCase().includes(q);
     return matchesStatus && matchesSearch;
   });
 
@@ -130,6 +142,12 @@ export default function Products() {
       model_name: product.model_name || '',
       device_equipment: product.device_equipment || '',
       version_no: product.version_no || '',
+      firmware_version: product.firmware_version || '',
+      software_name: product.software_name || '',
+      software_version: product.software_version || '',
+      software_vendor: product.software_vendor || '',
+      software_license_key: product.software_license_key || '',
+      software_metadata: product.software_metadata || '',
       date_purchased: product.date_purchased || '',
       serial_no: product.serial_no || '',
       has_warranty: product.has_warranty,
@@ -178,6 +196,12 @@ export default function Products() {
         model_name: formData.model_name.trim(),
         device_equipment: formData.device_equipment.trim(),
         version_no: formData.version_no.trim(),
+        firmware_version: formData.firmware_version.trim(),
+        software_name: formData.software_name.trim(),
+        software_version: formData.software_version.trim(),
+        software_vendor: formData.software_vendor.trim(),
+        software_license_key: formData.software_license_key.trim(),
+        software_metadata: formData.software_metadata.trim(),
         date_purchased: formData.date_purchased || null,
         serial_no: formData.serial_no.trim(),
         sales_no: formData.sales_no.trim(),
@@ -510,6 +534,30 @@ export default function Products() {
                   <input type="text" value={formData.sales_no} onChange={(e) => setFormData({ ...formData, sales_no: e.target.value })} className={`w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B] ${fieldErrors.sales_no ? 'border-red-400' : 'border-gray-200 dark:border-gray-600'}`} placeholder="e.g. INV-2026-001" />
                   {fieldErrors.sales_no && <p className="mt-1 text-xs text-red-500">{fieldErrors.sales_no}</p>}
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Firmware Version</label>
+                  <input type="text" value={formData.firmware_version} onChange={(e) => setFormData({ ...formData, firmware_version: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. 2.3.1" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Software Name</label>
+                  <input type="text" value={formData.software_name} onChange={(e) => setFormData({ ...formData, software_name: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Access Control Pro" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Software Version</label>
+                  <input type="text" value={formData.software_version} onChange={(e) => setFormData({ ...formData, software_version: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. 5.12" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Software Vendor</label>
+                  <input type="text" value={formData.software_vendor} onChange={(e) => setFormData({ ...formData, software_vendor: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="e.g. Maptech" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Software License Key</label>
+                  <input type="text" value={formData.software_license_key} onChange={(e) => setFormData({ ...formData, software_license_key: e.target.value })} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="Optional" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Software Metadata</label>
+                  <textarea value={formData.software_metadata} onChange={(e) => setFormData({ ...formData, software_metadata: e.target.value })} rows={3} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-[#3BC25B]" placeholder="Optional notes" />
+                </div>
               </div>
 
               {/* Warranty toggle */}
@@ -567,9 +615,15 @@ export default function Products() {
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Brand</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.brand || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Model</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.model_name || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Version</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.version_no || '—'}</p></div>
+              <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Firmware Version</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.firmware_version || '—'}</p></div>
+              <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Software Name</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.software_name || '—'}</p></div>
+              <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Software Version</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.software_version || '—'}</p></div>
+              <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Software Vendor</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.software_vendor || '—'}</p></div>
+              <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Software License Key</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.software_license_key || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Serial No.</p><p className="text-sm text-gray-900 dark:text-white mt-1 font-mono">{viewingProduct.serial_no || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Sales / Invoice No.</p><p className="text-sm text-gray-900 dark:text-white mt-1 font-mono">{viewingProduct.sales_no || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Date Purchased</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.date_purchased ? new Date(viewingProduct.date_purchased).toLocaleDateString() : '—'}</p></div>
+              <div className="md:col-span-2"><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Software Metadata</p><p className="text-sm text-gray-900 dark:text-white mt-1 whitespace-pre-wrap">{viewingProduct.software_metadata || '—'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Warranty</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.has_warranty ? 'With Warranty' : 'Without Warranty'}</p></div>
               <div><p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Status</p><p className="text-sm text-gray-900 dark:text-white mt-1">{viewingProduct.is_active ? 'Active' : 'Inactive'}</p></div>
             </div>
