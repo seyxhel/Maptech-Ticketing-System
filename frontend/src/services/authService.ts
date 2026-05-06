@@ -71,7 +71,13 @@ export async function refreshAccessToken(): Promise<{ access: string }> {
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.detail || 'Token refresh failed.');
+   const errorMsg = data.detail || data.message || `Token refresh failed (${res.status})`;
+   console.error('[authService] Token refresh failed:', {
+     status: res.status,
+     error: errorMsg,
+     data: data
+   });
+   throw new Error(errorMsg);
   }
   return data as { access: string };
 }

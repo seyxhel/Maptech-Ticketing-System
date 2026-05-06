@@ -558,10 +558,16 @@ class UserViewSet(viewsets.GenericViewSet):
         if not new_password:
             return Response({'detail': 'New password is required.'}, status=status.HTTP_400_BAD_REQUEST)
         if len(new_password) < 8:
-            return Response({'detail': 'Password must be at least 8 characters.'}, status=status.HTTP_400_BAD_REQUEST)
+               return Response({
+                   'detail': 'Password must be at least 8 characters.',
+                   'code': 'password_too_short'
+               }, status=status.HTTP_400_BAD_REQUEST)
         if _is_password_pwned(new_password):
             return Response(
-                {'detail': 'This password has been found in a data breach. Please choose a different password.'},
+                   {
+                       'detail': 'This password has been found in a data breach. Please choose a different password.',
+                       'code': 'password_compromised'
+                   },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -584,4 +590,7 @@ class UserViewSet(viewsets.GenericViewSet):
         except Exception:
             pass
 
-        return Response({'detail': f'Password updated for {target.username}.'})
+           return Response({
+               'detail': f'Password updated for {target.username}.',
+               'success': True
+           })

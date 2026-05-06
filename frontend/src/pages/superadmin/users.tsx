@@ -15,6 +15,8 @@ import {
   Key,
   Copy,
   CheckCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -124,6 +126,8 @@ export default function UserManagement() {
   const [keyCopied, setKeyCopied] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // ── Fetch users from backend ──
   const loadUsers = useCallback(async () => {
@@ -157,7 +161,9 @@ export default function UserManagement() {
     setFormData(EMPTY_FORM);
     setNewPassword('');
     setConfirmPassword('');
-    setIsModalOpen(true);
+     setShowNewPassword(false);
+     setShowConfirmPassword(false);
+     setIsModalOpen(true);
   };
 
   const openEditModal = (user: UserAccount) => {
@@ -179,6 +185,8 @@ export default function UserManagement() {
     });
     setNewPassword('');
     setConfirmPassword('');
+     setShowNewPassword(false);
+     setShowConfirmPassword(false);
     setIsModalOpen(true);
   };
   const handleSave = async (e: React.FormEvent) => {
@@ -204,6 +212,7 @@ export default function UserManagement() {
       if (wantsPasswordUpdate) {
         if (newPassword.length < 8) errs.newPassword = 'Password must be at least 8 characters.';
         if (newPassword !== confirmPassword) errs.confirmPassword = 'Passwords do not match.';
+         if (newPassword.trim() === '') errs.newPassword = 'New password cannot be empty.';
       }
     }
 
@@ -257,7 +266,16 @@ export default function UserManagement() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Operation failed.';
-      toast.error(msg);
+       // Parse backend error codes for specific password issues
+       if (msg.includes('password_too_short')) {
+         toast.error('Password must be at least 8 characters.');
+         setFieldErrors((p) => ({ ...p, newPassword: 'Password must be at least 8 characters.' }));
+       } else if (msg.includes('password_compromised') || msg.includes('data breach')) {
+         toast.error('This password has been compromised. Please choose a different password.');
+         setFieldErrors((p) => ({ ...p, newPassword: 'This password has been compromised. Please choose a different one.' }));
+       } else {
+         toast.error(msg);
+       }
     } finally {
       setSubmitting(false);
     }
@@ -632,14 +650,24 @@ export default function UserManagement() {
                       New Password
                       <span className="text-xs font-normal text-gray-400 ml-1">(optional)</span>
                     </label>
-                    <input
-                      type="password"
+                     <div className="relative">
+                     <input
+                       type={showNewPassword ? "text" : "password"}
                       minLength={8}
                       value={newPassword}
                       onChange={(e) => { setNewPassword(e.target.value); setFieldErrors((p) => ({ ...p, newPassword: '' })); }}
                       placeholder="Leave blank to keep current password"
                       className={`w-full px-4 py-2.5 border ${fieldErrors.newPassword ? 'border-red-400 ring-2 ring-red-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#3BC25B] focus:border-transparent outline-none`}
                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowNewPassword(!showNewPassword)}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                       title={showNewPassword ? "Hide password" : "Show password"}
+                     >
+                       {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                     </button>
+                     </div>
                     {fieldErrors.newPassword && <p className="text-red-500 text-xs mt-1">{fieldErrors.newPassword}</p>}
                   </div>
                   <div>
@@ -647,14 +675,24 @@ export default function UserManagement() {
                       Confirm New Password
                       <span className="text-xs font-normal text-gray-400 ml-1">(optional)</span>
                     </label>
-                    <input
-                      type="password"
+                     <div className="relative">
+                     <input
+                       type={showConfirmPassword ? "text" : "password"}
                       minLength={8}
                       value={confirmPassword}
                       onChange={(e) => { setConfirmPassword(e.target.value); setFieldErrors((p) => ({ ...p, confirmPassword: '' })); }}
                       placeholder="Repeat new password"
                       className={`w-full px-4 py-2.5 border ${fieldErrors.confirmPassword ? 'border-red-400 ring-2 ring-red-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-[#3BC25B] focus:border-transparent outline-none`}
                     />
+                     <button
+                       type="button"
+                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                       title={showConfirmPassword ? "Hide password" : "Show password"}
+                     >
+                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                     </button>
+                     </div>
                     {fieldErrors.confirmPassword && <p className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</p>}
                   </div>
                 </>

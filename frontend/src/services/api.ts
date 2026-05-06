@@ -687,6 +687,13 @@ export async function adminResetPassword(userId: number, newPassword: string): P
     headers: authHeaders(),
     body: JSON.stringify({ new_password: newPassword }),
   });
+   if (!res.ok) {
+     console.error('[api] adminResetPassword failed:', {
+       userId,
+       status: res.status,
+       url: `${API_BASE}/users/${userId}/reset_password/`
+     });
+   }
   return handleResponse(res);
 }
 

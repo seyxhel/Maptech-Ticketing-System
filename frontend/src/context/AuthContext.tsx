@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (refreshed?.access) {
             replaceStoredAccessToken(refreshed.access);
           }
+           console.log('[AuthContext] Token refresh successful');
 
           const apiUser = await fetchCurrentUser();
           if (!cancelled) {
@@ -138,6 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch {
+           console.error('[AuthContext] Failed to restore session via token refresh');
           clearLegacyAuthStorage();
         }
       }
