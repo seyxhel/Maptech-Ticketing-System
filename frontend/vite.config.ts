@@ -8,12 +8,11 @@ const strictContentSecurityPolicy = [
   "frame-ancestors 'self'",
   "object-src 'none'",
   "script-src 'self' 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk='",
-  "style-src 'self' 'nonce-maptech-csp-v1' https://fonts.googleapis.com",
-  "style-src-attr 'unsafe-inline'",
+  "style-src 'self' 'nonce-maptech-csp-v1' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob:",
-  "media-src 'self' data: blob:",
-  "connect-src 'self' http://localhost:8000 ws://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:8000 https://api.pwnedpasswords.com",
+  "img-src 'self' data: blob: https://*.up.railway.app https://*.herokuapp.com https://*.railway.app",
+  "media-src 'self' data: blob: https://*.up.railway.app https://*.herokuapp.com https://*.railway.app",
+  "connect-src 'self' http://localhost:8000 ws://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:8000 https://*.up.railway.app https://*.herokuapp.com https://*.railway.app https://api.pwnedpasswords.com",
 ].join('; ')
 
 const strictSecurityHeaders = {

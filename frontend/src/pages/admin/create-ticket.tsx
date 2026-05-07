@@ -1554,7 +1554,7 @@ export default function AdminCreateTicket() {
             </div>
 
             <div>
-              <label className={labelCls}>Sales Representative <span className="text-gray-400 text-xs font-normal">(optional, multiple)</span></label>
+              <label className={labelCls}>Sales Representative <span className="text-gray-400 text-xs font-normal">(required,it can be multiple)</span></label>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -2619,11 +2619,11 @@ export default function AdminCreateTicket() {
 
       {/* Modal Flow: calling → ongoing → priority → assign */}
       {modalStep !== 'none' && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-start justify-center overflow-y-auto p-4 py-6">
 
           {/* ── Step 1: STF Details Review ── */}
           {modalStep === 'stf-details' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[calc(100vh-3rem)] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-5">
                   <div>

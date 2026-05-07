@@ -4072,9 +4072,9 @@ export function TicketView() {
 
       {/* ── Reassign Ticket Modal ── */}
       {showReassignModal && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-start justify-center overflow-y-auto p-4 py-6">
           {hasCallPriorityWorkflow && reassignModalStep === 'stf-details' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg my-auto max-h-[calc(100vh-3rem)] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-5">
                   <div>
