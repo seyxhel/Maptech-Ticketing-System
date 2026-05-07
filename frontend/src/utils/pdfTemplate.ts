@@ -462,22 +462,26 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
       const top = sliceStarts[i];
       const bot =
         i + 1 < sliceStarts.length ? sliceStarts[i + 1] : contentCanvas.height;
-      const sliceH_px = bot - top;
+      const sliceH_px = Math.max(1, Math.round(bot - top)); // Ensure at least 1px height
       const sliceH_pt = sliceH_px * ptPerPx; // always ≤ contentAreaH_pt
 
       if (i > 0) pdf.addPage();
 
       // Crop exactly this page's content slice from the full content canvas.
       const slice = document.createElement('canvas');
-      slice.width = contentCanvas.width;
+      slice.width = Math.max(1, Math.round(contentCanvas.width));
       slice.height = sliceH_px;
       const ctx = slice.getContext('2d');
       if (ctx) {
-        ctx.drawImage(
-          contentCanvas,
-          0, top, contentCanvas.width, sliceH_px,
-          0, 0,   contentCanvas.width, sliceH_px,
-        );
+        const validTop = Math.max(0, Math.round(top));
+        const validSliceH = Math.min(sliceH_px, Math.round(contentCanvas.height - validTop));
+        if (validSliceH > 0) {
+          ctx.drawImage(
+            contentCanvas,
+            0, validTop, Math.round(contentCanvas.width), validSliceH,
+            0, 0,   Math.round(contentCanvas.width), validSliceH,
+          );
+        }
       }
 
       // Place header at the top of the page (if available).

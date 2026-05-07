@@ -8,7 +8,7 @@ const strictContentSecurityPolicy = [
   "frame-ancestors 'self'",
   "object-src 'none'",
   "script-src 'self' 'sha256-Z2/iFzh9VMlVkEOar1f/oSHWwQk3ve1qk/C2WdsC4Xk='",
-  "style-src 'self' 'nonce-maptech-csp-v1' 'unsafe-inline' https://fonts.googleapis.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https://*.up.railway.app https://*.herokuapp.com https://*.railway.app",
   "media-src 'self' data: blob: https://*.up.railway.app https://*.herokuapp.com https://*.railway.app",
