@@ -8,7 +8,7 @@ from .product import Product
 
 
 class Ticket(models.Model):
-    STF_SEQUENCE_WIDTH = 6
+    STF_SEQUENCE_WIDTH = 4
 
     # --- Status choices ---
     STATUS_OPEN = 'open'
@@ -203,14 +203,11 @@ class Ticket(models.Model):
     def get_next_stf_no(cls, for_date=None):
         """Generate the next STF number for the given date using a daily sequence."""
         prefix = cls._get_stf_prefix(for_date)
-        last = cls.objects.filter(stf_no__startswith=prefix).order_by('-stf_no').first()
-        if last:
-            try:
-                seq = int(last.stf_no[-cls.STF_SEQUENCE_WIDTH:]) + 1
-            except (ValueError, IndexError):
-                seq = 1
-        else:
-            seq = 1
+        seq = 1
+        for stf_no in cls.objects.filter(stf_no__startswith=prefix).values_list('stf_no', flat=True):
+            suffix = str(stf_no)[len(prefix):]
+            if suffix.isdigit():
+                seq = max(seq, int(suffix) + 1)
         return f'{prefix}{seq:0{cls.STF_SEQUENCE_WIDTH}d}'
 
     @classmethod

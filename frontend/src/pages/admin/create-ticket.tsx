@@ -236,7 +236,7 @@ export default function AdminCreateTicket() {
   const getFallbackStfNo = () => {
     const d = new Date();
     const yyyymmdd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    return `STF-MT-${yyyymmdd}000001`;
+    return `STF-MT-${yyyymmdd}0001`;
   };
 
   const [stfNo, setStfNo] = useState(getFallbackStfNo);
