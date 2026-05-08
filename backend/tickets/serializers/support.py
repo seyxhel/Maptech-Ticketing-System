@@ -1,6 +1,15 @@
 from rest_framework import serializers
-from ..models import CallLog, FeedbackRating, ServiceReport
+from ..models import CallLog, FeedbackRating, ServiceReport, ServiceReportAttachment
 from tickets.input_security import sanitize_payload
+
+
+class MultiFileField(serializers.ListField):
+    def get_value(self, dictionary):
+        if hasattr(dictionary, 'getlist'):
+            values = dictionary.getlist(self.field_name)
+            if values:
+                return values
+        return super().get_value(dictionary)
 
 
 class CallLogSerializer(serializers.ModelSerializer):
@@ -70,10 +79,24 @@ class FeedbackRatingSerializer(serializers.ModelSerializer):
         return ''
 
 
+class ServiceReportAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServiceReportAttachment
+        fields = ['id', 'file', 'created_at']
+        read_only_fields = fields
+
+
 class ServiceReportSerializer(serializers.ModelSerializer):
     sr_no = serializers.CharField(read_only=True)
     ticket_stf = serializers.CharField(source='ticket.stf_no', read_only=True)
     created_by_name = serializers.SerializerMethodField()
+    attachments = ServiceReportAttachmentSerializer(many=True, read_only=True)
+    attachment_files = MultiFileField(
+        child=serializers.FileField(),
+        required=False,
+        write_only=True,
+        allow_empty=True,
+    )
 
     class Meta:
         model = ServiceReport
@@ -83,7 +106,7 @@ class ServiceReportSerializer(serializers.ModelSerializer):
             'contact_no', 'type_of_service', 'type_of_support',
             'description_of_trouble', 'action_taken', 'remarks', 'status',
             'product_name', 'product_title', 'device_equipment', 'serial_no', 'product_remarks',
-            'attachment', 'created_at', 'updated_at',
+            'attachment', 'attachments', 'attachment_files', 'created_at', 'updated_at',
         ]
         read_only_fields = ['sr_no', 'created_by', 'created_by_name', 'created_at', 'updated_at', 'ticket_stf']
 
@@ -107,6 +130,19 @@ class ServiceReportSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get('request')
+        attachment_files = validated_data.pop('attachment_files', [])
         if request and hasattr(request, 'user'):
             validated_data['created_by'] = request.user
-        return super().create(validated_data)
+        if attachment_files:
+            validated_data['attachment'] = attachment_files[0]
+        report = super().create(validated_data)
+
+        files_to_save = attachment_files or []
+        legacy_attachment = report.attachment
+        if legacy_attachment and not files_to_save:
+                        files_to_save = [legacy_attachment]
+
+        for file_obj in files_to_save:
+            ServiceReportAttachment.objects.create(service_report=report, file=file_obj)
+
+        return report

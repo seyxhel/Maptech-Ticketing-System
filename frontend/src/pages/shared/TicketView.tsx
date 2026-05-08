@@ -65,6 +65,7 @@ type ServiceReportDraft = {
   typeOfSupport: string;
   descriptionOfTrouble: string;
   actionTaken: string;
+  actionTakenAttachments: { file: File; preview: string; name: string }[];
   remarks: string;
   status: string;
 };
@@ -87,6 +88,28 @@ function getResolutionAttachmentType(file: File): ResolutionAttachmentType {
   if (file.type.startsWith('video/') || ['mp4', 'webm'].includes(extension)) return 'recording';
   if (file.type.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].includes(extension)) return 'screenshot';
   return 'file';
+}
+
+function isImageMediaSource(source: string): boolean {
+  return /\.(png|jpe?g|gif|webp|bmp)(?:$|[?#])/i.test(source) || source.startsWith('data:image/');
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error || new Error('Unable to read file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function readServiceReportAttachments(files: File[]): Promise<{ file: File; preview: string; name: string }[]> {
+  const previewItems = await Promise.all(files.map(async (file) => ({
+    file,
+    preview: await readFileAsDataUrl(file),
+    name: file.name,
+  })));
+  return previewItems;
 }
 
 function getResolutionAttachmentSizeLimit(type: ResolutionAttachmentType): number {
@@ -136,7 +159,7 @@ function getInitials(name: string): string {
     .join('');
 }
 
-// ── Ticket Progress Tracker ────────────────────────────────────────────────── //
+// -- Ticket Progress Tracker -------------------------------------------------- //
 type TrackerStepState = 'done' | 'active' | 'skipped' | 'pending';
 
 function computeTrackerStates(
@@ -394,7 +417,7 @@ const TicketProgressTracker: React.FC<{
     </div>
   );
 }
-// ──────────────────────────────────────────────────────────────────────────── //
+// ---------------------------------------------------------------------------- //
 
 function resolveTicketProductSnapshot(btData: BackendTicket): {
   deviceEquipment: string;
@@ -664,7 +687,7 @@ export function TicketView() {
         const locationState = (location.state as TicketLocationState | null) ?? null;
   const [showChat, setShowChat] = useState(false);
 
-  // ── WebSocket Chat State ──
+  // -- WebSocket Chat State --
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMsg, setNewMsg] = useState('');
   const [wsConnected, setWsConnected] = useState(false);
@@ -943,7 +966,7 @@ export function TicketView() {
     return UserIcon;
   };
 
-  // ── Attachment helpers ──
+  // -- Attachment helpers --
   const getFileCategory = (file: File): 'image' | 'video' | 'file' => {
     if (file.type.startsWith('image/')) return 'image';
     if (file.type.startsWith('video/')) return 'video';
@@ -1008,7 +1031,7 @@ export function TicketView() {
     return File;
   };
 
-  // ── Non-chat form state ──
+  // -- Non-chat form state --
   const [jobStatus, setJobStatus] = useState(ticket.jobStatus || '');
   const [actionTaken, setActionTaken] = useState(ticket.actionTaken || '');
   const [remarksText, setRemarksText] = useState(ticket.remarks || '');
@@ -1024,7 +1047,7 @@ export function TicketView() {
   const [adminEditFields, setAdminEditFields] = useState({ status: ticket.status, priority: ticket.priority });
   const [savingAdminEdit, setSavingAdminEdit] = useState(false);
 
-  // ── New feature state ──
+  // -- New feature state --
   const [observation, setObservation] = useState('');
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [signedByName, setSignedByName] = useState('');
@@ -1034,7 +1057,7 @@ export function TicketView() {
   const [feedbackComments, setFeedbackComments] = useState('');
   const [submittingFeedbackRating, setSubmittingFeedbackRating] = useState(false);
 
-  // ── Admin reassign (for escalated tickets) ──
+  // -- Admin reassign (for escalated tickets) --
   const [employees, setEmployees] = useState<{ id: number; first_name: string; last_name: string; username: string; active_ticket_count: number }[]>([]);
   const [reassignEmployeeId, setReassignEmployeeId] = useState('');
   const [reassignSearch, setReassignSearch] = useState('');
@@ -1299,7 +1322,7 @@ export function TicketView() {
     };
   }, [canAdminReassign]);
 
-  // ── Escalation modal state ──
+  // -- Escalation modal state --
   const [showEscalateModal, setShowEscalateModal] = useState(false);
   const [escalateType, setEscalateType] = useState<'internal' | 'external'>('internal');
   const [escalateNotes, setEscalateNotes] = useState('');
@@ -1308,7 +1331,7 @@ export function TicketView() {
   const [escalateToErr, setEscalateToErr] = useState('');
   const [submittingEscalation, setSubmittingEscalation] = useState(false);
 
-  // ── Product Detail form state (employee-editable) ──
+  // -- Product Detail form state (employee-editable) --
   const [pdDeviceEquipment, setPdDeviceEquipment] = useState('');
   const [pdProduct, setPdProduct] = useState('');
   const [pdBrand, setPdBrand] = useState('');
@@ -1326,7 +1349,7 @@ export function TicketView() {
   const [pdHasWarranty, setPdHasWarranty] = useState(false);
   const [pdOthers, setPdOthers] = useState('');
 
-  // ── Product catalog dropdown ──
+  // -- Product catalog dropdown --
   const [productCatalog, setProductCatalog] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
 
@@ -1673,7 +1696,7 @@ export function TicketView() {
     }
   };
 
-  // ── Attachment file handlers ──
+  // -- Attachment file handlers --
   function validateResolutionAttachment(file: File, expectedType: ResolutionAttachmentType): boolean {
     const actualType = getResolutionAttachmentType(file);
     if (actualType !== expectedType) {
@@ -1744,6 +1767,42 @@ export function TicketView() {
     }
   };
 
+  const handleServiceReportAttachmentChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (files.length && imageFiles.length !== files.length) {
+      toast.error('Please select an image file for the action taken attachment.');
+    }
+
+    if (!imageFiles.length) return;
+
+    try {
+      const previews = await readServiceReportAttachments(imageFiles);
+      setServiceReportDraft((prev) => ({
+        ...prev,
+        actionTakenAttachments: [...prev.actionTakenAttachments, ...previews],
+      }));
+    } catch {
+      toast.error('Failed to read the selected image.');
+    }
+  };
+
+  const removeServiceReportAttachment = (index: number) => {
+    setServiceReportDraft((prev) => ({
+      ...prev,
+      actionTakenAttachments: prev.actionTakenAttachments.filter((_, currentIndex) => currentIndex !== index),
+    }));
+  };
+
+  const clearServiceReportAttachments = () => {
+    setServiceReportDraft((prev) => ({
+      ...prev,
+      actionTakenAttachments: [],
+    }));
+  };
+
   const handleRemoveUploaded = async (att: { id: number; name: string }) => {
     if (!backendTicketId) return;
     if (!confirm(`Remove "${att.name}"?`)) return;
@@ -1755,7 +1814,7 @@ export function TicketView() {
     }
   };
 
-  // ── Export ticket to XLSX ──
+  // -- Export ticket to XLSX --
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showServiceReportModal, setShowServiceReportModal] = useState(false);
   const [serviceReportDraft, setServiceReportDraft] = useState<ServiceReportDraft>({
@@ -1767,6 +1826,7 @@ export function TicketView() {
     typeOfSupport: '',
     descriptionOfTrouble: '',
     actionTaken: '',
+    actionTakenAttachments: [],
     remarks: '',
     status: '',
   });
@@ -1783,10 +1843,11 @@ export function TicketView() {
       typeOfSupport: formatSupportLabel(btData.preferred_support_type),
       descriptionOfTrouble: btData.description_of_problem || '',
       actionTaken: btData.action_taken || '',
+      actionTakenAttachments: [],
       remarks: btData.remarks || '',
       status: normalizeServiceReportStatus(btData.job_status || ticket.jobStatus || ''),
     });
-  }, [showServiceReportModal, btData, ticket.jobStatus]);
+  }, [showServiceReportModal]);
 
   useEffect(() => {
     if (!backendTicketId) {
@@ -1820,6 +1881,18 @@ export function TicketView() {
     setSelectedServiceReport(report);
   };
 
+  const buildServiceReportAttachmentMarkup = (src: string, label: string) => {
+    if (!src) return '';
+    return `
+      <div class="report-attachment">
+        <div class="report-attachment-head">${escapeHtml(label)}</div>
+        <div class="report-attachment-body">
+          <img src="${escapeHtml(src)}" alt="${escapeHtml(label)}" />
+        </div>
+      </div>
+    `;
+  };
+
   const handleExportSelectedServiceReportPDF = async () => {
     if (!btData || !selectedServiceReport) return;
 
@@ -1849,6 +1922,20 @@ export function TicketView() {
     };
     const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
 
+    const dateStr = reportDate || new Date().toLocaleDateString();
+    const timeStr = timeResponded || new Date().toLocaleTimeString();
+    const dateIso = new Date().toISOString().slice(0, 10);
+    const actionTakenAttachmentHtml = serviceReportDraft.actionTakenAttachments
+      .map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.preview, attachment.name || `Action Taken Image ${index + 1}`))
+      .join('');
+    const selectedReportAttachments = selectedServiceReport.attachments.length > 0
+      ? selectedServiceReport.attachments
+      : (selectedServiceReport.attachment ? [{ id: 0, file: selectedServiceReport.attachment, created_at: '' }] : []);
+    const selectedAttachmentHtml = selectedReportAttachments
+      .filter((attachment) => isImageMediaSource(attachment.file))
+      .map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.file, `Action Taken Image ${index + 1}`))
+      .join('');
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -1859,20 +1946,20 @@ export function TicketView() {
 ${PDF_CSS}
     @page { size: A4; margin: 10mm; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.35; background: #fff; }
+    body { margin: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.4; background: #fff; }
     .sheet { width: 100%; border: 1px solid #d1d5db; background: #fff; }
     .header { display: grid; grid-template-columns: 130px 1fr 270px; gap: 10px; padding: 12px 14px 10px; border-bottom: 2px solid #36561f; align-items: start; }
     .logo { width: 118px; height: auto; }
     .company-block { text-align: right; font-size: 10px; line-height: 1.45; }
     .company-block .name { font-size: 12px; font-weight: 700; color: #35561f; }
     .title { padding: 6px 14px 10px; text-align: center; font-size: 20px; font-weight: 700; color: #35561f; letter-spacing: 0.2px; }
-    .info-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px 24px; padding: 0 14px 10px; }
-    .info-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; border-bottom: 1px solid #9ca3af; padding-bottom: 1px; }
-    .label { min-width: 112px; font-weight: 700; color: #374151; flex-shrink: 0; }
-    .value { flex: 1; min-height: 14px; word-break: break-word; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; margin-bottom: 12px; padding: 10px 14px; background: #fafffe; border: 1px solid #e8faf0; border-radius: 6px; }
+    .info-row { display: flex; gap: 6px; padding: 4px 0; font-size: 11px; align-items: flex-start; }
+    .label { min-width: 120px; font-weight: 600; color: #154734; flex-shrink: 0; font-size: 10px; }
+    .value { flex: 1; word-break: break-word; font-size: 11px; color: #1f2937; }
     .section-divider { border-top: 3px solid #36561f; margin: 4px 0 8px; }
-    .section-title { padding: 2px 0 4px; font-weight: 700; color: #1f2937; }
-    .checkbox-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 0 14px 6px; font-size: 10px; }
+    .section-title { padding: 2px 0 4px; font-weight: 700; color: #1f2937; font-size: 11px; }
+    .checkbox-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 0 14px 6px; font-size: 11px; align-items: center; }
     .checkbox-group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .box { width: 9px; height: 9px; border: 1px solid #4b5563; display: inline-block; margin-right: 4px; position: relative; top: 1px; }
     .checked::after { content: ''; position: absolute; inset: 1px; background: #36561f; }
@@ -1880,16 +1967,19 @@ ${PDF_CSS}
     .report-col { padding: 0; }
     .report-col + .report-col { border-left: 1px solid #4b5563; }
     .report-head { background: #35561f; color: #fff; font-weight: 700; text-align: center; padding: 6px 8px; border-bottom: 1px solid #4b5563; }
-    .report-body { min-height: 344px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
-    .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 0 14px 10px; font-size: 10px; }
-    .remarks-line { margin: 0 14px 10px; border-bottom: 1px solid #374151; min-height: 16px; padding-bottom: 1px; }
+    .report-body { min-height: 344px; padding: 10px; white-space: pre-wrap; word-break: break-word; display: flex; flex-direction: column; gap: 10px; }
+    .report-attachment { display: flex; flex-direction: column; gap: 4px; }
+    .report-attachment-head { font-size: 10px; font-weight: 700; color: #35561f; }
+    .report-attachment-body img { display: block; max-width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
+    .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 0 14px 10px; font-size: 11px; align-items: center; }
+    .remarks-line { margin: 0 14px 10px; border-bottom: 1px solid #e5e7eb; min-height: 20px; padding-bottom: 3px; display: flex; align-items: flex-end; }
     table { width: calc(100% - 0px); border-collapse: collapse; margin: 0; font-size: 10px; }
-    th, td { border: 1px solid #374151; padding: 6px 6px; vertical-align: top; }
+    th, td { border: 1px solid #e8faf0; padding: 6px 6px; vertical-align: top; }
     thead th { background: #35561f; color: #fff; text-align: center; font-weight: 700; }
-    .footer-note { padding: 8px 14px 0; font-size: 10px; }
+    .footer-note { padding: 8px 14px 0; font-size: 11px; }
     .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 16px 14px 12px; align-items: end; }
-    .signature-line { border-bottom: 1px solid #111827; height: 24px; margin-bottom: 4px; }
-    .signature-label { font-size: 10px; font-weight: 700; text-align: center; }
+    .signature-line { border-bottom: 1px solid #d1fae5; height: 20px; margin-bottom: 4px; }
+    .signature-label { font-size: 11px; font-weight: 700; text-align: center; }
   </style>
 </head>
 <body>
@@ -1917,7 +2007,7 @@ ${PDF_CSS}
 
     <div class="report-grid">
       <div class="report-col"><div class="report-head">Description of Trouble</div><div class="report-body">${escapeHtml(descriptionOfTrouble)}</div></div>
-      <div class="report-col"><div class="report-head">Action Taken</div><div class="report-body">${escapeHtml(actionTaken)}</div></div>
+      <div class="report-col"><div class="report-head">Action Taken</div><div class="report-body">${escapeHtml(actionTaken)}${selectedAttachmentHtml}</div></div>
     </div>
 
     <div class="status-row">
@@ -1967,7 +2057,7 @@ ${PDF_CSS}
 </html>`;
 
     const dateTag = new Date().toISOString().slice(0, 10);
-    await openPrintWindow(html, `service_report_${selectedServiceReport.sr_no}_${dateTag}.pdf`);
+    await openPrintWindow(html, `${selectedServiceReport.sr_no}_${dateTag}.pdf`);
   };
 
   const handleSubmitServiceReport = async () => {
@@ -2005,11 +2095,11 @@ ${PDF_CSS}
         device_equipment: snapshot.deviceEquipment,
         serial_no: snapshot.serialNo,
         product_remarks: snapshot.remarks,
+        attachment_files: serviceReportDraft.actionTakenAttachments.map((attachment) => attachment.file),
       };
-      const createdReport = await createServiceReport(payload) as ServiceReportRecord;
+      const createdReport = await createServiceReport(payload);
       toast.success(`Service report ${createdReport.sr_no || ''} submitted successfully.`.trim());
       setShowServiceReportModal(false);
-      // Refresh backend data to reflect new service report
       if (backendTicketId) {
         const [updatedTicket, updatedReports] = await Promise.all([
           fetchTicketById(backendTicketId),
@@ -2049,6 +2139,10 @@ ${PDF_CSS}
     const printableTitle = `Service Report ${btData.stf_no}`;
     const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
 
+    const dateStr = reportDate || new Date().toLocaleDateString();
+    const timeStr = timeResponded || new Date().toLocaleTimeString();
+    const dateIso = new Date().toISOString().slice(0, 10);
+
     const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -2061,10 +2155,10 @@ ${PDF_CSS}
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
       color: #1f2937;
       font-size: 11px;
-      line-height: 1.35;
+      line-height: 1.4;
       background: #fff;
     }
     .sheet {
@@ -2101,28 +2195,33 @@ ${PDF_CSS}
     }
     .info-grid {
       display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 10px 24px;
-      padding: 0 14px 10px;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 24px;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: #fafffe;
+      border: 1px solid #e8faf0;
+      border-radius: 6px;
     }
     .info-row {
       display: flex;
       gap: 6px;
-      align-items: baseline;
-      min-width: 0;
-      border-bottom: 1px solid #9ca3af;
-      padding-bottom: 1px;
+      padding: 4px 0;
+      font-size: 11px;
+      align-items: flex-start;
     }
     .label {
-      min-width: 112px;
-      font-weight: 700;
-      color: #374151;
+      min-width: 120px;
+      font-weight: 600;
+      color: #154734;
       flex-shrink: 0;
+      font-size: 10px;
     }
     .value {
       flex: 1;
-      min-height: 14px;
       word-break: break-word;
+      font-size: 11px;
+      color: #1f2937;
     }
     .section-divider {
       border-top: 3px solid #36561f;
@@ -2138,7 +2237,8 @@ ${PDF_CSS}
       grid-template-columns: 1fr 1fr;
       gap: 2px 12px;
       padding: 0 14px 6px;
-      font-size: 10px;
+      font-size: 11px;
+      align-items: center;
     }
     .checkbox-group {
       display: flex;
@@ -2187,6 +2287,28 @@ ${PDF_CSS}
       padding: 10px;
       white-space: pre-wrap;
       word-break: break-word;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .report-attachment {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .report-attachment-head {
+      font-size: 10px;
+      font-weight: 700;
+      color: #35561f;
+    }
+    .report-attachment-body img {
+      display: block;
+      max-width: 100%;
+      max-height: 180px;
+      object-fit: contain;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #fff;
     }
     .status-row {
       display: grid;
@@ -2197,9 +2319,11 @@ ${PDF_CSS}
     }
     .remarks-line {
       margin: 0 14px 10px;
-      border-bottom: 1px solid #374151;
-      min-height: 16px;
-      padding-bottom: 1px;
+      border-bottom: 1px solid #e5e7eb;
+      min-height: 20px;
+      padding-bottom: 3px;
+      display: flex;
+      align-items: flex-end;
     }
     table {
       width: calc(100% - 0px);
@@ -2208,7 +2332,7 @@ ${PDF_CSS}
       font-size: 10px;
     }
     th, td {
-      border: 1px solid #374151;
+      border: 1px solid #e8faf0;
       padding: 6px 6px;
       vertical-align: top;
     }
@@ -2220,7 +2344,7 @@ ${PDF_CSS}
     }
     .footer-note {
       padding: 8px 14px 0;
-      font-size: 10px;
+      font-size: 11px;
     }
     .signatures {
       display: grid;
@@ -2230,12 +2354,12 @@ ${PDF_CSS}
       align-items: end;
     }
     .signature-line {
-      border-bottom: 1px solid #111827;
+      border-bottom: 1px solid #d1fae5;
       height: 24px;
       margin-bottom: 4px;
     }
     .signature-label {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       text-align: center;
     }
@@ -2273,7 +2397,7 @@ ${PDF_CSS}
       </div>
       <div class="report-col">
         <div class="report-head">Action Taken</div>
-        <div class="report-body">${escapeHtml(actionTaken)}</div>
+        <div class="report-body">${escapeHtml(actionTaken)}${actionTakenAttachmentHtml}</div>
       </div>
     </div>
 
@@ -2381,6 +2505,7 @@ ${PDF_CSS}
           device_equipment: snapshot.deviceEquipment,
           serial_no: snapshot.serialNo,
           product_remarks: snapshot.remarks,
+          attachment_files: serviceReportDraft.actionTakenAttachments.map((attachment) => attachment.file),
         };
         await createServiceReport(payload);
         toast.success('Service report saved to backend.');
@@ -2389,7 +2514,7 @@ ${PDF_CSS}
         toast.error('Failed to save service report to backend.');
       }
 
-      await openPrintWindow(html, `service_report_${btData.stf_no}_${dateTag}.pdf`);
+      await openPrintWindow(html, `${btData.stf_no}_${dateTag}.pdf`);
       toast.success('Service report PDF downloaded.');
     } catch (err) {
       console.error('Service report PDF export failed:', err);
@@ -2605,7 +2730,7 @@ ${PDF_CSS}
         rowHeights[r] = { hpt: 30 };
       };
 
-      // ─── Title ───
+      // --- Title ---
     mergeAll(R, 'MAPTECH TICKETING SYSTEM  —  SERVICE TICKET FORM', C.GREEN_DARK, C.WHITE, { bold: true, sz: 18, center: true });
       rowHeights[R] = { hpt: 52 }; R++;
       mergeAll(R, `Service Ticket Form — ${ticket.id}`, C.GREEN_MID, '000000', { italic: true, sz: 11, center: true });
@@ -2636,7 +2761,7 @@ ${PDF_CSS}
       // Spacer
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
-      // ─── CLIENT INFORMATION ───
+      // --- CLIENT INFORMATION ---
       sectionHeader(R, 'CLIENT INFORMATION'); R++;
       detailRow(R, 'Client', ticket.client, 'Contact Person', ticket.contact); rowHeights[R] = { hpt: 22 }; R++;
       detailRow(R, 'Email', ticket.emailAddress, 'Department', ticket.department); rowHeights[R] = { hpt: 22 }; R++;
@@ -2645,7 +2770,7 @@ ${PDF_CSS}
 
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
-      // ─── ISSUE DESCRIPTION ───
+      // --- ISSUE DESCRIPTION ---
       sectionHeader(R, 'ISSUE DESCRIPTION'); R++;
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 4 }; R++;
       setCell(R, 0, sc(ticket.description, C.WHITE, '000000', { sz: 10, wrap: true, border: false }));
@@ -2656,7 +2781,7 @@ ${PDF_CSS}
 
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
-      // ─── PRODUCT DETAILS (if any) ───
+      // --- PRODUCT DETAILS (if any) ---
       if (ticket.productDetails) {
         sectionHeader(R, 'PRODUCT DETAILS'); R++;
         const pd = ticket.productDetails;
@@ -2673,7 +2798,7 @@ ${PDF_CSS}
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
-      // ─── WORK DETAILS ───
+      // --- WORK DETAILS ---
       sectionHeader(R, 'WORK DETAILS'); R++;
       detailRow(R, 'Job Status', jobStatusValue, 'Progress', `${ticket.progressPercentage}%`); rowHeights[R] = { hpt: 22 }; R++;
       detailRow(R, 'Time In', ticket.timeIn, 'Time Out', ticket.timeOut); rowHeights[R] = { hpt: 22 }; R++;
@@ -2690,7 +2815,7 @@ ${PDF_CSS}
       detailRow(R, 'Acknowledged By', acknowledgedByValue, 'Client Signature', clientSignatureValue); rowHeights[R] = { hpt: 22 }; R++;
       mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
 
-      // ─── ESCALATION (if any) ───
+      // --- ESCALATION (if any) ---
       if (btData.escalation_logs && btData.escalation_logs.length > 0) {
         sectionHeader(R, 'ESCALATION HISTORY'); R++;
         // Column headers
@@ -2710,7 +2835,7 @@ ${PDF_CSS}
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
-      // ─── ATTACHMENTS ───
+      // --- ATTACHMENTS ---
       const atts = btData.attachments || [];
       if (atts.length > 0) {
         sectionHeader(R, 'ATTACHMENTS'); R++;
@@ -2733,7 +2858,7 @@ ${PDF_CSS}
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
-      // ─── Feedback Ratings ───
+      // --- Feedback Ratings ---
       if (ticket.feedbackRating) {
         sectionHeader(R, 'FEEDBACK RATINGS'); R++;
         detailRow(R, 'Assignee', ticket.assignedTo || 'Unassigned');
@@ -2747,7 +2872,7 @@ ${PDF_CSS}
         mergeAll(R, '', C.WHITE, C.WHITE, { border: false }); rowHeights[R] = { hpt: 14 }; R++;
       }
 
-      // ─── Footer ───
+      // --- Footer ---
       mergeAll(R, `   End of Ticket Report  •  ${ticket.id}  •  Generated ${dateStr} ${timeStr}`, C.GREEN_DARK, C.WHITE, { italic: true, sz: 9, center: true, border: false });
       rowHeights[R] = { hpt: 26 }; R++;
 
@@ -3661,7 +3786,7 @@ ${PDF_CSS}
             )}
           </Card>}
 
-          {/* ── Action Buttons ── */}
+          {/* -- Action Buttons -- */}
           {ticket.status !== 'Closed' && (
             <div className="space-y-3">
               {/* Admin: Reassign ticket via modal picker */}
@@ -3816,9 +3941,9 @@ ${PDF_CSS}
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
+      {/* -----------------------------------------------------------
            ENHANCED CHAT PANEL
-           ═══════════════════════════════════════════════════════════ */}
+           ----------------------------------------------------------- */}
       {showChat && (
         <div
           className={`fixed z-50 flex flex-col bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-300 ease-in-out ${
@@ -3827,7 +3952,7 @@ ${PDF_CSS}
               : 'right-2 sm:right-6 bottom-2 sm:bottom-6 w-[calc(100vw-1rem)] sm:w-[420px] max-w-[calc(100vw-1rem)] sm:max-w-[calc(100vw-3rem)] h-[70vh] sm:h-[600px] max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-6rem)]'
           }`}
         >
-          {/* ── Chat Header ── */}
+          {/* -- Chat Header -- */}
           <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-[#0E8F79] to-[#0b7a67]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
@@ -3835,7 +3960,7 @@ ${PDF_CSS}
               </div>
               <div>
                 <div className="text-sm font-semibold text-white">
-                  {isAdmin ? 'Supervisor ↔ Technical' : 'Technical ↔ Supervisor'}
+                  {ticket.assignedTo || (isAdmin ? 'Technical' : 'Supervisor')}
                 </div>
                 <div className="flex items-center gap-1.5">
                   {wsConnected ? (
@@ -3880,7 +4005,7 @@ ${PDF_CSS}
             </div>
           </div>
 
-          {/* ── Search Bar (conditional) ── */}
+          {/* -- Search Bar (conditional) -- */}
           {showChatSearch && (
             <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
               <div className="relative">
@@ -3901,7 +4026,7 @@ ${PDF_CSS}
             </div>
           )}
 
-          {/* ── Messages Area ── */}
+          {/* -- Messages Area -- */}
           <div className="flex-1 relative overflow-hidden">
             {/* Persistent watermark logo */}
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-0">
@@ -3928,7 +4053,7 @@ ${PDF_CSS}
 
             {messageGroups.map((group) => (
               <React.Fragment key={group.date}>
-                {/* ── Date Separator ── */}
+                {/* -- Date Separator -- */}
                 <div className="flex items-center gap-3 py-3">
                   <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                   <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -4186,7 +4311,7 @@ ${PDF_CSS}
             <div ref={chatBottomRef} />
           </div>
 
-          {/* ── Scroll-to-bottom FAB ── */}
+          {/* -- Scroll-to-bottom FAB -- */}
           {showScrollDown && (
             <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10">
               <button
@@ -4200,7 +4325,7 @@ ${PDF_CSS}
           )}
           </div>
 
-          {/* ── Reply Preview Bar ── */}
+          {/* -- Reply Preview Bar -- */}
           {replyTo && (
             <div className="flex-shrink-0 flex items-center gap-2 px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-[#0E8F79]/5 dark:bg-[#0E8F79]/10">
               <CornerDownRight className="w-4 h-4 text-[#0E8F79] flex-shrink-0" />
@@ -4217,7 +4342,7 @@ ${PDF_CSS}
             </div>
           )}
 
-          {/* ── Input Area ── */}
+          {/* -- Input Area -- */}
           <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/80">
             {/* Emoji Picker Popover */}
             {showInputEmoji && (
@@ -4339,7 +4464,7 @@ ${PDF_CSS}
           </div>
         </div>
       )}
-      {/* ── Admin Edit Modal ── */}
+      {/* -- Admin Edit Modal -- */}
       {adminEditOpen && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
@@ -4384,7 +4509,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Image Lightbox ── */}
+      {/* -- Image Lightbox -- */}
       {lightboxUrl && (
         <div
           className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
@@ -4413,7 +4538,7 @@ ${PDF_CSS}
         </div>
       )}
 
-      {/* ── Video Lightbox ── */}
+      {/* -- Video Lightbox -- */}
       {videoLightboxUrl && (
         <div
           className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
@@ -4445,7 +4570,7 @@ ${PDF_CSS}
         </div>
       )}
 
-      {/* ── Start Work Confirm Modal ── */}
+      {/* -- Start Work Confirm Modal -- */}
       {showStartWorkConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
@@ -4479,7 +4604,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Submit for Observation Confirm Modal ── */}
+      {/* -- Submit for Observation Confirm Modal -- */}
       {showObservationConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
@@ -4513,7 +4638,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Resolve Ticket Confirm Modal ── */}
+      {/* -- Resolve Ticket Confirm Modal -- */}
       {showResolveConfirm && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
@@ -4550,7 +4675,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Feedback Ratings Modal (Admin – before closing) ── */}
+      {/* -- Feedback Ratings Modal (Admin – before closing) -- */}
       {showFeedbackRatingModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
@@ -4643,7 +4768,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Close Ticket Confirmation Modal ── */}
+      {/* -- Close Ticket Confirmation Modal -- */}
       {showCloseConfirmModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-sm shadow-2xl">
@@ -4690,7 +4815,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Escalate Ticket Modal ── */}
+      {/* -- Escalate Ticket Modal -- */}
       {showEscalateModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-[#0f172a] border border-gray-200 dark:border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
@@ -4851,7 +4976,7 @@ ${PDF_CSS}
         document.body
       )}
 
-      {/* ── Reassign Ticket Modal ── */}
+      {/* -- Reassign Ticket Modal -- */}
       {showReassignModal && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/60 flex items-start justify-center overflow-y-auto p-4 py-6">
           {hasCallPriorityWorkflow && reassignModalStep === 'stf-details' && (
@@ -5200,7 +5325,21 @@ ${PDF_CSS}
                     <div><span className="font-medium">Contact No:</span> {selectedServiceReport.contact_no || 'N/A'}</div>
                     <div><span className="font-medium">Type of Service:</span> {selectedServiceReport.type_of_service || 'N/A'}</div>
                     <div><span className="font-medium">Type of Support:</span> {selectedServiceReport.type_of_support || 'N/A'}</div>
-                    <div><span className="font-medium">Attachment:</span> {selectedServiceReport.attachment ? 'Available' : 'None'}</div>
+                    <div><span className="font-medium">Attachment:</span> {selectedServiceReport.attachments.length > 0 || selectedServiceReport.attachment ? 'Available' : 'None'}</div>
+                    {(selectedServiceReport.attachments.length > 0 || selectedServiceReport.attachment) && (
+                      <div className="pt-2 space-y-3">
+                        {(selectedServiceReport.attachments.length > 0 ? selectedServiceReport.attachments : [{ id: 0, file: selectedServiceReport.attachment || '', created_at: '' }])
+                          .filter((attachment) => isImageMediaSource(attachment.file))
+                          .map((attachment, index) => (
+                            <img
+                              key={attachment.id || index}
+                              src={attachment.file}
+                              alt={`Action Taken attachment ${index + 1}`}
+                              className="max-h-56 w-full rounded-xl border border-gray-200 dark:border-gray-700 object-contain bg-white dark:bg-gray-950"
+                            />
+                          ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -5333,6 +5472,39 @@ ${PDF_CSS}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Action Taken</label>
                   <textarea value={serviceReportDraft.actionTaken} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, actionTaken: e.target.value }))} rows={8} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                  <div className="mt-4 rounded-2xl border border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/60 dark:bg-emerald-900/20 p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Action Taken Image</div>
+                        <div className="text-xs text-emerald-700/80 dark:text-emerald-200/70">Upload an image so it appears in the generated PDF.</div>
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-white dark:bg-gray-900 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-gray-800 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        Choose Image
+                        <input type="file" accept="image/*" onChange={handleServiceReportAttachmentChange} className="hidden" />
+                      </label>
+                    </div>
+                    {serviceReportDraft.actionTakenAttachments.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {serviceReportDraft.actionTakenAttachments.map((attachment, index) => (
+                            <div key={`${attachment.name}-${index}`} className="space-y-2">
+                              <div className="overflow-hidden rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-950">
+                                <img src={attachment.preview} alt={attachment.name || `Action Taken Image ${index + 1}`} className="max-h-64 w-full object-contain bg-white dark:bg-gray-950" />
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-emerald-700 dark:text-emerald-200">
+                                <span className="font-medium">{attachment.name || `Selected image ${index + 1}`}</span>
+                                <button type="button" onClick={() => removeServiceReportAttachment(index)} className="rounded-lg border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 font-semibold hover:bg-emerald-100 dark:hover:bg-gray-800 transition-colors">Remove</button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <button type="button" onClick={clearServiceReportAttachments} className="rounded-lg border border-emerald-200 dark:border-emerald-700 px-3 py-1.5 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-gray-800 transition-colors">Clear all images</button>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-emerald-700/70 dark:text-emerald-200/70">No image selected.</div>
+                    )}
+                  </div>
                 </div>
               </div>
 

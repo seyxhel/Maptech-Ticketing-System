@@ -392,6 +392,13 @@ export interface ServiceReportPayload {
   device_equipment?: string;
   serial_no?: string;
   product_remarks?: string;
+  attachment_files?: File[];
+}
+
+export interface ServiceReportAttachmentRecord {
+  id: number;
+  file: string;
+  created_at: string;
 }
 
 export interface ServiceReportRecord {
@@ -417,25 +424,48 @@ export interface ServiceReportRecord {
   serial_no: string;
   product_remarks: string;
   attachment: string | null;
+  attachments: ServiceReportAttachmentRecord[];
   created_at: string;
   updated_at: string;
 }
 
+function normalizeServiceReportMedia(report: ServiceReportRecord): ServiceReportRecord {
+  const attachments = (report.attachments || []).map((attachment) => ({
+    ...attachment,
+    file: normalizeMediaUrl(attachment.file),
+  }));
+  const primaryAttachment = report.attachment ? normalizeMediaUrl(report.attachment) : attachments[0]?.file || null;
+  return {
+    ...report,
+    attachment: primaryAttachment,
+    attachments,
+  };
+}
+
 /** Create a service report. */
-export async function createServiceReport(data: ServiceReportPayload): Promise<any> {
-  const form = JSON.stringify(data);
+export async function createServiceReport(data: ServiceReportPayload): Promise<ServiceReportRecord> {
+  const form = new FormData();
+  Object.entries(data).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    if (key === 'attachment_files') return;
+    form.append(key, String(value));
+  });
+  for (const file of data.attachment_files || []) {
+    form.append('attachment_files', file);
+  }
   const res = await apiFetch(`${API_BASE}/service-reports/`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: authHeaders(false),
     body: form,
   });
-  return handleResponse<any>(res);
+  return normalizeServiceReportMedia(await handleResponse<ServiceReportRecord>(res));
 }
 
 /** List service reports for a ticket. */
 export async function fetchServiceReports(ticketId: number): Promise<ServiceReportRecord[]> {
   const res = await apiFetch(`${API_BASE}/service-reports/?ticket=${ticketId}`, { headers: authHeaders() });
-  return handleResponse<ServiceReportRecord[]>(res);
+  const reports = await handleResponse<ServiceReportRecord[]>(res);
+  return reports.map(normalizeServiceReportMedia);
 }
 
 /** Update ticket fields (PATCH). */

@@ -131,3 +131,16 @@ class ServiceReport(models.Model):
 
     def __str__(self):
         return f"{self.sr_no or f'ServiceReport #{self.id}'} for {self.ticket.stf_no if self.ticket else 'N/A'}"
+
+
+class ServiceReportAttachment(models.Model):
+    """Additional files attached to a service report."""
+    service_report = models.ForeignKey(ServiceReport, related_name='attachments', on_delete=models.CASCADE)
+    file = models.FileField(upload_to='service_reports/%Y/%m/%d/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
+    def __str__(self):
+        return f"ServiceReportAttachment #{self.id} for {self.service_report.sr_no if self.service_report else 'N/A'}"
