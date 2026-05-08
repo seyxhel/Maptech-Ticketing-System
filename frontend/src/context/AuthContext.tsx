@@ -12,7 +12,7 @@ import {
   storeAccessToken,
 } from '../utils/authStorage';
 
-export type Role = 'superadmin' | 'admin' | 'employee' | 'sales' | null;
+export type Role = 'superadmin' | 'admin' | 'supervisor' | 'employee' | 'sales' | null;
 
 export interface AuthUser {
   role: Role;
@@ -49,6 +49,7 @@ function normalizeRole(role: string): Role {
   const r = (role || '').toLowerCase();
   if (r === 'superadmin' || r === 'super_admin') return 'superadmin';
   if (r === 'admin') return 'admin';
+  if (r === 'supervisor') return 'supervisor';
   if (r === 'employee') return 'employee';
   if (r === 'sales') return 'sales';
   return null;
@@ -58,6 +59,7 @@ function roleToPath(role: Role): string {
   switch (role) {
     case 'superadmin': return '/superadmin/dashboard';
     case 'admin': return '/admin/dashboard';
+    case 'supervisor': return '/admin/dashboard';
     case 'sales': return '/sales/dashboard';
     case 'employee': return '/technical-staff/dashboard';
     case null:

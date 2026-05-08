@@ -375,6 +375,69 @@ export async function createTicket(data: Partial<BackendTicket>): Promise<Backen
   return handleResponse<BackendTicket>(res);
 }
 
+export interface ServiceReportPayload {
+  ticket?: number;
+  report_date?: string;
+  time_responded?: string;
+  time_completed?: string;
+  contact_no?: string;
+  type_of_service?: string;
+  type_of_support?: string;
+  description_of_trouble?: string;
+  action_taken?: string;
+  remarks?: string;
+  status?: string;
+  product_name?: string;
+  product_title?: string;
+  device_equipment?: string;
+  serial_no?: string;
+  product_remarks?: string;
+}
+
+export interface ServiceReportRecord {
+  id: number;
+  sr_no: string;
+  ticket: number | null;
+  ticket_stf: string;
+  created_by: number | null;
+  created_by_name: string;
+  report_date: string | null;
+  time_responded: string | null;
+  time_completed: string | null;
+  contact_no: string;
+  type_of_service: string;
+  type_of_support: string;
+  description_of_trouble: string;
+  action_taken: string;
+  remarks: string;
+  status: string;
+  product_name: string;
+  product_title: string;
+  device_equipment: string;
+  serial_no: string;
+  product_remarks: string;
+  attachment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Create a service report. */
+export async function createServiceReport(data: ServiceReportPayload): Promise<any> {
+  const form = JSON.stringify(data);
+  const res = await apiFetch(`${API_BASE}/service-reports/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: form,
+  });
+  return handleResponse<any>(res);
+}
+
+/** List service reports for a ticket. */
+export async function fetchServiceReports(ticketId: number): Promise<ServiceReportRecord[]> {
+  const res = await apiFetch(`${API_BASE}/service-reports/?ticket=${ticketId}`, { headers: authHeaders() });
+  return handleResponse<ServiceReportRecord[]>(res);
+}
+
 /** Update ticket fields (PATCH). */
 export async function updateTicket(id: number, data: Partial<BackendTicket>): Promise<BackendTicket> {
   const res = await apiFetch(`${API_BASE}/tickets/${id}/`, {

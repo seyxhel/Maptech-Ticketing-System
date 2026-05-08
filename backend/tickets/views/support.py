@@ -11,6 +11,8 @@ from tickets.input_security import clean_text
 
 from ..models import CallLog, FeedbackRating
 from ..serializers import CallLogSerializer, FeedbackRatingSerializer
+from ..models import ServiceReport
+from ..serializers import ServiceReportSerializer
 from ..permissions import IsAdminLevel
 
 User = get_user_model()
@@ -123,3 +125,40 @@ class FeedbackRatingViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(admin=self.request.user)
+
+
+class ServiceReportViewSet(viewsets.ModelViewSet):
+    """CRUD for service reports attached to tickets."""
+    queryset = ServiceReport.objects.all().order_by('-created_at')
+    serializer_class = ServiceReportSerializer
+    permission_classes = [IsAuthenticated]
+    swagger_tags = ['Service Reports']
+
+    def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return ServiceReport.objects.none()
+        qs = ServiceReport.objects.all().order_by('-created_at')
+        ticket_id = self.request.query_params.get('ticket')
+        if ticket_id:
+            qs = qs.filter(ticket_id=ticket_id)
+        # Non-admins may only see reports for tickets they are related to
+        user = self.request.user
+        if user.role not in (User.ROLE_ADMIN, User.ROLE_SUPERADMIN):
+            qs = qs.filter(
+                Q(ticket__created_by=user) | Q(ticket__assigned_to=user) | Q(ticket__supervisor=user) | Q(created_by=user)
+            )
+        return qs
+
+    def perform_create(self, serializer):
+        # Ensure user is participant of ticket if ticket provided
+        user = self.request.user
+        ticket = serializer.validated_data.get('ticket')
+        if ticket:
+            is_participant = (
+                ticket.created_by_id == user.id or
+                getattr(ticket, 'supervisor_id', None) == user.id or
+                ticket.assigned_to_id == user.id
+            )
+            if not is_participant and user.role not in (User.ROLE_ADMIN, User.ROLE_SUPERADMIN):
+                raise ValidationError({'detail': 'You are not allowed to create a service report for this ticket.'})
+        serializer.save(created_by=user)

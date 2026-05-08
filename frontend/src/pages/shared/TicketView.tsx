@@ -15,17 +15,33 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { TicketChatSocket } from '../../services/chatService';
 import type { ChatMessage, ChatEvent, ChatAttachment } from '../../services/chatService';
-import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createFeedbackRating, updateTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees, fetchTickets, createCallLog, endCallLog, reviewTicket, confirmTicket, fetchCallLogs } from '../../services/api';
-import type { Product, CallLog, UploadedAttachment } from '../../services/api';
+import { fetchTicketByStf, fetchTicketById, uploadResolutionProof, deleteAttachment, closeTicket, updateEmployeeFields, saveProductDetails, escalateTicket, escalateExternal, startWork, createFeedbackRating, updateTicket, fetchProducts, submitForObservation, assignTicket, fetchEmployees, fetchTickets, createCallLog, endCallLog, reviewTicket, confirmTicket, fetchCallLogs, createServiceReport, fetchServiceReports } from '../../services/api';
+import type { Product, CallLog, UploadedAttachment, ServiceReportRecord } from '../../services/api';
 import { toast } from 'sonner';
 import type { BackendTicket } from '../../services/api';
 import { mapStatus, mapPriority, getAssigneeName, reverseMapStatus, reverseMapPriority, getUserDisplayName } from '../../services/ticketMapper';
 import { Loader2, Trash2, Star, PlayCircle, Eye, PenLine, Link2, AlertTriangle, Minus, UserCheck } from 'lucide-react';
 import { SignaturePad } from '../../components/ui/SignaturePad';
 import XLSXStyle from 'xlsx-js-style';
-import { buildPdfDocument, openPrintWindow } from '../../utils/pdfTemplate';
+import { PDF_CSS, buildPdfDocument, openPrintWindow, pdfFooter, pdfHeader } from '../../utils/pdfTemplate';
 
-const JOB_STATUSES = ['Completed', 'Under Warranty', 'For Quotation', 'Pending', 'Chargeable', 'Under Contract'];
+
+const JOB_STATUSES = ['Pending', 'Done', 'Under Warranty', 'Under Quotation', 'Chargeable', 'Under Contract'];
+
+function normalizeServiceReportStatus(value?: string | null): string {
+  if (!value) return '';
+  const v = String(value).trim();
+  // Map legacy or alternate labels to backend-expected choices
+  const map: Record<string, string> = {
+    completed: 'Done',
+    'for quotation': 'Under Quotation',
+    quotation: 'Under Quotation',
+  };
+  const key = v.toLowerCase();
+  if (map[key]) return map[key];
+  const found = JOB_STATUSES.find((s) => s.toLowerCase() === key);
+  return found ?? v;
+}
 type ReassignModalStep = 'stf-details' | 'ongoing' | 'assign';
 type TicketLocationState = { ticketId?: string; backendTicketId?: number };
 
@@ -40,9 +56,24 @@ const MAX_DOCUMENT_ATTACHMENT_SIZE = 500 * BYTES_PER_MB;
 
 type ResolutionAttachmentType = 'screenshot' | 'recording' | 'file';
 
+type ServiceReportDraft = {
+  reportDate: string;
+  timeResponded: string;
+  timeCompleted: string;
+  contactNo: string;
+  typeOfService: string;
+  typeOfSupport: string;
+  descriptionOfTrouble: string;
+  actionTaken: string;
+  remarks: string;
+  status: string;
+};
+
 function getFileExtension(fileName: string): string {
   return fileName.split('.').pop()?.toLowerCase() || '';
 }
+
+
 
 function getResolutionAttachmentTypeFromName(fileName: string): ResolutionAttachmentType {
   const extension = getFileExtension(fileName);
@@ -184,6 +215,35 @@ function priorityBadgeClass(priority?: string | null): string {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
+}
+
+function escapeHtml(value: string): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDateInput(value?: string | null): string {
+  if (!value) return new Date().toISOString().slice(0, 10);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10);
+  return parsed.toISOString().slice(0, 10);
+}
+
+function formatTimeInput(value?: string | null): string {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
+}
+
+function formatSupportLabel(value?: string | null): string {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\b\w/g, (match) => match.toUpperCase());
 }
 
 type CallContactOption = {
@@ -354,6 +414,12 @@ function resolveTicketProductSnapshot(btData: BackendTicket): {
   supplierSalesInvoice: string;
   supplierDeliveryReceipt: string;
   others: string;
+  firmwareVersion: string;
+  softwareName: string;
+  softwareVersion: string;
+  softwareVendor: string;
+  softwareLicenseKey: string;
+  softwareMetadata: string;
   hasAnyValue: boolean;
 } {
   const linkedProduct = btData.product_record_detail;
@@ -412,11 +478,32 @@ function resolveTicketProductSnapshot(btData: BackendTicket): {
   };
 }
 
+function resolveServiceReportProductSnapshot(btData: BackendTicket): {
+  productName: string;
+  productTitle: string;
+  deviceEquipment: string;
+  serialNo: string;
+  remarks: string;
+} {
+  const productRecord = btData.product_record_detail;
+  const readText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
+  const projectTitle = readText((btData as BackendTicket & { project_title?: string }).project_title) || readText(productRecord?.project_title);
+
+  return {
+    productName: readText(btData.product) || readText(productRecord?.product_name),
+    productTitle: projectTitle,
+    deviceEquipment: readText(btData.device_equipment) || readText(productRecord?.device_equipment),
+    serialNo: readText(btData.serial_no) || readText(productRecord?.serial_no),
+    remarks: readText(btData.remarks),
+  };
+}
+
 export function TicketView() {
   const { user } = useAuth();
   const isEmployee = user?.role === 'employee';
   const isSales = user?.role === 'sales';
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'supervisor';
+  const currentRole = String(user?.role || '');
+  const isAdmin = ['admin', 'superadmin', 'supervisor'].includes(currentRole);
   const routeBase = user?.role === 'sales' ? '/sales' : '/admin';
   const { search } = useLocation();
   const params = new URLSearchParams(search);
@@ -535,6 +622,12 @@ export function TicketView() {
         productDetails: null as {
           deviceEquipment: string;
           versionNo: string;
+          firmwareVersion?: string;
+          softwareName?: string;
+          softwareVersion?: string;
+          softwareVendor?: string;
+          softwareLicenseKey?: string;
+          softwareMetadata?: string;
           datePurchased: string;
           serialNo: string;
           warranty: string;
@@ -616,6 +709,10 @@ export function TicketView() {
   const [backendTicketId, setBackendTicketId] = useState<number | null>(
     locationState?.backendTicketId ?? null
   );
+
+  const serviceReportSnapshot = btData ? resolveServiceReportProductSnapshot(btData) : null;
+  const [serviceReports, setServiceReports] = useState<ServiceReportRecord[]>([]);
+  const [selectedServiceReport, setSelectedServiceReport] = useState<ServiceReportRecord | null>(null);
 
   // Fetch backend ticket data
   useEffect(() => {
@@ -1660,6 +1757,645 @@ export function TicketView() {
 
   // ── Export ticket to XLSX ──
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showServiceReportModal, setShowServiceReportModal] = useState(false);
+  const [serviceReportDraft, setServiceReportDraft] = useState<ServiceReportDraft>({
+    reportDate: '',
+    timeResponded: '',
+    timeCompleted: '',
+    contactNo: '',
+    typeOfService: '',
+    typeOfSupport: '',
+    descriptionOfTrouble: '',
+    actionTaken: '',
+    remarks: '',
+    status: '',
+  });
+
+  useEffect(() => {
+    if (!showServiceReportModal || !btData) return;
+
+    setServiceReportDraft({
+      reportDate: formatDateInput(btData.date || null),
+      timeResponded: formatTimeInput(btData.time_in),
+      timeCompleted: formatTimeInput(btData.time_out),
+      contactNo: btData.mobile_no || btData.landline || '',
+      typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || '',
+      typeOfSupport: formatSupportLabel(btData.preferred_support_type),
+      descriptionOfTrouble: btData.description_of_problem || '',
+      actionTaken: btData.action_taken || '',
+      remarks: btData.remarks || '',
+      status: normalizeServiceReportStatus(btData.job_status || ticket.jobStatus || ''),
+    });
+  }, [showServiceReportModal, btData, ticket.jobStatus]);
+
+  useEffect(() => {
+    if (!backendTicketId) {
+      setServiceReports([]);
+      return;
+    }
+
+    let cancelled = false;
+    fetchServiceReports(backendTicketId)
+      .then((reports) => {
+        if (!cancelled) setServiceReports(reports);
+      })
+      .catch(() => {
+        if (!cancelled) setServiceReports([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendTicketId]);
+
+  const handleOpenServiceReport = () => {
+    if (!btData) {
+      toast.error('Service report data is still loading.');
+      return;
+    }
+    setShowServiceReportModal(true);
+  };
+
+  const handleViewServiceReport = (report: ServiceReportRecord) => {
+    setSelectedServiceReport(report);
+  };
+
+  const handleExportSelectedServiceReportPDF = async () => {
+    if (!btData || !selectedServiceReport) return;
+
+    const companyName = btData.client || ticket.client || 'N/A';
+    const companyAddress = btData.address || ticket.fullAddress || 'N/A';
+    const contactPerson = btData.contact_person || ticket.contact || 'N/A';
+    const contactNo = selectedServiceReport.contact_no || btData.mobile_no || btData.landline || 'N/A';
+    const emailAddress = btData.email_address || ticket.emailAddress || 'N/A';
+    const designation = btData.designation || ticket.designation || 'N/A';
+    const department = btData.department_organization || ticket.department || 'N/A';
+    const typeOfService = selectedServiceReport.type_of_service || btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A';
+    const typeOfSupport = selectedServiceReport.type_of_support || formatSupportLabel(btData.preferred_support_type) || 'N/A';
+    const descriptionOfTrouble = selectedServiceReport.description_of_trouble || 'N/A';
+    const actionTaken = selectedServiceReport.action_taken || 'N/A';
+    const remarks = selectedServiceReport.remarks || 'N/A';
+    const reportDate = selectedServiceReport.report_date || formatDateInput(btData.date || null);
+    const timeResponded = selectedServiceReport.time_responded || formatTimeInput(btData.time_in) || 'N/A';
+    const timeCompleted = selectedServiceReport.time_completed || formatTimeInput(btData.time_out) || 'N/A';
+    const statusValue = normalizeServiceReportStatus(selectedServiceReport.status || 'Pending');
+    const printableTitle = `Service Report ${selectedServiceReport.sr_no}`;
+    const snapshot = {
+      productName: selectedServiceReport.product_name || 'N/A',
+      productTitle: selectedServiceReport.product_title || 'N/A',
+      deviceEquipment: selectedServiceReport.device_equipment || 'N/A',
+      serialNo: selectedServiceReport.serial_no || 'N/A',
+      remarks: selectedServiceReport.product_remarks || 'N/A',
+    };
+    const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(printableTitle)}</title>
+  <style>
+${PDF_CSS}
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; color: #1f2937; font-size: 11px; line-height: 1.35; background: #fff; }
+    .sheet { width: 100%; border: 1px solid #d1d5db; background: #fff; }
+    .header { display: grid; grid-template-columns: 130px 1fr 270px; gap: 10px; padding: 12px 14px 10px; border-bottom: 2px solid #36561f; align-items: start; }
+    .logo { width: 118px; height: auto; }
+    .company-block { text-align: right; font-size: 10px; line-height: 1.45; }
+    .company-block .name { font-size: 12px; font-weight: 700; color: #35561f; }
+    .title { padding: 6px 14px 10px; text-align: center; font-size: 20px; font-weight: 700; color: #35561f; letter-spacing: 0.2px; }
+    .info-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px 24px; padding: 0 14px 10px; }
+    .info-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; border-bottom: 1px solid #9ca3af; padding-bottom: 1px; }
+    .label { min-width: 112px; font-weight: 700; color: #374151; flex-shrink: 0; }
+    .value { flex: 1; min-height: 14px; word-break: break-word; }
+    .section-divider { border-top: 3px solid #36561f; margin: 4px 0 8px; }
+    .section-title { padding: 2px 0 4px; font-weight: 700; color: #1f2937; }
+    .checkbox-row { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; padding: 0 14px 6px; font-size: 10px; }
+    .checkbox-group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .box { width: 9px; height: 9px; border: 1px solid #4b5563; display: inline-block; margin-right: 4px; position: relative; top: 1px; }
+    .checked::after { content: ''; position: absolute; inset: 1px; background: #36561f; }
+    .report-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 390px; border: 1px solid #4b5563; margin: 2px 0 8px; }
+    .report-col { padding: 0; }
+    .report-col + .report-col { border-left: 1px solid #4b5563; }
+    .report-head { background: #35561f; color: #fff; font-weight: 700; text-align: center; padding: 6px 8px; border-bottom: 1px solid #4b5563; }
+    .report-body { min-height: 344px; padding: 10px; white-space: pre-wrap; word-break: break-word; }
+    .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 0 14px 10px; font-size: 10px; }
+    .remarks-line { margin: 0 14px 10px; border-bottom: 1px solid #374151; min-height: 16px; padding-bottom: 1px; }
+    table { width: calc(100% - 0px); border-collapse: collapse; margin: 0; font-size: 10px; }
+    th, td { border: 1px solid #374151; padding: 6px 6px; vertical-align: top; }
+    thead th { background: #35561f; color: #fff; text-align: center; font-weight: 700; }
+    .footer-note { padding: 8px 14px 0; font-size: 10px; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; padding: 16px 14px 12px; align-items: end; }
+    .signature-line { border-bottom: 1px solid #111827; height: 24px; margin-bottom: 4px; }
+    .signature-label { font-size: 10px; font-weight: 700; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    ${pdfHeader('Service Report', dateStr, timeStr)}
+
+    <div class="info-grid">
+      <div class="info-row"><span class="label">Company Name:</span><span class="value">${escapeHtml(companyName)}</span></div>
+      <div class="info-row"><span class="label">Date:</span><span class="value">${escapeHtml(reportDate)}</span></div>
+      <div class="info-row"><span class="label">Company Address:</span><span class="value">${escapeHtml(companyAddress)}</span></div>
+      <div class="info-row"><span class="label">Time Responded:</span><span class="value">${escapeHtml(timeResponded)}</span></div>
+      <div class="info-row"><span class="label">Contact Person:</span><span class="value">${escapeHtml(contactPerson)}</span></div>
+      <div class="info-row"><span class="label">Time Completed:</span><span class="value">${escapeHtml(timeCompleted)}</span></div>
+      <div class="info-row"><span class="label">Contact No.:</span><span class="value">${escapeHtml(contactNo)}</span></div>
+      <div class="info-row"><span class="label">Email:</span><span class="value">${escapeHtml(emailAddress)}</span></div>
+      <div class="info-row"><span class="label">Designation:</span><span class="value">${escapeHtml(designation)}</span></div>
+      <div class="info-row"><span class="label">Department:</span><span class="value">${escapeHtml(department)}</span></div>
+    </div>
+
+    <div class="section-divider"></div>
+    <div class="checkbox-row">
+      <div><span class="section-title">Type of Service:</span> ${escapeHtml(typeOfService)}</div>
+      <div><span class="section-title">Type of Support:</span> ${escapeHtml(typeOfSupport)}</div>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-col"><div class="report-head">Description of Trouble</div><div class="report-body">${escapeHtml(descriptionOfTrouble)}</div></div>
+      <div class="report-col"><div class="report-head">Action Taken</div><div class="report-body">${escapeHtml(actionTaken)}</div></div>
+    </div>
+
+    <div class="status-row">
+      <div class="checkbox-group"><span class="box ${checked('Pending') ? 'checked' : ''}"></span> Pending</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Warranty') ? 'checked' : ''}"></span> Under Warranty</div>
+      <div class="checkbox-group"><span class="box ${checked('Done') ? 'checked' : ''}"></span> Done</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Quotation') ? 'checked' : ''}"></span> Under Quotation</div>
+      <div class="checkbox-group"><span class="box ${checked('Chargeable') ? 'checked' : ''}"></span> Chargeable</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Contract') ? 'checked' : ''}"></span> Under Contract</div>
+    </div>
+
+    <div class="section-title" style="padding:0 14px 4px;">Remarks:</div>
+    <div class="remarks-line">${escapeHtml(remarks)}</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 12%">Product Name</th>
+          <th style="width: 24%">Product Title</th>
+          <th style="width: 28%">Device/Equipment</th>
+          <th style="width: 18%">Serial No.</th>
+          <th style="width: 18%">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(snapshot.productName)}</td>
+          <td>${escapeHtml(snapshot.productTitle)}</td>
+          <td>${escapeHtml(snapshot.deviceEquipment)}</td>
+          <td>${escapeHtml(snapshot.serialNo)}</td>
+          <td>${escapeHtml(snapshot.remarks)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-note">We confirm that the services requested has been satisfactory performed as per our above report.</div>
+
+    <div class="signatures">
+      <div><div class="signature-line"></div><div class="signature-label">Requested by:</div></div>
+      <div><div class="signature-line"></div><div class="signature-label">Acknowledged by:</div></div>
+      <div><div class="signature-line"></div><div class="signature-label">Assigned Technical:</div></div>
+    </div>
+
+    ${pdfFooter(`Service Report ${selectedServiceReport.sr_no}`, dateIso, timeStr)}
+  </div>
+</body>
+</html>`;
+
+    const dateTag = new Date().toISOString().slice(0, 10);
+    await openPrintWindow(html, `service_report_${selectedServiceReport.sr_no}_${dateTag}.pdf`);
+  };
+
+  const handleSubmitServiceReport = async () => {
+    if (!btData) return;
+
+    try {
+      const snapshot = resolveServiceReportProductSnapshot(btData);
+      const statusValueRaw = serviceReportDraft.status || btData.job_status || 'Pending';
+      const statusValue = normalizeServiceReportStatus(statusValueRaw);
+      const reportDate = serviceReportDraft.reportDate || formatDateInput(btData.date || null);
+      const timeResponded = serviceReportDraft.timeResponded || formatTimeInput(btData.time_in) || 'N/A';
+      const timeCompleted = serviceReportDraft.timeCompleted || formatTimeInput(btData.time_out) || 'N/A';
+      const contactNo = serviceReportDraft.contactNo || btData.mobile_no || btData.landline || 'N/A';
+      const typeOfService = serviceReportDraft.typeOfService || btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A';
+      const typeOfSupport = serviceReportDraft.typeOfSupport || formatSupportLabel(btData.preferred_support_type) || 'N/A';
+      const descriptionOfTrouble = serviceReportDraft.descriptionOfTrouble || btData.description_of_problem || 'N/A';
+      const actionTaken = serviceReportDraft.actionTaken || btData.action_taken || 'N/A';
+      const remarks = serviceReportDraft.remarks || btData.remarks || 'N/A';
+
+      // Submit to backend
+      const payload = {
+        ticket: btData.id,
+        report_date: reportDate,
+        time_responded: timeResponded,
+        time_completed: timeCompleted,
+        contact_no: contactNo,
+        type_of_service: typeOfService,
+        type_of_support: typeOfSupport,
+        description_of_trouble: descriptionOfTrouble,
+        action_taken: actionTaken,
+        remarks,
+        status: statusValue,
+        product_name: snapshot.productName,
+        product_title: snapshot.productTitle,
+        device_equipment: snapshot.deviceEquipment,
+        serial_no: snapshot.serialNo,
+        product_remarks: snapshot.remarks,
+      };
+      const createdReport = await createServiceReport(payload) as ServiceReportRecord;
+      toast.success(`Service report ${createdReport.sr_no || ''} submitted successfully.`.trim());
+      setShowServiceReportModal(false);
+      // Refresh backend data to reflect new service report
+      if (backendTicketId) {
+        const [updatedTicket, updatedReports] = await Promise.all([
+          fetchTicketById(backendTicketId),
+          fetchServiceReports(backendTicketId),
+        ]);
+        if (updatedTicket) setBtData(updatedTicket);
+        setServiceReports(updatedReports);
+      }
+    } catch (err) {
+      console.error('Failed saving service report:', err);
+      toast.error('Failed to save service report.');
+    }
+  };
+
+  const handleDownloadServiceReportPDF = async () => {
+    if (!btData) return;
+
+    const snapshot = resolveServiceReportProductSnapshot(btData);
+    const companyName = btData.client || ticket.client || 'N/A';
+    const companyAddress = btData.address || ticket.fullAddress || 'N/A';
+    const contactPerson = btData.contact_person || ticket.contact || 'N/A';
+    const contactNo = serviceReportDraft.contactNo || btData.mobile_no || btData.landline || 'N/A';
+    const emailAddress = btData.email_address || ticket.emailAddress || 'N/A';
+    const designation = btData.designation || ticket.designation || 'N/A';
+    const department = btData.department_organization || ticket.department || 'N/A';
+    const typeOfService = serviceReportDraft.typeOfService || btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A';
+    const typeOfSupport = serviceReportDraft.typeOfSupport || formatSupportLabel(btData.preferred_support_type) || 'N/A';
+    const descriptionOfTrouble = serviceReportDraft.descriptionOfTrouble || btData.description_of_problem || 'N/A';
+    const actionTaken = serviceReportDraft.actionTaken || btData.action_taken || 'N/A';
+    const remarks = serviceReportDraft.remarks || btData.remarks || 'N/A';
+    const reportDate = serviceReportDraft.reportDate || formatDateInput(btData.date || null);
+    const timeResponded = serviceReportDraft.timeResponded || formatTimeInput(btData.time_in) || 'N/A';
+    const timeCompleted = serviceReportDraft.timeCompleted || formatTimeInput(btData.time_out) || 'N/A';
+    const statusValueRaw = serviceReportDraft.status || btData.job_status || 'Pending';
+    const statusValue = normalizeServiceReportStatus(statusValueRaw);
+
+    const printableTitle = `Service Report ${btData.stf_no}`;
+    const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(printableTitle)}</title>
+  <style>
+${PDF_CSS}
+    @page { size: A4; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2937;
+      font-size: 11px;
+      line-height: 1.35;
+      background: #fff;
+    }
+    .sheet {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      background: #fff;
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 130px 1fr 270px;
+      gap: 10px;
+      padding: 12px 14px 10px;
+      border-bottom: 2px solid #36561f;
+      align-items: start;
+    }
+    .logo { width: 118px; height: auto; }
+    .company-block {
+      text-align: right;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+    .company-block .name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #35561f;
+    }
+    .title {
+      padding: 6px 14px 10px;
+      text-align: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: #35561f;
+      letter-spacing: 0.2px;
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 10px 24px;
+      padding: 0 14px 10px;
+    }
+    .info-row {
+      display: flex;
+      gap: 6px;
+      align-items: baseline;
+      min-width: 0;
+      border-bottom: 1px solid #9ca3af;
+      padding-bottom: 1px;
+    }
+    .label {
+      min-width: 112px;
+      font-weight: 700;
+      color: #374151;
+      flex-shrink: 0;
+    }
+    .value {
+      flex: 1;
+      min-height: 14px;
+      word-break: break-word;
+    }
+    .section-divider {
+      border-top: 3px solid #36561f;
+      margin: 4px 0 8px;
+    }
+    .section-title {
+      padding: 2px 0 4px;
+      font-weight: 700;
+      color: #1f2937;
+    }
+    .checkbox-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 12px;
+      padding: 0 14px 6px;
+      font-size: 10px;
+    }
+    .checkbox-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .box {
+      width: 9px;
+      height: 9px;
+      border: 1px solid #4b5563;
+      display: inline-block;
+      margin-right: 4px;
+      position: relative;
+      top: 1px;
+    }
+    .checked::after {
+      content: '';
+      position: absolute;
+      inset: 1px;
+      background: #36561f;
+    }
+    .report-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 390px;
+      border: 1px solid #4b5563;
+      margin: 2px 0 8px;
+    }
+    .report-col {
+      padding: 0;
+    }
+    .report-col + .report-col {
+      border-left: 1px solid #4b5563;
+    }
+    .report-head {
+      background: #35561f;
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+      padding: 6px 8px;
+      border-bottom: 1px solid #4b5563;
+    }
+    .report-body {
+      min-height: 344px;
+      padding: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 24px;
+      padding: 0 14px 10px;
+      font-size: 10px;
+    }
+    .remarks-line {
+      margin: 0 14px 10px;
+      border-bottom: 1px solid #374151;
+      min-height: 16px;
+      padding-bottom: 1px;
+    }
+    table {
+      width: calc(100% - 0px);
+      border-collapse: collapse;
+      margin: 0;
+      font-size: 10px;
+    }
+    th, td {
+      border: 1px solid #374151;
+      padding: 6px 6px;
+      vertical-align: top;
+    }
+    thead th {
+      background: #35561f;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+    }
+    .footer-note {
+      padding: 8px 14px 0;
+      font-size: 10px;
+    }
+    .signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      padding: 16px 14px 12px;
+      align-items: end;
+    }
+    .signature-line {
+      border-bottom: 1px solid #111827;
+      height: 24px;
+      margin-bottom: 4px;
+    }
+    .signature-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-align: center;
+    }
+    .center { text-align: center; }
+    .small { font-size: 9px; }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    ${pdfHeader('Service Report', dateStr, timeStr)}
+
+    <div class="info-grid">
+      <div class="info-row"><span class="label">Company Name:</span><span class="value">${escapeHtml(companyName)}</span></div>
+      <div class="info-row"><span class="label">Date:</span><span class="value">${escapeHtml(reportDate)}</span></div>
+      <div class="info-row"><span class="label">Company Address:</span><span class="value">${escapeHtml(companyAddress)}</span></div>
+      <div class="info-row"><span class="label">Time Responded:</span><span class="value">${escapeHtml(timeResponded)}</span></div>
+      <div class="info-row"><span class="label">Contact Person:</span><span class="value">${escapeHtml(contactPerson)}</span></div>
+      <div class="info-row"><span class="label">Time Completed:</span><span class="value">${escapeHtml(timeCompleted)}</span></div>
+      <div class="info-row"><span class="label">Contact No.:</span><span class="value">${escapeHtml(contactNo)}</span></div>
+      <div class="info-row"><span class="label">Email:</span><span class="value">${escapeHtml(emailAddress)}</span></div>
+      <div class="info-row"><span class="label">Designation:</span><span class="value">${escapeHtml(designation)}</span></div>
+      <div class="info-row"><span class="label">Department:</span><span class="value">${escapeHtml(department)}</span></div>
+    </div>
+
+    <div class="section-divider"></div>
+    <div class="checkbox-row">
+      <div><span class="section-title">Type of Service:</span> ${escapeHtml(typeOfService)}</div>
+      <div><span class="section-title">Type of Support:</span> ${escapeHtml(typeOfSupport)}</div>
+    </div>
+
+    <div class="report-grid">
+      <div class="report-col">
+        <div class="report-head">Description of Trouble</div>
+        <div class="report-body">${escapeHtml(descriptionOfTrouble)}</div>
+      </div>
+      <div class="report-col">
+        <div class="report-head">Action Taken</div>
+        <div class="report-body">${escapeHtml(actionTaken)}</div>
+      </div>
+    </div>
+
+    <div class="status-row">
+      <div class="checkbox-group"><span class="box ${checked('Pending') ? 'checked' : ''}"></span> Pending</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Warranty') ? 'checked' : ''}"></span> Under Warranty</div>
+      <div class="checkbox-group"><span class="box ${checked('Done') ? 'checked' : ''}"></span> Done</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Quotation') ? 'checked' : ''}"></span> Under Quotation</div>
+      <div class="checkbox-group"><span class="box ${checked('Chargeable') ? 'checked' : ''}"></span> Chargeable</div>
+      <div class="checkbox-group"><span class="box ${checked('Under Contract') ? 'checked' : ''}"></span> Under Contract</div>
+    </div>
+
+    <div class="section-title" style="padding:0 14px 4px;">Remarks:</div>
+    <div class="remarks-line">${escapeHtml(remarks)}</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 12%">Product Name</th>
+          <th style="width: 24%">Product Title</th>
+          <th style="width: 28%">Device/Equipment</th>
+          <th style="width: 18%">Serial No.</th>
+          <th style="width: 18%">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>${escapeHtml(snapshot.productName)}</td>
+          <td>${escapeHtml(snapshot.productTitle)}</td>
+          <td>${escapeHtml(snapshot.deviceEquipment)}</td>
+          <td>${escapeHtml(snapshot.serialNo)}</td>
+          <td>${escapeHtml(snapshot.remarks)}</td>
+        </tr>
+        <tr>
+          <td style="height: 30px"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="height: 30px"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="height: 30px"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="height: 30px"></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-note">We confirm that the services requested has been satisfactory performed as per our above report.</div>
+
+    <div class="signatures">
+      <div>
+        <div class="signature-line"></div>
+        <div class="signature-label">Requested by:</div>
+      </div>
+      <div>
+        <div class="signature-line"></div>
+        <div class="signature-label">Acknowledged by:</div>
+      </div>
+      <div>
+        <div class="signature-line"></div>
+        <div class="signature-label">Assigned Technical:</div>
+      </div>
+    </div>
+
+    ${pdfFooter(`Service Report ${btData.stf_no}`, dateIso, timeStr)}
+  </div>
+</body>
+</html>`;
+
+    const dateTag = new Date().toISOString().slice(0, 10);
+    try {
+      // Persist service report to backend before exporting PDF
+      try {
+        const payload = {
+          ticket: btData.id,
+          report_date: reportDate,
+          time_responded: timeResponded,
+          time_completed: timeCompleted,
+          contact_no: contactNo,
+          type_of_service: typeOfService,
+          type_of_support: typeOfSupport,
+          description_of_trouble: descriptionOfTrouble,
+          action_taken: actionTaken,
+          remarks,
+          status: statusValue,
+          product_name: snapshot.productName,
+          product_title: snapshot.productTitle,
+          device_equipment: snapshot.deviceEquipment,
+          serial_no: snapshot.serialNo,
+          product_remarks: snapshot.remarks,
+        };
+        await createServiceReport(payload);
+        toast.success('Service report saved to backend.');
+      } catch (err) {
+        console.error('Failed saving service report:', err);
+        toast.error('Failed to save service report to backend.');
+      }
+
+      await openPrintWindow(html, `service_report_${btData.stf_no}_${dateTag}.pdf`);
+      toast.success('Service report PDF downloaded.');
+    } catch (err) {
+      console.error('Service report PDF export failed:', err);
+      toast.error('Service report PDF export failed.');
+    }
+  };
 
   const handleExportPDF = () => {
     setShowExportMenu(false);
@@ -1766,7 +2502,7 @@ export function TicketView() {
       </div>` : ''}`;
     const html = buildPdfDocument(
       `Ticket ${ticket.id} - Maptech Ticketing System`,
-      'Ticket Detail Report',
+      'Service Ticket Form',
       body,
       `Service Ticket ${ticket.id}`,
       ticket.signature ?? undefined,
@@ -1870,7 +2606,7 @@ export function TicketView() {
       };
 
       // ─── Title ───
-      mergeAll(R, 'MAPTECH TICKETING SYSTEM  —  TICKET DETAIL REPORT', C.GREEN_DARK, C.WHITE, { bold: true, sz: 18, center: true });
+    mergeAll(R, 'MAPTECH TICKETING SYSTEM  —  SERVICE TICKET FORM', C.GREEN_DARK, C.WHITE, { bold: true, sz: 18, center: true });
       rowHeights[R] = { hpt: 52 }; R++;
       mergeAll(R, `Service Ticket Form — ${ticket.id}`, C.GREEN_MID, '000000', { italic: true, sz: 11, center: true });
       rowHeights[R] = { hpt: 28 }; R++;
@@ -3021,7 +3757,7 @@ export function TicketView() {
             </div>
           )}
           {/* Admin: Link Ticket — navigate to create-ticket with linked context */}
-          {isAdmin && ticket.status === 'Closed' && (
+          {isAdmin && (
             <div className="space-y-3">
               <button
                 type="button"
@@ -3030,7 +3766,52 @@ export function TicketView() {
               >
                 <Link2 className="w-4 h-4" /> Link Ticket / Same Problem
               </button>
+              <button
+                type="button"
+                onClick={handleOpenServiceReport}
+                className="w-full py-3 rounded-xl font-semibold text-white bg-gradient-to-r from-[#36561f] to-[#4f772d] hover:shadow-lg hover:shadow-emerald-900/15 flex items-center justify-center gap-2 transition-all text-sm"
+              >
+                <FileDown className="w-4 h-4" /> Create Service Report
+              </button>
             </div>
+          )}
+
+          {serviceReports.length > 0 && (
+            <Card>
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79]">Service Reports</h3>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Saved reports for this ticket</p>
+                </div>
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{serviceReports.length}</span>
+              </div>
+
+              <div className="space-y-2">
+                {serviceReports.map((report) => (
+                  <div key={report.id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">{report.sr_no}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">STF: {report.ticket_stf} · {report.report_date || 'No date'}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Status: {report.status} · Submitted by: {report.created_by_name || 'N/A'}</div>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
+                        Saved
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleViewServiceReport(report)}
+                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
           )}
         </div>
       </div>
@@ -4080,6 +4861,7 @@ export function TicketView() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">STF Details</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Review the ticket before proceeding</p>
+
                   </div>
                   <button
                     onClick={() => {
@@ -4378,6 +5160,253 @@ export function TicketView() {
               </div>
             </div>
           )}
+        </div>,
+        document.body
+      )}
+
+      {selectedServiceReport && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 py-6">
+          <div className="w-full max-w-5xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Service Report {selectedServiceReport.sr_no}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">STF: {selectedServiceReport.ticket_stf}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedServiceReport(null)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-6 space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 text-sm">
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Report Info</div>
+                  <div className="space-y-2 text-gray-700 dark:text-gray-200">
+                    <div><span className="font-medium">Date:</span> {selectedServiceReport.report_date || 'N/A'}</div>
+                    <div><span className="font-medium">Time Responded:</span> {selectedServiceReport.time_responded || 'N/A'}</div>
+                    <div><span className="font-medium">Time Completed:</span> {selectedServiceReport.time_completed || 'N/A'}</div>
+                    <div><span className="font-medium">Status:</span> {selectedServiceReport.status || 'N/A'}</div>
+                    <div><span className="font-medium">Submitted by:</span> {selectedServiceReport.created_by_name || 'N/A'}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Service Details</div>
+                  <div className="space-y-2 text-gray-700 dark:text-gray-200">
+                    <div><span className="font-medium">Contact No:</span> {selectedServiceReport.contact_no || 'N/A'}</div>
+                    <div><span className="font-medium">Type of Service:</span> {selectedServiceReport.type_of_service || 'N/A'}</div>
+                    <div><span className="font-medium">Type of Support:</span> {selectedServiceReport.type_of_support || 'N/A'}</div>
+                    <div><span className="font-medium">Attachment:</span> {selectedServiceReport.attachment ? 'Available' : 'None'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Description of Trouble</label>
+                  <textarea readOnly value={selectedServiceReport.description_of_trouble} rows={6} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Action Taken</label>
+                  <textarea readOnly value={selectedServiceReport.action_taken} rows={6} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Remarks</label>
+                <textarea readOnly value={selectedServiceReport.remarks} rows={3} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-gray-300 dark:border-gray-700">
+                <table className="w-full border-collapse text-sm">
+                  <thead className="bg-[#36561f] text-white">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Product Name</th>
+                      <th className="px-4 py-3 text-left">Product Title</th>
+                      <th className="px-4 py-3 text-left">Device/Equipment</th>
+                      <th className="px-4 py-3 text-left">Serial No.</th>
+                      <th className="px-4 py-3 text-left">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+                    <tr>
+                      <td className="px-4 py-3">{selectedServiceReport.product_name || 'N/A'}</td>
+                      <td className="px-4 py-3">{selectedServiceReport.product_title || 'N/A'}</td>
+                      <td className="px-4 py-3">{selectedServiceReport.device_equipment || 'N/A'}</td>
+                      <td className="px-4 py-3">{selectedServiceReport.serial_no || 'N/A'}</td>
+                      <td className="px-4 py-3">{selectedServiceReport.product_remarks || 'N/A'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60">
+              <button
+                type="button"
+                onClick={() => setSelectedServiceReport(null)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 text-sm font-medium transition-all"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => { void handleExportSelectedServiceReportPDF(); }}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#36561f] to-[#4f772d] text-white text-sm font-semibold hover:shadow-lg hover:shadow-emerald-900/15 transition-all flex items-center gap-2"
+              >
+                <FileDown className="w-4 h-4" /> Export PDF
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {showServiceReportModal && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 py-6">
+          <div className="w-full max-w-6xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Create Service Report</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Prefilled from STF {btData?.stf_no || ticket.id}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowServiceReportModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-6 space-y-6">
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Company Name</label>
+                  <input value={btData?.client || ticket.client || ''} readOnly className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Date</label>
+                  <input type="date" value={serviceReportDraft.reportDate} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, reportDate: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Company Address</label>
+                  <textarea value={btData?.address || ticket.fullAddress || ''} readOnly rows={2} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Time Responded</label>
+                    <input type="time" value={serviceReportDraft.timeResponded} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, timeResponded: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Time Completed</label>
+                    <input type="time" value={serviceReportDraft.timeCompleted} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, timeCompleted: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Contact Person</label>
+                  <input value={btData?.contact_person || ticket.contact || ''} readOnly className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Contact No.</label>
+                  <input value={serviceReportDraft.contactNo} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, contactNo: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Service</label>
+                  <input value={serviceReportDraft.typeOfService} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, typeOfService: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Support</label>
+                  <input value={serviceReportDraft.typeOfSupport} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, typeOfSupport: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Description of Trouble</label>
+                  <textarea value={serviceReportDraft.descriptionOfTrouble} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, descriptionOfTrouble: e.target.value }))} rows={8} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Action Taken</label>
+                  <textarea value={serviceReportDraft.actionTaken} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, actionTaken: e.target.value }))} rows={8} className="w-full rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+              </div>
+
+              <div>
+                            <div className="flex flex-wrap gap-2 text-sm">
+                              {JOB_STATUSES.map((s) => (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => setServiceReportDraft((prev) => ({ ...prev, status: prev.status === s ? '' : s }))}
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                    (serviceReportDraft.status === s)
+                                      ? 'bg-[#36561f] text-white border-[#36561f] shadow-sm'
+                                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#0E8F79]/50'
+                                  }`}
+                                >
+                                  {s}
+                                </button>
+                              ))}
+                            </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Remarks</label>
+                  <textarea value={serviceReportDraft.remarks} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, remarks: e.target.value }))} rows={2} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-gray-300 dark:border-gray-700">
+                <table className="w-full border-collapse text-sm">
+                  <thead className="bg-[#36561f] text-white">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Product Name</th>
+                      <th className="px-4 py-3 text-left">Product Title</th>
+                      <th className="px-4 py-3 text-left">Device/Equipment</th>
+                      <th className="px-4 py-3 text-left">Serial No.</th>
+                      <th className="px-4 py-3 text-left">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+                    <tr>
+                      <td className="px-4 py-3">{serviceReportSnapshot?.productName || 'N/A'}</td>
+                      <td className="px-4 py-3">{serviceReportSnapshot?.productTitle || 'N/A'}</td>
+                      <td className="px-4 py-3">{serviceReportSnapshot?.deviceEquipment || 'N/A'}</td>
+                      <td className="px-4 py-3">{serviceReportSnapshot?.serialNo || 'N/A'}</td>
+                      <td className="px-4 py-3">{serviceReportSnapshot?.remarks || 'N/A'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60">
+              <button
+                type="button"
+                onClick={() => setShowServiceReportModal(false)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 text-sm font-medium transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadServiceReportPDF}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2"
+              >
+                <FileDown className="w-4 h-4" /> Download PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitServiceReport}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#36561f] to-[#4f772d] text-white text-sm font-semibold hover:shadow-lg hover:shadow-emerald-900/15 transition-all flex items-center gap-2"
+              >
+                <FileDown className="w-4 h-4" /> Submit Service Report
+              </button>
+            </div>
+          </div>
         </div>,
         document.body
       )}

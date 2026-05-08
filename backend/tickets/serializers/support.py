@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from ..models import CallLog, FeedbackRating
+from ..models import CallLog, FeedbackRating, ServiceReport
 from tickets.input_security import sanitize_payload
 
 
@@ -68,3 +68,45 @@ class FeedbackRatingSerializer(serializers.ModelSerializer):
             name = obj.employee.get_full_name()
             return name if name.strip() else obj.employee.username
         return ''
+
+
+class ServiceReportSerializer(serializers.ModelSerializer):
+    sr_no = serializers.CharField(read_only=True)
+    ticket_stf = serializers.CharField(source='ticket.stf_no', read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceReport
+        fields = [
+            'id', 'sr_no', 'ticket', 'ticket_stf', 'created_by', 'created_by_name',
+            'report_date', 'time_responded', 'time_completed',
+            'contact_no', 'type_of_service', 'type_of_support',
+            'description_of_trouble', 'action_taken', 'remarks', 'status',
+            'product_name', 'product_title', 'device_equipment', 'serial_no', 'product_remarks',
+            'attachment', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['sr_no', 'created_by', 'created_by_name', 'created_at', 'updated_at', 'ticket_stf']
+
+    text_field_rules = {
+        'contact_no': {'max_length': 60},
+        'type_of_service': {'max_length': 200},
+        'type_of_support': {'max_length': 120},
+        'description_of_trouble': {'max_length': None, 'allow_newlines': True},
+        'action_taken': {'max_length': None, 'allow_newlines': True},
+        'remarks': {'max_length': None, 'allow_newlines': True},
+    }
+
+    def to_internal_value(self, data):
+        return super().to_internal_value(sanitize_payload(data, self.text_field_rules))
+
+    def get_created_by_name(self, obj):
+        if obj.created_by:
+            name = obj.created_by.get_full_name()
+            return name if name.strip() else obj.created_by.username
+        return ''
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        if request and hasattr(request, 'user'):
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
