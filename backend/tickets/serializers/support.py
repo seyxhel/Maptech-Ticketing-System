@@ -146,3 +146,15 @@ class ServiceReportSerializer(serializers.ModelSerializer):
             ServiceReportAttachment.objects.create(service_report=report, file=file_obj)
 
         return report
+
+    def validate(self, attrs):
+        # Ensure report_date is not earlier than the ticket's creation date
+        ticket = attrs.get('ticket') if 'ticket' in attrs else (self.instance.ticket if self.instance else None)
+        report_date = attrs.get('report_date') if 'report_date' in attrs else (self.instance.report_date if self.instance else None)
+        if ticket and report_date:
+            ticket_date = getattr(ticket, 'date', None)
+            if ticket_date and report_date < ticket_date:
+                raise serializers.ValidationError({
+                    'report_date': 'Report date cannot be earlier than the STF creation date.'
+                })
+        return attrs

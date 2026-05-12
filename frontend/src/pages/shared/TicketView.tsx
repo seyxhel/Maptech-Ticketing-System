@@ -1834,8 +1834,13 @@ export function TicketView() {
   useEffect(() => {
     if (!showServiceReportModal || !btData) return;
 
+    // Default report date to today but ensure it's not earlier than the STF creation date
+    const todayStr = formatDateInput(null);
+    const ticketDateStr = formatDateInput(btData.date || null);
+    const defaultReportDate = ticketDateStr > todayStr ? ticketDateStr : todayStr;
+
     setServiceReportDraft({
-      reportDate: formatDateInput(btData.date || null),
+      reportDate: defaultReportDate,
       timeResponded: formatTimeInput(btData.time_in),
       timeCompleted: formatTimeInput(btData.time_out),
       contactNo: btData.mobile_no || btData.landline || '',
@@ -1895,46 +1900,37 @@ export function TicketView() {
 
   const handleExportSelectedServiceReportPDF = async () => {
     if (!btData || !selectedServiceReport) return;
+    const report = selectedServiceReport as ServiceReportRecord;
 
     const companyName = btData.client || ticket.client || 'N/A';
     const companyAddress = btData.address || ticket.fullAddress || 'N/A';
     const contactPerson = btData.contact_person || ticket.contact || 'N/A';
-    const contactNo = selectedServiceReport.contact_no || btData.mobile_no || btData.landline || 'N/A';
+    const contactNo = report.contact_no || btData.mobile_no || btData.landline || 'N/A';
     const emailAddress = btData.email_address || ticket.emailAddress || 'N/A';
     const designation = btData.designation || ticket.designation || 'N/A';
     const department = btData.department_organization || ticket.department || 'N/A';
-    const typeOfService = selectedServiceReport.type_of_service || btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A';
-    const typeOfSupport = selectedServiceReport.type_of_support || formatSupportLabel(btData.preferred_support_type) || 'N/A';
-    const descriptionOfTrouble = selectedServiceReport.description_of_trouble || 'N/A';
-    const actionTaken = selectedServiceReport.action_taken || 'N/A';
-    const remarks = selectedServiceReport.remarks || 'N/A';
-    const reportDate = selectedServiceReport.report_date || formatDateInput(btData.date || null);
-    const timeResponded = selectedServiceReport.time_responded || formatTimeInput(btData.time_in) || 'N/A';
-    const timeCompleted = selectedServiceReport.time_completed || formatTimeInput(btData.time_out) || 'N/A';
-    const statusValue = normalizeServiceReportStatus(selectedServiceReport.status || 'Pending');
-    const printableTitle = `Service Report ${selectedServiceReport.sr_no}`;
+    const typeOfService = report.type_of_service || btData.type_of_service_detail?.name || btData.type_of_service_others || 'N/A';
+    const typeOfSupport = report.type_of_support || formatSupportLabel(btData.preferred_support_type) || 'N/A';
+    const descriptionOfTrouble = report.description_of_trouble || 'N/A';
+    const actionTaken = report.action_taken || 'N/A';
+    const remarks = report.remarks || 'N/A';
+    const reportDate = report.report_date || formatDateInput(btData.date || null);
+    const timeResponded = report.time_responded || formatTimeInput(btData.time_in) || 'N/A';
+    const timeCompleted = report.time_completed || formatTimeInput(btData.time_out) || 'N/A';
+    const statusValue = normalizeServiceReportStatus(report.status || 'Pending');
+    const printableTitle = `Service Report ${report.sr_no}`;
     const snapshot = {
-      productName: selectedServiceReport.product_name || 'N/A',
-      productTitle: selectedServiceReport.product_title || 'N/A',
-      deviceEquipment: selectedServiceReport.device_equipment || 'N/A',
-      serialNo: selectedServiceReport.serial_no || 'N/A',
-      remarks: selectedServiceReport.product_remarks || 'N/A',
+      productName: report.product_name || 'N/A',
+      productTitle: report.product_title || 'N/A',
+      deviceEquipment: report.device_equipment || 'N/A',
+      serialNo: report.serial_no || 'N/A',
+      remarks: report.product_remarks || 'N/A',
     };
     const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
 
     const dateStr = reportDate || new Date().toLocaleDateString();
     const timeStr = timeResponded || new Date().toLocaleTimeString();
     const dateIso = new Date().toISOString().slice(0, 10);
-    const actionTakenAttachmentHtml = serviceReportDraft.actionTakenAttachments
-      .map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.preview, attachment.name || `Action Taken Image ${index + 1}`))
-      .join('');
-    const selectedReportAttachments = selectedServiceReport.attachments.length > 0
-      ? selectedServiceReport.attachments
-      : (selectedServiceReport.attachment ? [{ id: 0, file: selectedServiceReport.attachment, created_at: '' }] : []);
-    const selectedAttachmentHtml = selectedReportAttachments
-      .filter((attachment) => isImageMediaSource(attachment.file))
-      .map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.file, `Action Taken Image ${index + 1}`))
-      .join('');
 
     const html = `<!DOCTYPE html>
 <html>
@@ -1963,14 +1959,16 @@ ${PDF_CSS}
     .checkbox-group { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .box { width: 9px; height: 9px; border: 1px solid #4b5563; display: inline-block; margin-right: 4px; position: relative; top: 1px; }
     .checked::after { content: ''; position: absolute; inset: 1px; background: #36561f; }
-    .report-grid { display: grid; grid-template-columns: 1fr 1fr; min-height: 390px; border: 1px solid #4b5563; margin: 2px 0 8px; }
+    .report-grid { display: grid; grid-template-columns: 1fr; border: 1px solid #4b5563; margin: 2px 0 8px; }
     .report-col { padding: 0; }
-    .report-col + .report-col { border-left: 1px solid #4b5563; }
+    .report-col + .report-col { border-top: 1px solid #4b5563; }
     .report-head { background: #35561f; color: #fff; font-weight: 700; text-align: center; padding: 6px 8px; border-bottom: 1px solid #4b5563; }
     .report-body { min-height: 344px; padding: 10px; white-space: pre-wrap; word-break: break-word; display: flex; flex-direction: column; gap: 10px; }
-    .report-attachment { display: flex; flex-direction: column; gap: 4px; }
+    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+    .report-attachment { display: flex; flex-direction: column; gap: 6px; width: 220px; }
     .report-attachment-head { font-size: 10px; font-weight: 700; color: #35561f; }
-    .report-attachment-body img { display: block; max-width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
+    .report-attachment-body { width: 100%; }
+    .report-attachment-body img { display: block; width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
     .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 0 14px 10px; font-size: 11px; align-items: center; }
     .remarks-line { margin: 0 14px 10px; border-bottom: 1px solid #e5e7eb; min-height: 20px; padding-bottom: 3px; display: flex; align-items: flex-end; }
     table { width: calc(100% - 0px); border-collapse: collapse; margin: 0; font-size: 10px; }
@@ -2007,7 +2005,7 @@ ${PDF_CSS}
 
     <div class="report-grid">
       <div class="report-col"><div class="report-head">Description of Trouble</div><div class="report-body">${escapeHtml(descriptionOfTrouble)}</div></div>
-      <div class="report-col"><div class="report-head">Action Taken</div><div class="report-body">${escapeHtml(actionTaken)}${selectedAttachmentHtml}</div></div>
+      <div class="report-col"><div class="report-head">Action Taken</div><div class="report-body">${escapeHtml(actionTaken)}<div class="report-attachments">${(report.attachments.length > 0 ? report.attachments : (report.attachment ? [{ id: 0, file: report.attachment, created_at: '' }] : [])).filter((attachment) => isImageMediaSource(attachment.file)).map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.file, `Image ${index + 1}`)).join('')}</div></div></div>
     </div>
 
     <div class="status-row">
@@ -2263,8 +2261,7 @@ ${PDF_CSS}
     }
     .report-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: 390px;
+      grid-template-columns: 1fr;
       border: 1px solid #4b5563;
       margin: 2px 0 8px;
     }
@@ -2272,7 +2269,7 @@ ${PDF_CSS}
       padding: 0;
     }
     .report-col + .report-col {
-      border-left: 1px solid #4b5563;
+      border-top: 1px solid #4b5563;
     }
     .report-head {
       background: #35561f;
@@ -2291,19 +2288,24 @@ ${PDF_CSS}
       flex-direction: column;
       gap: 10px;
     }
+    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
     .report-attachment {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
+      width: 220px;
     }
     .report-attachment-head {
       font-size: 10px;
       font-weight: 700;
       color: #35561f;
     }
+    .report-attachment-body {
+      width: 100%;
+    }
     .report-attachment-body img {
       display: block;
-      max-width: 100%;
+      width: 100%;
       max-height: 180px;
       object-fit: contain;
       border: 1px solid #d1d5db;
@@ -2397,7 +2399,7 @@ ${PDF_CSS}
       </div>
       <div class="report-col">
         <div class="report-head">Action Taken</div>
-        <div class="report-body">${escapeHtml(actionTaken)}${actionTakenAttachmentHtml}</div>
+        <div class="report-body">${escapeHtml(actionTaken)}<div class="report-attachments">${(selectedServiceReport!.attachments.length > 0 ? selectedServiceReport!.attachments : (selectedServiceReport!.attachment ? [{ id: 0, file: selectedServiceReport!.attachment, created_at: '' }] : [])).filter((attachment) => isImageMediaSource(attachment.file)).map((attachment, index) => buildServiceReportAttachmentMarkup(attachment.file, `Image ${index + 1}`)).join('')}</div></div>
       </div>
     </div>
 
@@ -5426,15 +5428,21 @@ ${PDF_CSS}
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Company Name</label>
-                  <input value={btData?.client || ticket.client || ''} readOnly className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white cursor-not-allowed">{btData?.client || ticket.client || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Date</label>
-                  <input type="date" value={serviceReportDraft.reportDate} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, reportDate: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  <input
+                    type="date"
+                    value={serviceReportDraft.reportDate}
+                    onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, reportDate: e.target.value }))}
+                    min={formatDateInput(btData?.date || null)}
+                    className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Company Address</label>
-                  <textarea value={btData?.address || ticket.fullAddress || ''} readOnly rows={2} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white resize-none" />
+                  <div className="w-full min-h-[3.5rem] rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-pre-wrap cursor-not-allowed">{btData?.address || ticket.fullAddress || 'N/A'}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -5448,7 +5456,7 @@ ${PDF_CSS}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Contact Person</label>
-                  <input value={btData?.contact_person || ticket.contact || ''} readOnly className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white cursor-not-allowed">{btData?.contact_person || ticket.contact || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Contact No.</label>
@@ -5456,7 +5464,7 @@ ${PDF_CSS}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Service</label>
-                  <input value={serviceReportDraft.typeOfService} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, typeOfService: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white cursor-not-allowed">{serviceReportDraft.typeOfService || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Support</label>
