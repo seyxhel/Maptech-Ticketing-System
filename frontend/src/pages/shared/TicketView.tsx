@@ -1839,18 +1839,20 @@ export function TicketView() {
     const ticketDateStr = formatDateInput(btData.date || null);
     const defaultReportDate = ticketDateStr > todayStr ? ticketDateStr : todayStr;
 
+    // Start with empty editable fields for the user to fill, but do not
+    // overwrite the company/contact details which remain non-editable.
     setServiceReportDraft({
-      reportDate: defaultReportDate,
-      timeResponded: formatTimeInput(btData.time_in),
-      timeCompleted: formatTimeInput(btData.time_out),
-      contactNo: btData.mobile_no || btData.landline || '',
-      typeOfService: btData.type_of_service_detail?.name || btData.type_of_service_others || '',
-      typeOfSupport: formatSupportLabel(btData.preferred_support_type),
-      descriptionOfTrouble: btData.description_of_problem || '',
-      actionTaken: btData.action_taken || '',
+      reportDate: '',
+      timeResponded: '',
+      timeCompleted: '',
+      contactNo: '',
+      typeOfService: '',
+      typeOfSupport: '',
+      descriptionOfTrouble: '',
+      actionTaken: '',
       actionTakenAttachments: [],
-      remarks: btData.remarks || '',
-      status: normalizeServiceReportStatus(btData.job_status || ticket.jobStatus || ''),
+      remarks: '',
+      status: '',
     });
   }, [showServiceReportModal]);
 
@@ -1890,9 +1892,8 @@ export function TicketView() {
     if (!src) return '';
     return `
       <div class="report-attachment">
-        <div class="report-attachment-head">${escapeHtml(label)}</div>
         <div class="report-attachment-body">
-          <img src="${escapeHtml(src)}" alt="${escapeHtml(label)}" />
+          <img src="${escapeHtml(src)}" alt="Service report attachment" />
         </div>
       </div>
     `;
@@ -1928,9 +1929,11 @@ export function TicketView() {
     };
     const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
 
-    const dateStr = reportDate || new Date().toLocaleDateString();
-    const timeStr = timeResponded || new Date().toLocaleTimeString();
-    const dateIso = new Date().toISOString().slice(0, 10);
+    // Use the actual creation time for the footer, not the current time
+    const createdAtDate = new Date(report.created_at);
+    const dateStr = reportDate || createdAtDate.toLocaleDateString();
+    const timeStr = createdAtDate.toLocaleTimeString();
+    const dateIso = createdAtDate.toISOString().slice(0, 10);
 
     const html = `<!DOCTYPE html>
 <html>
@@ -1961,14 +1964,17 @@ ${PDF_CSS}
     .checked::after { content: ''; position: absolute; inset: 1px; background: #36561f; }
     .report-grid { display: grid; grid-template-columns: 1fr; border: 1px solid #4b5563; margin: 2px 0 8px; }
     .report-col { padding: 0; }
+    .report-col:nth-child(2) { break-before: page; page-break-before: always; }
     .report-col + .report-col { border-top: 1px solid #4b5563; }
     .report-head { background: #35561f; color: #fff; font-weight: 700; text-align: center; padding: 6px 8px; border-bottom: 1px solid #4b5563; }
     .report-body { min-height: 344px; padding: 10px; white-space: pre-wrap; word-break: break-word; display: flex; flex-direction: column; gap: 10px; }
-    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
-    .report-attachment { display: flex; flex-direction: column; gap: 6px; width: 220px; }
+    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; break-inside: avoid; page-break-inside: avoid; }
+    .report-attachment { display: flex; flex-direction: column; gap: 6px; width: 220px; break-inside: avoid; page-break-inside: avoid; }
+    .report-attachment.portrait { width: 160px; }
+    .report-attachment.portrait .report-attachment-body img { max-height: 150px; }
     .report-attachment-head { font-size: 10px; font-weight: 700; color: #35561f; }
     .report-attachment-body { width: 100%; }
-    .report-attachment-body img { display: block; width: 100%; max-height: 180px; object-fit: contain; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
+    .report-attachment-body img { display: block; width: auto; max-width: 100%; height: auto; object-fit: contain; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; }
     .status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; padding: 0 14px 10px; font-size: 11px; align-items: center; }
     .remarks-line { margin: 0 14px 10px; border-bottom: 1px solid #e5e7eb; min-height: 20px; padding-bottom: 3px; display: flex; align-items: flex-end; }
     table { width: calc(100% - 0px); border-collapse: collapse; margin: 0; font-size: 10px; }
@@ -2137,9 +2143,11 @@ ${PDF_CSS}
     const printableTitle = `Service Report ${btData.stf_no}`;
     const checked = (value: string) => statusValue.toLowerCase() === value.toLowerCase();
 
-    const dateStr = reportDate || new Date().toLocaleDateString();
-    const timeStr = timeResponded || new Date().toLocaleTimeString();
-    const dateIso = new Date().toISOString().slice(0, 10);
+    // For draft exports, use current time since the report hasn't been saved yet
+    const now = new Date();
+    const dateStr = reportDate || now.toLocaleDateString();
+    const timeStr = timeResponded || now.toLocaleTimeString();
+    const dateIso = now.toISOString().slice(0, 10);
 
     const html = `<!DOCTYPE html>
 <html>
@@ -2268,6 +2276,10 @@ ${PDF_CSS}
     .report-col {
       padding: 0;
     }
+    .report-col:nth-child(2) {
+      break-before: page;
+      page-break-before: always;
+    }
     .report-col + .report-col {
       border-top: 1px solid #4b5563;
     }
@@ -2288,12 +2300,20 @@ ${PDF_CSS}
       flex-direction: column;
       gap: 10px;
     }
-    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; }
+    .report-attachments { display: flex; flex-direction: row; gap: 12px; flex-wrap: wrap; padding-top: 8px; break-inside: avoid; page-break-inside: avoid; }
     .report-attachment {
       display: flex;
       flex-direction: column;
       gap: 6px;
       width: 220px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .report-attachment.portrait {
+      width: 160px;
+    }
+    .report-attachment.portrait .report-attachment-body img {
+      max-height: 150px;
     }
     .report-attachment-head {
       font-size: 10px;
@@ -2305,8 +2325,9 @@ ${PDF_CSS}
     }
     .report-attachment-body img {
       display: block;
-      width: 100%;
-      max-height: 180px;
+      width: auto;
+      max-width: 100%;
+      height: auto;
       object-fit: contain;
       border: 1px solid #d1d5db;
       border-radius: 4px;
@@ -5460,11 +5481,11 @@ ${PDF_CSS}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Contact No.</label>
-                  <input value={serviceReportDraft.contactNo} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, contactNo: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
+                  <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white cursor-not-allowed">{btData?.mobile_no || btData?.landline || 'N/A'}</div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Service</label>
-                  <div className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white cursor-not-allowed">{serviceReportDraft.typeOfService || 'N/A'}</div>
+                  <input value={serviceReportDraft.typeOfService} onChange={(e) => setServiceReportDraft((prev) => ({ ...prev, typeOfService: e.target.value }))} className="w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-white" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Type of Support</label>

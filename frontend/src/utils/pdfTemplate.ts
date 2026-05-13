@@ -328,6 +328,23 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
       // continue even if fonts API is unavailable
     }
 
+    const attachmentCards = Array.from(frameDoc.querySelectorAll<HTMLElement>('.report-attachment'));
+    for (const card of attachmentCards) {
+      const img = card.querySelector('img') as HTMLImageElement | null;
+      if (!img) continue;
+
+      if (!img.complete) {
+        await new Promise<void>((resolve) => {
+          img.addEventListener('load', () => resolve(), { once: true });
+          img.addEventListener('error', () => resolve(), { once: true });
+        });
+      }
+
+      if (img.naturalHeight > img.naturalWidth) {
+        card.classList.add('portrait');
+      }
+    }
+
     const body = frameDoc.body;
 
     // Capture header and footer separately so they can be pinned to every
@@ -442,6 +459,23 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
       .filter((y) => y > 0)
       .sort((a, b) => a - b);
 
+    // Also collect attachment element top/bottom positions so we can avoid
+    // slicing pages through images that would be cut in half.
+    function elTopBottomPx(el: HTMLElement): { top: number; bottom: number } {
+      let top = 0;
+      let node: HTMLElement | null = el;
+      while (node && node !== body) {
+        top += node.offsetTop;
+        node = node.offsetParent as HTMLElement | null;
+      }
+      return { top: Math.round(top * 2), bottom: Math.round((top + el.offsetHeight) * 2) };
+    }
+
+    const attachmentBounds = Array.from(frameDoc.querySelectorAll<HTMLElement>('.report-attachment'))
+      .map((el) => elTopBottomPx(el))
+      .filter((b) => b.bottom > 0)
+      .sort((a, b) => a.top - b.top);
+
     // Determine each page's start position in canvas pixels, snapping breaks
     // to the nearest row boundary so rows are never split mid-height.
     const sliceStarts: number[] = [];
@@ -454,7 +488,16 @@ export async function openPrintWindow(html: string, fileName = 'maptech-report.p
 
       // Best break = last row that ends at or before the raw cut point.
       const snapped = [...rowEnds].filter((y) => y > cursor && y <= rawEnd).pop();
-      cursor = snapped ?? rawEnd;
+
+      // If our chosen cut would slice through an attachment image, move the
+      // break earlier so the attachment starts on the next page.
+      const wouldCutAttachment = attachmentBounds.find((b) => b.top > cursor && b.top <= rawEnd && b.bottom > rawEnd);
+      if (wouldCutAttachment) {
+        // Break before the attachment top (so it will appear on next page).
+        cursor = wouldCutAttachment.top;
+      } else {
+        cursor = snapped ?? rawEnd;
+      }
     }
 
     // Render each page.
