@@ -429,6 +429,13 @@ export interface ServiceReportRecord {
   updated_at: string;
 }
 
+export interface PaginatedServiceReportResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: ServiceReportRecord[];
+}
+
 function normalizeServiceReportMedia(report: ServiceReportRecord): ServiceReportRecord {
   const attachments = (report.attachments || []).map((attachment) => ({
     ...attachment,
@@ -462,10 +469,28 @@ export async function createServiceReport(data: ServiceReportPayload): Promise<S
 }
 
 /** List service reports for a ticket. */
-export async function fetchServiceReports(ticketId: number): Promise<ServiceReportRecord[]> {
-  const res = await apiFetch(`${API_BASE}/service-reports/?ticket=${ticketId}`, { headers: authHeaders() });
-  const reports = await handleResponse<ServiceReportRecord[]>(res);
-  return reports.map(normalizeServiceReportMedia);
+export async function fetchServiceReports(
+  ticketId: number,
+  options: { page?: number; pageSize?: number } = {},
+): Promise<PaginatedServiceReportResponse> {
+  const params = new URLSearchParams({ ticket: String(ticketId) });
+  if (options.page) params.set('page', String(options.page));
+  if (options.pageSize) params.set('page_size', String(options.pageSize));
+  const res = await apiFetch(`${API_BASE}/service-reports/?${params.toString()}`, { headers: authHeaders() });
+  const payload = await handleResponse<ServiceReportRecord[] | PaginatedServiceReportResponse>(res);
+  if (Array.isArray(payload)) {
+    const results = payload.map(normalizeServiceReportMedia);
+    return {
+      count: results.length,
+      next: null,
+      previous: null,
+      results,
+    };
+  }
+  return {
+    ...payload,
+    results: payload.results.map(normalizeServiceReportMedia),
+  };
 }
 
 /** Update ticket fields (PATCH). */

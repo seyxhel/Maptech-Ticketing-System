@@ -395,6 +395,8 @@ const TicketProgressTracker: React.FC<{
                 <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${stepCircleClass(step.key, state)}`}>
                   {renderTrackerIcon(step.key, state)}
                 </div>
+
+                {/* serviceReports intentionally not rendered inside tracker */}
                 <span className={`text-[10px] mt-1.5 text-center leading-tight max-w-[56px] ${stepLabelClass(step.key, state)}`}>
                   {step.label}
                   {state === 'skipped' && <span className="block text-gray-400 dark:text-gray-500">N/A</span>}
@@ -697,6 +699,9 @@ export function TicketView() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
+  const recordingInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Enhanced chat UI state
@@ -704,22 +709,8 @@ export function TicketView() {
   const [hoveredMsgKey, setHoveredMsgKey] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null); // message key for emoji picker
   const [showInputEmoji, setShowInputEmoji] = useState(false);
-  const [chatSearch, setChatSearch] = useState('');
   const [showChatSearch, setShowChatSearch] = useState(false);
-  const [chatExpanded, setChatExpanded] = useState(false);
-  const [showScrollDown, setShowScrollDown] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  // Chat attachment state
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<{ file: File; url: string; type: 'image' | 'video' | 'file' }[]>([]);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const [videoLightboxUrl, setVideoLightboxUrl] = useState<string | null>(null);
-
-  // Resolution proof attachment state
-  const screenshotInputRef = useRef<HTMLInputElement>(null);
-  const recordingInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
+  const [chatSearch, setChatSearch] = useState('');
   const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
   const [recordingFiles, setRecordingFiles] = useState<File[]>([]);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
@@ -727,6 +718,8 @@ export function TicketView() {
   const [uploadedAttachments, setUploadedAttachments] = useState<
     { id: number; name: string; type: ResolutionAttachmentType; url?: string }[]
   >([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [videoLightboxUrl, setVideoLightboxUrl] = useState<string | null>(null);
 
   // Resolve the numeric ticket ID for the WebSocket
   const [backendTicketId, setBackendTicketId] = useState<number | null>(
@@ -735,7 +728,65 @@ export function TicketView() {
 
   const serviceReportSnapshot = btData ? resolveServiceReportProductSnapshot(btData) : null;
   const [serviceReports, setServiceReports] = useState<ServiceReportRecord[]>([]);
+  const [serviceReportsTotalCount, setServiceReportsTotalCount] = useState(0);
+  const [serviceReportsPage, setServiceReportsPage] = useState(1);
+  const [serviceReportsPageSize, setServiceReportsPageSize] = useState(4);
+  const [serviceReportsJumpPage, setServiceReportsJumpPage] = useState('');
+  const [serviceReportsLoading, setServiceReportsLoading] = useState(false);
   const [selectedServiceReport, setSelectedServiceReport] = useState<ServiceReportRecord | null>(null);
+  const totalServiceReportPages = Math.max(1, Math.ceil(serviceReportsTotalCount / serviceReportsPageSize));
+  const serviceReportsStart = serviceReportsTotalCount > 0 ? ((serviceReportsPage - 1) * serviceReportsPageSize) + 1 : 0;
+  const serviceReportsEnd = Math.min(serviceReportsPage * serviceReportsPageSize, serviceReportsTotalCount);
+  const serviceReportPageItems = useMemo(() => {
+    const total = totalServiceReportPages;
+    if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1);
+
+    const pages = new Set<number>([1, total, serviceReportsPage]);
+    for (let offset = -1; offset <= 1; offset += 1) {
+      pages.add(serviceReportsPage + offset);
+    }
+    if (serviceReportsPage <= 3) {
+      pages.add(2);
+      pages.add(3);
+      pages.add(4);
+    }
+    if (serviceReportsPage >= total - 2) {
+      pages.add(total - 1);
+      pages.add(total - 2);
+      pages.add(total - 3);
+    }
+
+    return Array.from(pages)
+      .filter((page) => page >= 1 && page <= total)
+      .sort((a, b) => a - b)
+      .reduce<Array<number | '...'>>((acc, page, index, arr) => {
+        const prev = arr[index - 1];
+        if (index > 0 && prev !== undefined && page - prev > 1) acc.push('...');
+        acc.push(page);
+        return acc;
+      }, []);
+  }, [serviceReportsPage, totalServiceReportPages]);
+
+  const goToServiceReportsPage = (nextPage: number) => {
+    setServiceReportsLoading(true);
+    setServiceReports([]);
+    setServiceReportsPage(Math.min(totalServiceReportPages, Math.max(1, nextPage)));
+  };
+
+  const changeServiceReportsPageSize = (nextPageSize: number) => {
+    setServiceReportsLoading(true);
+    setServiceReports([]);
+    setServiceReportsPageSize(nextPageSize);
+    setServiceReportsPage(1);
+  };
+
+  useEffect(() => {
+    setServiceReportsJumpPage('');
+  }, [backendTicketId]);
+
+  useEffect(() => {
+    setServiceReportsPage(1);
+  }, [backendTicketId]);
 
   // Fetch backend ticket data
   useEffect(() => {
@@ -1859,22 +1910,47 @@ export function TicketView() {
   useEffect(() => {
     if (!backendTicketId) {
       setServiceReports([]);
+      setServiceReportsTotalCount(0);
+      setServiceReportsLoading(false);
       return;
     }
 
     let cancelled = false;
-    fetchServiceReports(backendTicketId)
-      .then((reports) => {
-        if (!cancelled) setServiceReports(reports);
+    setServiceReportsLoading(true);
+    setServiceReports([]);
+    fetchServiceReports(backendTicketId, { page: serviceReportsPage, pageSize: serviceReportsPageSize })
+      .then((payload) => {
+        if (!cancelled) {
+          setServiceReports(payload.results);
+          setServiceReportsTotalCount(payload.count);
+        }
       })
       .catch(() => {
-        if (!cancelled) setServiceReports([]);
+        if (!cancelled) {
+          setServiceReports([]);
+          setServiceReportsTotalCount(0);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setServiceReportsLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [backendTicketId]);
+  }, [backendTicketId, serviceReportsPage, serviceReportsPageSize]);
+
+  useEffect(() => {
+    const shouldLockScroll = showServiceReportModal || Boolean(selectedServiceReport);
+    if (!shouldLockScroll) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedServiceReport, showServiceReportModal]);
 
   const handleOpenServiceReport = () => {
     if (!btData) {
@@ -2107,10 +2183,12 @@ ${PDF_CSS}
       if (backendTicketId) {
         const [updatedTicket, updatedReports] = await Promise.all([
           fetchTicketById(backendTicketId),
-          fetchServiceReports(backendTicketId),
+          fetchServiceReports(backendTicketId, { page: 1, pageSize: serviceReportsPageSize }),
         ]);
         if (updatedTicket) setBtData(updatedTicket);
-        setServiceReports(updatedReports);
+        setServiceReportsPage(1);
+        setServiceReports(updatedReports.results);
+        setServiceReportsTotalCount(updatedReports.count);
       }
     } catch (err) {
       console.error('Failed saving service report:', err);
@@ -3173,6 +3251,8 @@ ${PDF_CSS}
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+
+                {/* Service Reports moved to STF modal per user request */}
                 {/* Project Title */}
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">Project Title</div>
@@ -3377,6 +3457,7 @@ ${PDF_CSS}
                   <div className="text-gray-900 dark:text-gray-100">{btData?.supplier_delivery_receipt || btData?.product_record_detail?.supplier_delivery_receipt || <span className="text-gray-400 italic">Not yet filled</span>}</div>
                 </div>
               </div>
+              
               {/* Save Product Details button (employee only) */}
               {canEdit && needsManualProductEntry && hasManualProductDetails && (
                 <button
@@ -3922,44 +4003,6 @@ ${PDF_CSS}
                 <FileDown className="w-4 h-4" /> Create Service Report
               </button>
             </div>
-          )}
-
-          {serviceReports.length > 0 && (
-            <Card>
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79]">Service Reports</h3>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Saved reports for this ticket</p>
-                </div>
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">{serviceReports.length}</span>
-              </div>
-
-              <div className="space-y-2">
-                {serviceReports.map((report) => (
-                  <div key={report.id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900 dark:text-white">{report.sr_no}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">STF: {report.ticket_stf} · {report.report_date || 'No date'}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">Status: {report.status} · Submitted by: {report.created_by_name || 'N/A'}</div>
-                      </div>
-                      <span className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">
-                        Saved
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleViewServiceReport(report)}
-                        className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                      >
-                        View
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
           )}
         </div>
       </div>
@@ -5046,6 +5089,8 @@ ${PDF_CSS}
                   ))}
                 </div>
 
+                {/* Service Reports moved to standalone section below the page */}
+
                 <button
                   onClick={handleStartCall}
                   className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-colors mb-5 ${callCompleted ? 'bg-gray-100 dark:bg-gray-700 text-green-600 dark:text-green-400 cursor-default' : 'bg-[#3BC25B] hover:bg-[#2ea34a] text-white'}`}
@@ -5313,8 +5358,8 @@ ${PDF_CSS}
       )}
 
       {selectedServiceReport && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 py-6">
-          <div className="w-full max-w-5xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden">
+          <div className="w-full max-w-5xl max-h-[calc(100vh-2rem)] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Service Report {selectedServiceReport.sr_no}</h3>
@@ -5329,7 +5374,7 @@ ${PDF_CSS}
               </button>
             </div>
 
-            <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               <div className="grid gap-4 md:grid-cols-2 text-sm">
                 <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-4">
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">Report Info</div>
@@ -5428,9 +5473,112 @@ ${PDF_CSS}
         document.body
       )}
 
-      {showServiceReportModal && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4 py-6">
-          <div className="w-full max-w-6xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {/* Standalone Service Reports section below the page content */}
+          <div id="service-reports-section" className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <Card>
+              <div className="flex flex-col gap-4 px-4 py-4 border-b border-gray-200 dark:border-gray-700 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#0E8F79]">Service Reports</h4>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    {serviceReportsTotalCount > 0
+                      ? `Showing ${serviceReportsStart}-${serviceReportsEnd} of ${serviceReportsTotalCount}`
+                      : 'Saved reports linked to this STF'}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Per page</span>
+                    <select
+                      value={serviceReportsPageSize}
+                      onChange={(e) => changeServiceReportsPageSize(Number(e.target.value))}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
+                    >
+                      {[4, 8, 16, 24, 32].map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => goToServiceReportsPage(1)} disabled={serviceReportsPage === 1} className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50">First</button>
+                    <button type="button" onClick={() => goToServiceReportsPage(serviceReportsPage - 1)} disabled={serviceReportsPage === 1} className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50">Prev</button>
+
+                    <div className="hidden md:flex items-center gap-1">
+                      {serviceReportPageItems.map((item, index) => (
+                        item === '...'
+                          ? <span key={`ellipsis-${index}`} className="px-2 text-gray-400">…</span>
+                          : (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => goToServiceReportsPage(item)}
+                              className={`min-w-9 px-3 py-2 rounded-lg border text-sm ${serviceReportsPage === item ? 'bg-[#0E8F79] text-white border-[#0E8F79]' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                            >
+                              {item}
+                            </button>
+                          )
+                      ))}
+                    </div>
+
+                    <button type="button" onClick={() => goToServiceReportsPage(serviceReportsPage + 1)} disabled={serviceReportsPage === totalServiceReportPages} className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50">Next</button>
+                    <button type="button" onClick={() => goToServiceReportsPage(totalServiceReportPages)} disabled={serviceReportsPage === totalServiceReportPages} className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm disabled:opacity-50">Last</button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={totalServiceReportPages}
+                      value={serviceReportsJumpPage}
+                      onChange={(e) => setServiceReportsJumpPage(e.target.value)}
+                      placeholder="Page"
+                      className="w-24 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextPage = Number(serviceReportsJumpPage);
+                        if (!Number.isFinite(nextPage)) return;
+                        goToServiceReportsPage(nextPage);
+                      }}
+                      className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      Go
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {serviceReportsLoading ? (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading service reports...</div>
+              ) : serviceReports.length > 0 ? (
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {serviceReports.map((report) => (
+                    <div key={report.id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white">{report.sr_no}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">STF: {report.ticket_stf} · {report.report_date || 'No date'}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Status: {report.status} · Submitted by: {report.created_by_name || 'N/A'}</div>
+                        </div>
+                        <span className="px-3 py-1.5 rounded-lg text-xs font-medium border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400">Saved</span>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button type="button" onClick={() => handleViewServiceReport(report)} className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">View</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-4 py-6 text-sm text-gray-400">No service reports yet.</div>
+              )}
+            </Card>
+          </div>
+
+          {showServiceReportModal && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden">
+          <div className="w-full max-w-6xl max-h-[calc(100vh-2rem)] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col">
             <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">Create Service Report</h3>
@@ -5445,7 +5593,7 @@ ${PDF_CSS}
               </button>
             </div>
 
-            <div className="max-h-[calc(100vh-10rem)] overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
               <div className="grid gap-4 lg:grid-cols-2">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">Company Name</label>
@@ -5591,13 +5739,6 @@ ${PDF_CSS}
                 className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 text-sm font-medium transition-all"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDownloadServiceReportPDF}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2"
-              >
-                <FileDown className="w-4 h-4" /> Download PDF
               </button>
               <button
                 type="button"

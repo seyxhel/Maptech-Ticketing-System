@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -16,6 +17,12 @@ from ..serializers import ServiceReportSerializer
 from ..permissions import IsAdminLevel
 
 User = get_user_model()
+
+
+class ServiceReportPagination(PageNumberPagination):
+    page_size = 4
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class CallLogViewSet(viewsets.ModelViewSet):
@@ -132,6 +139,7 @@ class ServiceReportViewSet(viewsets.ModelViewSet):
     queryset = ServiceReport.objects.all().order_by('-created_at')
     serializer_class = ServiceReportSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = ServiceReportPagination
     swagger_tags = ['Service Reports']
 
     def get_queryset(self):
