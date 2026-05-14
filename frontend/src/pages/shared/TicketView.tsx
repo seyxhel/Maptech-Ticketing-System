@@ -5494,7 +5494,7 @@ ${PDF_CSS}
                       onChange={(e) => changeServiceReportsPageSize(Number(e.target.value))}
                       className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-700 dark:text-gray-200"
                     >
-                      {[4, 8, 16, 24, 32].map((size) => (
+                      {[4, 8, 12, 16, 24, 32].map((size) => (
                         <option key={size} value={size}>{size}</option>
                       ))}
                     </select>
